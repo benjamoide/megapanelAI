@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "373048806666",
+    "project_id": "mega-panel-ai",
+    "storage_bucket": "mega-panel-ai.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:373048806666:android:b192ab0230e8b93da93ef3",
+        "android_client_info": {
+          "package_name": "com.example.mega_panel_ai"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCtnYHgeENcpGpK12ZNtDWoE75Emn4Cxak"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

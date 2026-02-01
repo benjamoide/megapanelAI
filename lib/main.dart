@@ -1,0 +1,2284 @@
+// ignore_for_file: non_constant_identifier_names, constant_identifier_names, avoid_print, use_build_context_synchronously
+
+import 'dart:convert';
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:intl/intl.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'firebase_options.dart';
+
+// ==============================================================================
+// 1. CONFIGURACIÓN Y CONSTANTES
+// ==============================================================================
+
+const String apiKeyFromBuild =
+    String.fromEnvironment('GEMINI_API_KEY', defaultValue: '');
+
+const List<String> RUTINAS_POSIBLES = [
+  "FULLBODY I",
+  "TORSO I",
+  "FULLBODY II",
+  "TORSO II / CIRCUITO",
+  "PREVENTIVO I",
+  "PREVENTIVO II",
+  "Descanso Total"
+];
+
+const List<String> CARDIO_TYPES = [
+  "Remo Ergómetro",
+  "Cinta Inclinada",
+  "Elíptica",
+  "Andar",
+  "Protocolo Noruego",
+  "Descanso Cardio"
+];
+
+const Map<String, List<String>> RUTINA_SEMANAL_BASE = {
+  "1": ["FULLBODY I"],
+  "2": ["TORSO I"],
+  "3": ["FULLBODY II"],
+  "4": ["TORSO II / CIRCUITO"],
+  "5": ["PREVENTIVO I"],
+  "6": ["PREVENTIVO II"],
+  "7": ["Descanso Total"]
+};
+
+const Map<String, String> CARDIO_DEFAULTS = {
+  "1": "Remo Ergómetro",
+  "3": "Cinta Inclinada",
+  "6": "Cinta Inclinada"
+};
+
+const List<String> ZONAS_SIMETRICAS = [
+  "Codo",
+  "Antebrazo",
+  "Muñeca",
+  "Pierna",
+  "Pie",
+  "Hombro",
+  "Rodilla",
+  "Tobillo",
+  "Brazo",
+  "Mano",
+  "Cadera"
+];
+
+// ==============================================================================
+// 2. MODELOS DE DATOS
+// ==============================================================================
+
+class Tratamiento {
+  String id;
+  String nombre;
+  String zona;
+  String descripcion;
+  String sintomas;
+  String posicion;
+  String hz;
+  String duracion;
+  List<Map<String, dynamic>> frecuencias;
+  List<String> tipsAntes;
+  List<String> tipsDespues;
+  List<String> prohibidos;
+  bool esCustom;
+  bool oculto;
+
+  Tratamiento(
+      {required this.id,
+      required this.nombre,
+      required this.zona,
+      this.descripcion = "",
+      this.sintomas = "",
+      this.posicion = "",
+      this.hz = "",
+      this.duracion = "10",
+      this.frecuencias = const [],
+      this.tipsAntes = const [],
+      this.tipsDespues = const [],
+      this.prohibidos = const [],
+      this.esCustom = false,
+      this.oculto = false});
+
+  Tratamiento copyWith({String? id, String? nombre, String? zona}) {
+    return Tratamiento(
+        id: id ?? this.id,
+        nombre: nombre ?? this.nombre,
+        zona: zona ?? this.zona,
+        descripcion: descripcion,
+        sintomas: sintomas,
+        posicion: posicion,
+        hz: hz,
+        duracion: duracion,
+        frecuencias: List.from(frecuencias),
+        tipsAntes: List.from(tipsAntes),
+        tipsDespues: List.from(tipsDespues),
+        prohibidos: List.from(prohibidos),
+        esCustom: esCustom,
+        oculto: oculto);
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'nombre': nombre,
+        'zona': zona,
+        'descripcion': descripcion,
+        'sintomas': sintomas,
+        'posicion': posicion,
+        'hz': hz,
+        'duracion': duracion,
+        'frecuencias': frecuencias,
+        'tipsAntes': tipsAntes,
+        'tipsDespues': tipsDespues,
+        'prohibidos': prohibidos,
+        'esCustom': esCustom,
+        'oculto': oculto
+      };
+
+  factory Tratamiento.fromJson(Map<String, dynamic> json) {
+    return Tratamiento(
+      id: json['id'],
+      nombre: json['nombre'],
+      zona: json['zona'],
+      descripcion: json['descripcion'] ?? "",
+      sintomas: json['sintomas'] ?? "",
+      posicion: json['posicion'] ?? "",
+      hz: json['hz'] ?? "",
+      duracion: json['duracion'].toString(),
+      frecuencias: List<Map<String, dynamic>>.from(json['frecuencias'] ?? []),
+      tipsAntes: List<String>.from(json['tipsAntes'] ?? []),
+      tipsDespues: List<String>.from(json['tipsDespues'] ?? []),
+      prohibidos: List<String>.from(json['prohibidos'] ?? []),
+      esCustom: json['esCustom'] ?? false,
+      oculto: json['oculto'] ?? false,
+    );
+  }
+}
+
+class CardioSession {
+  String type;
+  int duration;
+  int steps;
+  double resistance;
+  double watts;
+  double speed;
+  double incline;
+  String machine;
+
+  CardioSession(
+      {required this.type,
+      this.duration = 0,
+      this.steps = 0,
+      this.resistance = 0,
+      this.watts = 0,
+      this.speed = 0,
+      this.incline = 0,
+      this.machine = ""});
+
+  Map<String, dynamic> toJson() => {
+        'type': type,
+        'duration': duration,
+        'steps': steps,
+        'resistance': resistance,
+        'watts': watts,
+        'speed': speed,
+        'incline': incline,
+        'machine': machine
+      };
+
+  factory CardioSession.fromJson(Map<String, dynamic> json) {
+    return CardioSession(
+        type: json['type'] ?? "",
+        duration: json['duration'] ?? 0,
+        steps: json['steps'] ?? 0,
+        resistance: (json['resistance'] ?? 0).toDouble(),
+        watts: (json['watts'] ?? 0).toDouble(),
+        speed: (json['speed'] ?? 0).toDouble(),
+        incline: (json['incline'] ?? 0).toDouble(),
+        machine: json['machine'] ?? "");
+  }
+
+  String getSummary() {
+    if (type == "Descanso Cardio") return "Descanso";
+    if (type == "Andar") return "Andar: $steps pasos";
+
+    String details = "";
+    if (type == "Protocolo Noruego") {
+      details = "Noruego (4x4) - $machine. ";
+      if (machine == "Cinta") details += "Vel: $speed, Inc: $incline";
+      if (machine == "Elíptica")
+        details += "Res: ${resistance.toInt()}, W: ${watts.toInt()}";
+      if (machine == "Remo") details += "Res: ${resistance.toInt()}";
+    } else if (type == "Elíptica") {
+      details = "Elíptica ($duration min). Res: ${resistance.toInt()}";
+      if (watts > 0) details += ", ${watts.toInt()}W";
+    } else if (type == "Cinta Inclinada") {
+      details = "Cinta ($duration min). Vel: $speed, Inc: $incline";
+    } else {
+      details = "$type ($duration min)";
+    }
+    return details;
+  }
+}
+
+class RutinaDiaria {
+  List<String> fuerza;
+  List<CardioSession> cardioSessions;
+
+  RutinaDiaria({this.fuerza = const [], this.cardioSessions = const []});
+
+  Map<String, dynamic> toJson() => {
+        'fuerza': fuerza,
+        'cardioSessions': cardioSessions.map((c) => c.toJson()).toList()
+      };
+
+  factory RutinaDiaria.fromJson(Map<String, dynamic> json) {
+    var sessionsList = json['cardioSessions'] as List?;
+    List<CardioSession> sessions = [];
+
+    if (sessionsList != null) {
+      sessions = sessionsList.map((e) => CardioSession.fromJson(e)).toList();
+    } else {
+      // Migración legacy
+      if (json['cardioTipo'] != null) {
+        sessions.add(CardioSession(
+            type: json['cardioTipo'],
+            duration: (json['cardioTiempo'] ?? 0).toInt(),
+            speed: (json['cardioVel'] ?? 0).toDouble(),
+            incline: (json['cardioInc'] ?? 0).toDouble(),
+            steps: json['pasos'] ?? 0));
+      }
+    }
+
+    return RutinaDiaria(
+        fuerza: List<String>.from(json['fuerza'] ?? []),
+        cardioSessions: sessions);
+  }
+}
+
+// ==============================================================================
+// 3. BASE DE DATOS MAESTRA
+// ==============================================================================
+final List<Tratamiento> DB_DEFINICIONES = [
+  // CODO
+  Tratamiento(
+      id: "codo_epi",
+      nombre: "Epicondilitis (Tenista)",
+      zona: "Codo",
+      descripcion: "Reduce inflamación en tendón extensor.",
+      sintomas: "Dolor cara externa codo al agarrar o girar.",
+      posicion: "Brazo en mesa, panel lateral externo.",
+      frecuencias: [
+        {'nm': 660, 'p': 50},
+        {'nm': 850, 'p': 100}
+      ],
+      hz: "50Hz (Dolor)",
+      duracion: "10",
+      tipsAntes: ["Piel limpia y seca"],
+      tipsDespues: ["No pinza con dedos", "Hielo si dolor"]),
+  Tratamiento(
+      id: "codo_golf",
+      nombre: "Epitrocleitis (Golfista)",
+      zona: "Codo",
+      descripcion: "Regeneración para la cara interna.",
+      sintomas: "Dolor interno al flexionar muñeca.",
+      posicion: "Brazo mesa, palma arriba, cara interna.",
+      frecuencias: [
+        {'nm': 660, 'p': 50},
+        {'nm': 850, 'p': 100}
+      ],
+      hz: "50Hz (Dolor)",
+      duracion: "10",
+      tipsDespues: ["Estirar flexores"]),
+  Tratamiento(
+      id: "codo_calc",
+      nombre: "Calcificación",
+      zona: "Codo",
+      descripcion: "Infrarrojo profundo reabsorción.",
+      sintomas: "Dolor punzante y tope óseo.",
+      posicion: "Contacto directo con zona dura.",
+      frecuencias: [
+        {'nm': 660, 'p': 0},
+        {'nm': 850, 'p': 100}
+      ],
+      hz: "50Hz (Analgesia)",
+      duracion: "12",
+      tipsAntes: ["Calor previo"]),
+  Tratamiento(
+      id: "codo_bur",
+      nombre: "Bursitis (Apoyo)",
+      zona: "Codo",
+      descripcion: "Baja inflamación bursa sin contacto.",
+      sintomas: "Hinchazón (bulto) en la punta del codo.",
+      posicion: "A 5cm del bulto. NO TOCAR.",
+      frecuencias: [
+        {'nm': 660, 'p': 50},
+        {'nm': 850, 'p': 100}
+      ],
+      hz: "10Hz (Anti-inf)",
+      duracion: "10",
+      tipsDespues: ["No apoyar codo"]),
+  // ESPALDA
+  Tratamiento(
+      id: "esp_cerv",
+      nombre: "Cervicalgia (Cuello)",
+      zona: "Espalda",
+      descripcion: "Relaja tensión cervical y mejora riego sanguíneo.",
+      sintomas: "Rigidez cuello y trapecios.",
+      posicion: "Sentado, panel detrás del cuello.",
+      frecuencias: [
+        {'nm': 660, 'p': 50},
+        {'nm': 850, 'p': 100}
+      ],
+      hz: "50Hz (Dolor)",
+      duracion: "15",
+      tipsAntes: ["Sin collar"],
+      tipsDespues: ["Movilidad suave"]),
+  Tratamiento(
+      id: "esp_dors",
+      nombre: "Dorsalgia (Alta)",
+      zona: "Espalda",
+      descripcion: "Para zona media-alta de la espalda y postura.",
+      sintomas: "Dolor entre omóplatos.",
+      posicion: "Sentado al revés en silla o tumbado.",
+      frecuencias: [
+        {'nm': 660, 'p': 50},
+        {'nm': 850, 'p': 100}
+      ],
+      hz: "50Hz (Dolor)",
+      duracion: "15",
+      tipsAntes: ["Postura recta"],
+      tipsDespues: ["Estirar pecho"]),
+  Tratamiento(
+      id: "esp_lumb",
+      nombre: "Lumbalgia (Baja)",
+      zona: "Espalda",
+      descripcion: "Penetración profunda lumbar para desinflamar discos.",
+      sintomas: "Dolor en zona baja, dificultad al enderezarse.",
+      posicion: "Tumbado boca abajo o sentado en taburete.",
+      frecuencias: [
+        {'nm': 660, 'p': 50},
+        {'nm': 850, 'p': 100}
+      ],
+      hz: "50Hz (Dolor)",
+      duracion: "20",
+      tipsAntes: ["Calor previo"],
+      tipsDespues: ["No cargar peso"]),
+  // ANTEBRAZO
+  Tratamiento(
+      id: "ant_sobre",
+      nombre: "Sobrecarga",
+      zona: "Antebrazo",
+      descripcion: "Relajación muscular general del antebrazo.",
+      sintomas: "Sensación de fatiga, antebrazos duros.",
+      posicion: "Antebrazo apoyado en mesa. Panel desde arriba.",
+      frecuencias: [
+        {'nm': 660, 'p': 80},
+        {'nm': 850, 'p': 80}
+      ],
+      hz: "10Hz (Relajación)",
+      duracion: "12",
+      tipsDespues: ["Estirar"]),
+  Tratamiento(
+      id: "ant_tend",
+      nombre: "Tendinitis",
+      zona: "Antebrazo",
+      descripcion: "Tratamiento anti-inflamatorio localizado.",
+      sintomas: "Dolor puntual en trayecto del tendón.",
+      posicion: "Panel apuntando directamente al punto de dolor.",
+      frecuencias: [
+        {'nm': 660, 'p': 50},
+        {'nm': 850, 'p': 100}
+      ],
+      hz: "50Hz (Dolor)",
+      duracion: "10",
+      tipsDespues: ["Reposo"]),
+  // MUÑECA
+  Tratamiento(
+      id: "mun_tunel",
+      nombre: "Túnel Carpiano",
+      zona: "Muñeca",
+      descripcion: "Enfocado en regeneración nerviosa y desinflamación.",
+      sintomas: "Hormigueo en dedos, dolor nocturno.",
+      posicion: "Palma arriba. Panel en base de muñeca.",
+      frecuencias: [
+        {'nm': 660, 'p': 50},
+        {'nm': 850, 'p': 100}
+      ],
+      hz: "10Hz (Nervio)",
+      duracion: "10",
+      tipsAntes: ["Palma abierta"],
+      tipsDespues: ["Movilidad"]),
+  Tratamiento(
+      id: "mun_art",
+      nombre: "Articular (General)",
+      zona: "Muñeca",
+      descripcion: "Para dolor articular general y rigidez.",
+      sintomas: "Dolor difuso al mover la muñeca.",
+      posicion: "Rotar muñeca frente al panel.",
+      frecuencias: [
+        {'nm': 660, 'p': 50},
+        {'nm': 850, 'p': 100}
+      ],
+      hz: "50Hz (Dolor)",
+      duracion: "10",
+      tipsDespues: ["Hielo"]),
+  // PIERNA
+  Tratamiento(
+      id: "pierna_itb",
+      nombre: "Cintilla Iliotibial",
+      zona: "Pierna",
+      descripcion: "Reduce fricción e inflamación en fascia lata.",
+      sintomas: "Dolor lateral externo rodilla/muslo.",
+      posicion: "Tumbado de lado, panel en cara externa muslo.",
+      frecuencias: [
+        {'nm': 660, 'p': 50},
+        {'nm': 850, 'p': 100}
+      ],
+      hz: "50Hz (Dolor)",
+      duracion: "12",
+      tipsDespues: ["Estirar TFL"]),
+  Tratamiento(
+      id: "pierna_fem",
+      nombre: "Sobrecarga Femoral",
+      zona: "Pierna",
+      descripcion: "Acelera barrido de lactato y recuperación.",
+      sintomas: "Fatiga, pesadez muscular isquios.",
+      posicion: "Panel cubriendo el grupo muscular afectado.",
+      frecuencias: [
+        {'nm': 660, 'p': 80},
+        {'nm': 850, 'p': 100}
+      ],
+      hz: "10Hz (Recup)",
+      duracion: "15",
+      tipsDespues: ["Estirar"]),
+  // PIE
+  Tratamiento(
+      id: "pie_fasc",
+      nombre: "Fascitis Plantar",
+      zona: "Pie",
+      descripcion: "Desinflamación del arco plantar.",
+      sintomas: "Dolor agudo en talón al pisar.",
+      posicion: "Sentado, panel apuntando a planta del pie.",
+      frecuencias: [
+        {'nm': 660, 'p': 50},
+        {'nm': 850, 'p': 100}
+      ],
+      hz: "50Hz",
+      duracion: "10",
+      tipsAntes: ["Sin calcetín"],
+      tipsDespues: ["Rodar pelota"]),
+  Tratamiento(
+      id: "pie_esg",
+      nombre: "Esguince (Dorsal)",
+      zona: "Pie",
+      descripcion: "Regeneración de ligamentos tras torcedura.",
+      sintomas: "Dolor e hinchazón tobillo/empeine.",
+      posicion: "Panel enfocado a zona hinchada.",
+      frecuencias: [
+        {'nm': 660, 'p': 50},
+        {'nm': 850, 'p': 100}
+      ],
+      hz: "10Hz (Regen)",
+      duracion: "10"),
+  Tratamiento(
+      id: "pie_lat",
+      nombre: "Lateral (5º Metatarso)",
+      zona: "Pie",
+      descripcion: "Alivio dolor borde externo.",
+      sintomas: "Dolor bajo dedo pequeño, juanete de sastre.",
+      posicion: "De lado en suelo apuntando al lateral.",
+      frecuencias: [
+        {'nm': 660, 'p': 100},
+        {'nm': 850, 'p': 100},
+        {'nm': 810, 'p': 100},
+        {'nm': 830, 'p': 100},
+        {'nm': 630, 'p': 100}
+      ],
+      hz: "50Hz",
+      duracion: "12"),
+  // HOMBRO
+  Tratamiento(
+      id: "homb_tend",
+      nombre: "Tendinitis",
+      zona: "Hombro",
+      descripcion: "Para manguito rotador inflamado.",
+      sintomas: "Dolor al levantar el brazo lateralmente.",
+      posicion: "Sentado, panel lateral apuntando al deltoides.",
+      frecuencias: [
+        {'nm': 660, 'p': 50},
+        {'nm': 850, 'p': 100}
+      ],
+      hz: "40Hz",
+      duracion: "10",
+      tipsDespues: ["Péndulos"]),
+  // RODILLA
+  Tratamiento(
+      id: "rod_gen",
+      nombre: "General/Menisco",
+      zona: "Rodilla",
+      descripcion: "Mantenimiento articular y meniscos.",
+      sintomas: "Molestia profunda o chasquidos.",
+      posicion: "Pierna estirada, panel frontal o lateral.",
+      frecuencias: [
+        {'nm': 660, 'p': 50},
+        {'nm': 850, 'p': 100}
+      ],
+      hz: "10Hz",
+      duracion: "10",
+      tipsAntes: ["No hielo antes"]),
+  // PIEL
+  Tratamiento(
+      id: "piel_cicat",
+      nombre: "Cicatrices",
+      zona: "Piel",
+      descripcion: "Mejora textura y color de cicatrices.",
+      sintomas: "Tejido cicatricial reciente o antiguo.",
+      posicion: "Panel directo a la cicatriz.",
+      frecuencias: [
+        {'nm': 660, 'p': 100},
+        {'nm': 850, 'p': 20}
+      ],
+      hz: "CW",
+      duracion: "10",
+      tipsDespues: ["Rosa Mosqueta"]),
+  Tratamiento(
+      id: "piel_acne",
+      nombre: "Acné",
+      zona: "Piel",
+      descripcion: "Reduce inflamación bacteriana y rojez.",
+      sintomas: "Brotes activos, rojez facial.",
+      posicion: "Frente al rostro (gafas puestas).",
+      frecuencias: [
+        {'nm': 660, 'p': 80},
+        {'nm': 850, 'p': 0}
+      ],
+      hz: "CW",
+      duracion: "8"),
+  Tratamiento(
+      id: "piel_quem",
+      nombre: "Quemaduras",
+      zona: "Piel",
+      descripcion: "Regeneración epidérmica sin calor.",
+      sintomas: "Piel roja, sensible o dañada por el sol.",
+      posicion: "Mayor distancia (20-30cm).",
+      frecuencias: [
+        {'nm': 660, 'p': 50},
+        {'nm': 850, 'p': 0}
+      ],
+      hz: "CW",
+      duracion: "5",
+      tipsAntes: ["Sin cremas"],
+      tipsDespues: ["Aloe Vera"]),
+  // ESTETICA
+  Tratamiento(
+      id: "fat_front",
+      nombre: "Grasa Abdomen Frontal",
+      zona: "Abdomen",
+      descripcion: "Lipólisis térmica máxima.",
+      sintomas: "Grasa resistente en zona central.",
+      posicion: "Directo piel desnuda.",
+      frecuencias: [
+        {'nm': 660, 'p': 100},
+        {'nm': 850, 'p': 100},
+        {'nm': 810, 'p': 100},
+        {'nm': 830, 'p': 100},
+        {'nm': 630, 'p': 100}
+      ],
+      hz: "CW",
+      duracion: "15",
+      prohibidos: ["No hacer de Noche (Activa)"],
+      tipsDespues: ["Realizar 30min de Cardio Inmediatamente"]),
+  Tratamiento(
+      id: "face_rejuv",
+      nombre: "Facial Rejuvenecimiento",
+      zona: "Cara",
+      descripcion: "Estimulación de colágeno superficial.",
+      sintomas: "Arrugas finas, piel apagada.",
+      posicion: "Frente al rostro 30cm. GAFAS PUESTAS.",
+      frecuencias: [
+        {'nm': 630, 'p': 100},
+        {'nm': 660, 'p': 50}
+      ],
+      hz: "CW",
+      duracion: "10",
+      tipsAntes: ["Cara lavada"],
+      tipsDespues: ["Serum de Vitamina C"]),
+  // SISTEMICO
+  Tratamiento(
+      id: "testo",
+      nombre: "Testosterona",
+      zona: "Cuerpo",
+      descripcion: "Estimulación mitocondrial hormonal.",
+      sintomas: "Optimización hormonal.",
+      posicion: "Directo a zona testicular (breve).",
+      frecuencias: [
+        {'nm': 660, 'p': 100},
+        {'nm': 850, 'p': 100}
+      ],
+      hz: "CW",
+      duracion: "5",
+      prohibidos: ["No hacer de Noche"],
+      tipsDespues: ["Ducha fría"]),
+  Tratamiento(
+      id: "sueno",
+      nombre: "Sueño / Melatonina",
+      zona: "Cuerpo",
+      descripcion: "Luz ambiente tenue para melatonina.",
+      sintomas: "Insomnio, dificultad para desconectar.",
+      posicion: "Panel lejos, luz indirecta contra pared.",
+      frecuencias: [
+        {'nm': 630, 'p': 30},
+        {'nm': 660, 'p': 30},
+        {'nm': 850, 'p': 0}
+      ],
+      hz: "CW",
+      duracion: "20",
+      prohibidos: ["No hacer por la Mañana"]),
+  Tratamiento(
+      id: "sis_energ",
+      nombre: "Energía Sistémica",
+      zona: "Cuerpo",
+      descripcion: "Boost mitocondrial.",
+      sintomas: "Fatiga general, falta de energía.",
+      posicion: "Panel frente al torso/pecho.",
+      frecuencias: [
+        {'nm': 660, 'p': 100},
+        {'nm': 850, 'p': 100}
+      ],
+      hz: "CW",
+      duracion: "10"),
+  Tratamiento(
+      id: "sis_circ",
+      nombre: "Circulación",
+      zona: "Cuerpo",
+      descripcion: "Vasodilatación general.",
+      sintomas: "Piernas cansadas, frío en extremidades.",
+      posicion: "Panel cubriendo grandes grupos musculares.",
+      frecuencias: [
+        {'nm': 660, 'p': 100},
+        {'nm': 850, 'p': 100}
+      ],
+      hz: "CW",
+      duracion: "20"),
+  // CABEZA
+  Tratamiento(
+      id: "cab_migr",
+      nombre: "Migraña",
+      zona: "Cabeza",
+      descripcion: "Relajación occipital.",
+      sintomas: "Dolor pulsátil, tensión en nuca.",
+      posicion: "Panel en la nuca (NO ojos).",
+      frecuencias: [
+        {'nm': 660, 'p': 0},
+        {'nm': 850, 'p': 50}
+      ],
+      hz: "10Hz (Alfa)",
+      duracion: "10",
+      tipsAntes: ["Oscuridad"]),
+  Tratamiento(
+      id: "cab_brain",
+      nombre: "Salud Cerebral",
+      zona: "Cabeza",
+      descripcion: "Neuroprotección y cognitiva.",
+      sintomas: "Niebla mental, prevención.",
+      posicion: "Panel a la frente/cabeza. GAFAS OBLIGATORIAS.",
+      frecuencias: [
+        {'nm': 810, 'p': 100}
+      ],
+      hz: "40Hz (Gamma)",
+      duracion: "10",
+      tipsAntes: ["Gafas Obligatorias"],
+      prohibidos: ["Epilepsia"]),
+];
+
+// ==============================================================================
+// 4. GESTOR DE ESTADO
+// ==============================================================================
+
+class AppState extends ChangeNotifier {
+  String currentUser = "";
+  String _apiKey = apiKeyFromBuild;
+
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  StreamSubscription<DocumentSnapshot>? _userSubscription;
+
+  Map<String, List<Map<String, dynamic>>> historial = {};
+  Map<String, Map<String, String>> planificados = {};
+  Map<String, dynamic> ciclosActivos = {};
+  Map<String, RutinaDiaria> rutinasEditadas = {};
+
+  List<Tratamiento> catalogo = [];
+
+  bool get esBenja => currentUser == "Benja";
+  bool get esEva => currentUser == "Eva";
+  bool get hasApiKey => _apiKey.isNotEmpty;
+
+  AppState() {
+    catalogo = _generarCatalogoCompleto();
+  }
+
+  void setApiKey(String key) {
+    _apiKey = key;
+    SharedPreferences.getInstance()
+        .then((prefs) => prefs.setString('gemini_api_key', key));
+    notifyListeners();
+  }
+
+  // --- LOGIN SEGURO CON CONTRASEÑA ---
+  Future<bool> login(String user, String passInput) async {
+    try {
+      var doc = await _db.collection('users').doc(user).get();
+      if (!doc.exists) {
+        // Usuario nuevo: crear con contraseña por defecto
+        await _db.collection('users').doc(user).set(
+            {'password': '1234', 'created': FieldValue.serverTimestamp()},
+            SetOptions(merge: true));
+        currentUser = user;
+        _suscribirseADatosEnNube();
+        return true;
+      } else {
+        // Usuario existe: verificar contraseña
+        String realPass = doc.data()?['password'] ?? '1234';
+        if (passInput == realPass) {
+          currentUser = user;
+          _suscribirseADatosEnNube();
+          return true;
+        }
+        return false;
+      }
+    } catch (e) {
+      print("Error login: $e");
+      return false;
+    }
+  }
+
+  Future<void> changePassword(String currentPass, String newPass) async {
+    if (currentUser.isEmpty) return;
+    var doc = await _db.collection('users').doc(currentUser).get();
+    String realPass = doc.data()?['password'] ?? '1234';
+
+    if (realPass == currentPass) {
+      await _db
+          .collection('users')
+          .doc(currentUser)
+          .update({'password': newPass});
+    } else {
+      throw "Contraseña actual incorrecta";
+    }
+  }
+
+  void logout() {
+    _userSubscription?.cancel();
+    currentUser = "";
+    notifyListeners();
+  }
+
+  void _suscribirseADatosEnNube() {
+    _userSubscription?.cancel();
+    _userSubscription =
+        _db.collection('users').doc(currentUser).snapshots().listen((snapshot) {
+      if (snapshot.exists && snapshot.data() != null) {
+        Map<String, dynamic> data = snapshot.data()!;
+        if (data.containsKey('historial')) {
+          historial = Map<String, List<Map<String, dynamic>>>.from(json
+              .decode(data['historial'])
+              .map((k, v) => MapEntry(k, List<Map<String, dynamic>>.from(v))));
+        }
+        if (data.containsKey('planificados')) {
+          planificados = json
+              .decode(data['planificados'])
+              .map((k, v) => MapEntry(k, Map<String, String>.from(v)))
+              .cast<String, Map<String, String>>();
+        }
+        if (data.containsKey('ciclos')) {
+          ciclosActivos = json.decode(data['ciclos']);
+        }
+        if (data.containsKey('rutinas')) {
+          rutinasEditadas = json
+              .decode(data['rutinas'])
+              .map<String, RutinaDiaria>(
+                  (k, v) => MapEntry(k, RutinaDiaria.fromJson(v)));
+        }
+        if (data.containsKey('custom_treatments')) {
+          List<Tratamiento> customs =
+              (json.decode(data['custom_treatments']) as List)
+                  .map((e) => Tratamiento.fromJson(e))
+                  .toList();
+          catalogo = _generarCatalogoCompleto();
+          for (var c in customs) {
+            catalogo.removeWhere((element) => element.id == c.id);
+            catalogo.add(c);
+          }
+          catalogo = catalogo.where((t) => !t.oculto).toList();
+          catalogo.sort((a, b) => a.zona.compareTo(b.zona));
+        }
+        notifyListeners();
+      } else {
+        _guardarTodo();
+      }
+    }, onError: (e) {
+      print("Error suscripción Firebase: $e");
+    });
+  }
+
+  List<Tratamiento> _generarCatalogoCompleto() {
+    List<Tratamiento> lista = [];
+    for (var t in DB_DEFINICIONES) {
+      if (ZONAS_SIMETRICAS.contains(t.zona)) {
+        lista.add(t.copyWith(id: "${t.id}_d", nombre: "${t.nombre} (Dcho)"));
+        lista.add(t.copyWith(id: "${t.id}_i", nombre: "${t.nombre} (Izq)"));
+      } else {
+        lista.add(t);
+      }
+    }
+    return lista;
+  }
+
+  Future<void> _guardarTodo() async {
+    if (currentUser.isEmpty) return;
+    List<Tratamiento> aGuardar =
+        catalogo.where((t) => t.esCustom || t.oculto).toList();
+    await _db.collection('users').doc(currentUser).set({
+      'historial': json.encode(historial),
+      'planificados': json.encode(planificados),
+      'ciclos': json.encode(ciclosActivos),
+      'rutinas':
+          json.encode(rutinasEditadas.map((k, v) => MapEntry(k, v.toJson()))),
+      'custom_treatments':
+          json.encode(aGuardar.map((e) => e.toJson()).toList()),
+      'last_update': FieldValue.serverTimestamp()
+    }, SetOptions(merge: true));
+  }
+
+  void registrarTratamiento(String fecha, String id, String momento) {
+    if (!historial.containsKey(fecha)) historial[fecha] = [];
+    historial[fecha]!.add({
+      'id': id,
+      'hora': DateFormat('HH:mm').format(DateTime.now()),
+      'momento': momento
+    });
+    _guardarTodo();
+  }
+
+  void planificarTratamiento(String fecha, String id, String momento) {
+    if (!planificados.containsKey(fecha)) planificados[fecha] = {};
+    planificados[fecha]![id] = momento;
+    _guardarTodo();
+  }
+
+  void desplanificarTratamiento(String fecha, String id) {
+    if (planificados.containsKey(fecha)) {
+      planificados[fecha]!.remove(id);
+      _guardarTodo();
+    }
+  }
+
+  void iniciarCiclo(String id) {
+    ciclosActivos[id] = {
+      'inicio': DateFormat('yyyy-MM-dd').format(DateTime.now()),
+      'activo': true
+    };
+    _guardarTodo();
+  }
+
+  void detenerCiclo(String id) {
+    if (ciclosActivos.containsKey(id)) {
+      ciclosActivos[id]['activo'] = false;
+      _guardarTodo();
+    }
+  }
+
+  void agregarTratamientoCatalogo(Tratamiento t) {
+    int index =
+        catalogo.indexWhere((e) => e.id == t.id || e.nombre == t.nombre);
+    if (index != -1)
+      catalogo[index] = t;
+    else
+      catalogo.add(t);
+    _guardarTodo();
+  }
+
+  void ocultarTratamiento(String id) {
+    int index = catalogo.indexWhere((e) => e.id == id);
+    if (index != -1) {
+      if (catalogo[index].esCustom)
+        catalogo.removeAt(index);
+      else
+        catalogo[index].oculto = true;
+      _guardarTodo();
+    }
+  }
+
+  RutinaDiaria obtenerRutina(DateTime fecha) {
+    String fStr = DateFormat('yyyy-MM-dd').format(fecha);
+    if (rutinasEditadas.containsKey(fStr)) return rutinasEditadas[fStr]!;
+
+    String dow = fecha.weekday.toString();
+    List<String> fuerza = List.from(RUTINA_SEMANAL_BASE[dow] ?? []);
+    return RutinaDiaria(fuerza: fuerza, cardioSessions: []);
+  }
+
+  void guardarRutinaEditada(DateTime fecha, RutinaDiaria rutina) {
+    String fStr = DateFormat('yyyy-MM-dd').format(fecha);
+    rutinasEditadas[fStr] = rutina;
+    _guardarTodo();
+  }
+
+  Future<List<Tratamiento>> consultarIA(String dolencia) async {
+    if (_apiKey.isNotEmpty) {
+      final models = ['gemini-1.5-flash', 'gemini-pro', 'gemini-1.0-pro'];
+      for (var m in models) {
+        try {
+          final model = GenerativeModel(model: m, apiKey: _apiKey);
+          final prompt = '''
+            Actúa como experto en Fotobiomodulación (Red Light Therapy). Usuario: "$dolencia".
+            Responde SOLO con un ARRAY JSON válido.
+            Esquema: [{"nombre": "...", "zona": "...", "descripcion": "...", "sintomas": "...", "posicion": "...", "hz": "CW/10Hz/50Hz", "duracion": "10", "frecuencias": [{"nm": 660, "p": 100}, {"nm": 850, "p": 50}], "tipsAntes": ["..."], "tipsDespues": ["..."], "prohibidos": ["..."]}]
+          ''';
+          final response = await model.generateContent([Content.text(prompt)]);
+          String text = response.text ?? "[]";
+          text = text.replaceAll(RegExp(r'```json|```'), '').trim();
+          List<dynamic> data = json.decode(text);
+          return data
+              .map((item) => Tratamiento(
+                  id: Uuid().v4(),
+                  nombre: item['nombre'],
+                  zona: item['zona'] ?? "General",
+                  descripcion: item['descripcion'],
+                  sintomas: item['sintomas'],
+                  posicion: item['posicion'],
+                  hz: item['hz'],
+                  duracion: item['duracion'].toString(),
+                  frecuencias:
+                      List<Map<String, dynamic>>.from(item['frecuencias']),
+                  tipsAntes: List<String>.from(item['tipsAntes'] ?? []),
+                  tipsDespues: List<String>.from(item['tipsDespues'] ?? []),
+                  prohibidos: List<String>.from(item['prohibidos'] ?? []),
+                  esCustom: true))
+              .toList();
+        } catch (e) {
+          print("Fallo modelo $m: $e");
+          continue;
+        }
+      }
+    }
+
+    await Future.delayed(const Duration(seconds: 1));
+    return [
+      Tratamiento(
+          id: Uuid().v4(),
+          nombre: "Protocolo: $dolencia",
+          zona: "Zona Afectada",
+          descripcion: "Protocolo generado localmente (Sin conexión IA).",
+          sintomas: dolencia,
+          posicion: "Sobre la zona de dolor",
+          hz: "50Hz (Dolor)",
+          duracion: "15",
+          frecuencias: [
+            {'nm': 660, 'p': 50},
+            {'nm': 850, 'p': 100}
+          ],
+          tipsAntes: ["Limpiar zona", "Sin ropa"],
+          tipsDespues: ["Movilidad suave"],
+          esCustom: true)
+    ];
+  }
+}
+
+class Uuid {
+  String v4() => DateTime.now().microsecondsSinceEpoch.toString();
+}
+
+// ==============================================================================
+// 5. INTERFAZ DE USUARIO (WEB DASHBOARD)
+// ==============================================================================
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  runApp(
+    ChangeNotifierProvider(
+      create: (context) => AppState(),
+      child: const MegaPanelApp(),
+    ),
+  );
+}
+
+class MegaPanelApp extends StatelessWidget {
+  const MegaPanelApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Mega Panel AI',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xFFB71C1C), brightness: Brightness.light),
+        scaffoldBackgroundColor: Colors.white,
+        cardTheme: CardThemeData(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+                side: BorderSide(color: Colors.grey.shade200)),
+            margin: const EdgeInsets.symmetric(vertical: 6)),
+      ),
+      home: const AuthWrapper(),
+    );
+  }
+}
+
+class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({super.key});
+  @override
+  Widget build(BuildContext context) {
+    var user = context.watch<AppState>().currentUser;
+    if (user.isEmpty) return const LoginScreen();
+    return const MainLayout();
+  }
+}
+
+class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key});
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final _passCtrl = TextEditingController();
+  bool _loading = false;
+
+  void _tryLogin(String user) async {
+    setState(() => _loading = true);
+    bool ok = await context.read<AppState>().login(user, _passCtrl.text);
+    setState(() => _loading = false);
+    if (!ok) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text("Contraseña incorrecta"), backgroundColor: Colors.red));
+    }
+  }
+
+  void _showChangePassDialog() {
+    final oldCtrl = TextEditingController();
+    final newCtrl = TextEditingController();
+    final userCtrl = TextEditingController(); // To know which user
+
+    showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+              title: const Text("Cambiar Contraseña"),
+              content: Column(mainAxisSize: MainAxisSize.min, children: [
+                TextField(
+                    controller: userCtrl,
+                    decoration: const InputDecoration(
+                        labelText: "Usuario (Benja/Eva)")),
+                TextField(
+                    controller: oldCtrl,
+                    decoration:
+                        const InputDecoration(labelText: "Contraseña Actual"),
+                    obscureText: true),
+                TextField(
+                    controller: newCtrl,
+                    decoration:
+                        const InputDecoration(labelText: "Nueva Contraseña"),
+                    obscureText: true),
+              ]),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text("Cancelar")),
+                FilledButton(
+                    onPressed: () async {
+                      try {
+                        // Log in temporarily to verify old pass
+                        bool ok = await context
+                            .read<AppState>()
+                            .login(userCtrl.text, oldCtrl.text);
+                        if (ok) {
+                          await context
+                              .read<AppState>()
+                              .changePassword(oldCtrl.text, newCtrl.text);
+                          context
+                              .read<AppState>()
+                              .logout(); // Logout to force re-login
+                          Navigator.pop(ctx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content: Text(
+                                      "Contraseña cambiada. Entra de nuevo.")));
+                        } else {
+                          throw "Usuario o contraseña actual incorrectos";
+                        }
+                      } catch (e) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                            content: Text(e.toString()),
+                            backgroundColor: Colors.red));
+                      }
+                    },
+                    child: const Text("Cambiar"))
+              ],
+            ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Center(
+        child: Container(
+          width: 400,
+          padding: const EdgeInsets.all(40),
+          decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(12)),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.science, size: 64, color: Color(0xFFB71C1C)),
+              const SizedBox(height: 20),
+              const Text("Mega Panel AI Pro",
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 30),
+              TextField(
+                controller: _passCtrl,
+                decoration: const InputDecoration(
+                    labelText: "Contraseña", border: OutlineInputBorder()),
+                obscureText: true,
+              ),
+              const SizedBox(height: 20),
+              if (_loading)
+                const CircularProgressIndicator()
+              else ...[
+                SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                        onPressed: () => _tryLogin("Benja"),
+                        child: const Text("Entrar como Benja"))),
+                const SizedBox(height: 10),
+                SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                        onPressed: () => _tryLogin("Eva"),
+                        child: const Text("Entrar como Eva"))),
+              ],
+              const SizedBox(height: 20),
+              TextButton(
+                  onPressed: _showChangePassDialog,
+                  child: const Text("Cambiar contraseña inicial"))
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// --- LAYOUT CON SIDEBAR ---
+class MainLayout extends StatefulWidget {
+  const MainLayout({super.key});
+  @override
+  State<MainLayout> createState() => _MainLayoutState();
+}
+
+class _MainLayoutState extends State<MainLayout> {
+  int _idx = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    var state = context.watch<AppState>();
+
+    if (!state.hasApiKey) {
+      return Scaffold(
+        body: Center(
+          child: Container(
+            width: 400,
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text("Configuración: Introduce tu Gemini API Key"),
+                const SizedBox(height: 10),
+                TextField(
+                  decoration: const InputDecoration(
+                      border: OutlineInputBorder(), labelText: "API Key"),
+                  onSubmitted: (v) => state.setApiKey(v),
+                )
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final pages = [
+      const PanelDiarioView(),
+      const PanelSemanalView(),
+      const HistorialView(),
+      const ClinicaView(),
+      const BuscadorIAView(),
+      const GestionView()
+    ];
+
+    return Scaffold(
+      body: Row(
+        children: [
+          // SIDEBAR ESTILO STREAMLIT
+          Container(
+            width: 260,
+            color: const Color(0xFFF0F2F6),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Text("Hola, ${state.currentUser}",
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 16)),
+                ),
+                _SidebarItem(
+                    icon: Icons.calendar_today,
+                    label: "Panel Diario",
+                    selected: _idx == 0,
+                    onTap: () => setState(() => _idx = 0)),
+                _SidebarItem(
+                    icon: Icons.calendar_month,
+                    label: "Panel Semanal",
+                    selected: _idx == 1,
+                    onTap: () => setState(() => _idx = 1)),
+                _SidebarItem(
+                    icon: Icons.history,
+                    label: "Historial",
+                    selected: _idx == 2,
+                    onTap: () => setState(() => _idx = 2)),
+                _SidebarItem(
+                    icon: Icons.medical_services,
+                    label: "Clínica",
+                    selected: _idx == 3,
+                    onTap: () => setState(() => _idx = 3)),
+                const Divider(),
+                _SidebarItem(
+                    icon: Icons.auto_awesome,
+                    label: "Buscador AI",
+                    selected: _idx == 4,
+                    onTap: () => setState(() => _idx = 4)),
+                _SidebarItem(
+                    icon: Icons.settings,
+                    label: "Gestionar Tratamientos",
+                    selected: _idx == 5,
+                    onTap: () => setState(() => _idx = 5)),
+                const Spacer(),
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: OutlinedButton.icon(
+                      onPressed: state.logout,
+                      icon: const Icon(Icons.logout, size: 16),
+                      label: const Text("Cerrar Sesión"),
+                      style: OutlinedButton.styleFrom(
+                          backgroundColor: Colors.white)),
+                )
+              ],
+            ),
+          ),
+          // CONTENIDO
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+              child: pages[_idx],
+            ),
+          )
+        ],
+      ),
+    );
+  }
+}
+
+class _SidebarItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  const _SidebarItem(
+      {required this.icon,
+      required this.label,
+      required this.selected,
+      required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        color: selected ? Colors.white : null,
+        child: Row(
+          children: [
+            Icon(icon,
+                size: 20,
+                color: selected ? const Color(0xFFB71C1C) : Colors.grey[700]),
+            const SizedBox(width: 10),
+            Text(label,
+                style: TextStyle(
+                    color:
+                        selected ? const Color(0xFFB71C1C) : Colors.grey[800],
+                    fontWeight:
+                        selected ? FontWeight.bold : FontWeight.normal)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// --- VISTA 1: DIARIO ---
+class PanelDiarioView extends StatelessWidget {
+  const PanelDiarioView({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    var state = context.watch<AppState>();
+    DateTime hoyDt = DateTime.now();
+    String hoy = DateFormat('yyyy-MM-dd').format(hoyDt);
+    RutinaDiaria rutina = state.obtenerRutina(hoyDt);
+
+    var hechos = state.historial[hoy] ?? [];
+    var planificadosMap = state.planificados[hoy] ?? {};
+    List<Tratamiento> listaMostrar = [];
+
+    planificadosMap.forEach((id, momento) {
+      var t = state.catalogo.firstWhere((e) => e.id == id,
+          orElse: () => Tratamiento(id: "err", nombre: "Error", zona: ""));
+      if (t.id != "err") {
+        listaMostrar.add(t);
+      }
+    });
+
+    List<Tratamiento> completados =
+        listaMostrar.where((t) => hechos.any((h) => h['id'] == t.id)).toList();
+    List<Tratamiento> pendientes =
+        listaMostrar.where((t) => !hechos.any((h) => h['id'] == t.id)).toList();
+
+    return ListView(
+      children: [
+        Row(children: [
+          const Icon(Icons.calendar_today, size: 28),
+          const SizedBox(width: 10),
+          const Text("Panel Diario",
+              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold))
+        ]),
+        const SizedBox(height: 5),
+        Text("Fecha: ${DateFormat('yyyy/MM/dd').format(hoyDt)}",
+            style: const TextStyle(color: Colors.grey)),
+        const SizedBox(height: 20),
+        if (state.esBenja) ...[
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+                color: const Color(0xFFE8F5E9),
+                borderRadius: BorderRadius.circular(8)),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text("Rutina de Fuerza: ${rutina.fuerza.join(", ")}",
+                          style: const TextStyle(
+                              color: Color(0xFF2E7D32),
+                              fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 5),
+                      if (rutina.cardioSessions.isEmpty)
+                        const Text("Sin Cardio Asignado")
+                      else
+                        ...rutina.cardioSessions
+                            .map((c) => Text("• ${c.getSummary()}"))
+                    ],
+                  ),
+                ),
+                TextButton.icon(
+                    icon: const Icon(Icons.edit, size: 16),
+                    label: const Text("Editar"),
+                    onPressed: () => showDialog(
+                        context: context,
+                        builder: (_) => EditRoutineDialog(
+                            fecha: hoyDt, rutinaActual: rutina)),
+                    style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xFF2E7D32)))
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+        ],
+        _BuscadorManual(
+          catalogo: state.catalogo,
+          onAdd: (t, momento) =>
+              state.planificarTratamiento(hoy, t.id, momento),
+          askTime: true,
+        ),
+        const SizedBox(height: 10),
+        if (listaMostrar.isNotEmpty)
+          OutlinedButton.icon(
+            icon: const Icon(Icons.flash_on, color: Colors.orange),
+            label: const Text("Registrar Todo lo Planificado"),
+            onPressed: () {
+              for (var t in listaMostrar) {
+                if (!hechos.any((h) => h['id'] == t.id))
+                  state.registrarTratamiento(hoy, t.id, "Batch");
+              }
+            },
+          ),
+        const SizedBox(height: 20),
+        const Text("✅ Completados",
+            style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.green)),
+        if (completados.isEmpty)
+          const Text("---", style: TextStyle(color: Colors.grey)),
+        ...completados.map((t) => ListTile(
+              leading: const Icon(Icons.check_box, color: Colors.green),
+              title: Text(t.nombre),
+              subtitle: Text(planificadosMap[t.id] ?? "Clínica"),
+            )),
+        const SizedBox(height: 20),
+        const Text("📋 Pendientes / Planificados",
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+        if (pendientes.isEmpty)
+          const Text("Nada por hoy.", style: TextStyle(color: Colors.grey)),
+        ...pendientes.map((t) {
+          String mom = planificadosMap[t.id] ?? "CLÍNICA";
+          return TreatmentCard(
+            t: t,
+            isPlanned: true,
+            plannedMoment: mom,
+            onDeletePlan: () => state.desplanificarTratamiento(hoy, t.id),
+            onRegister: () => state.registrarTratamiento(hoy, t.id, mom),
+          );
+        }),
+      ],
+    );
+  }
+}
+
+class EditRoutineDialog extends StatefulWidget {
+  final DateTime fecha;
+  final RutinaDiaria rutinaActual;
+  const EditRoutineDialog(
+      {super.key, required this.fecha, required this.rutinaActual});
+  @override
+  State<EditRoutineDialog> createState() => _EditRoutineDialogState();
+}
+
+class _EditRoutineDialogState extends State<EditRoutineDialog> {
+  late List<String> fuerzaSel;
+  late List<CardioSession> sessions;
+
+  String selectedType = CARDIO_TYPES[0];
+  TextEditingController durationCtrl = TextEditingController(text: "20");
+
+  // Params
+  int steps = 5000;
+  double speed = 6.0;
+  double incline = 2.0;
+  double resistance = 5.0;
+  double watts = 100.0;
+  String norwegianMachine = "Cinta";
+
+  @override
+  void initState() {
+    super.initState();
+    fuerzaSel = List.from(widget.rutinaActual.fuerza);
+    sessions = List.from(widget.rutinaActual.cardioSessions);
+  }
+
+  void _addSession() {
+    CardioSession newSession = CardioSession(
+      type: selectedType,
+      duration: int.tryParse(durationCtrl.text) ?? 0,
+    );
+
+    if (selectedType == "Andar") {
+      newSession.steps = steps;
+    } else if (selectedType == "Elíptica") {
+      newSession.resistance = resistance;
+      newSession.watts = watts;
+    } else if (selectedType == "Cinta Inclinada") {
+      newSession.speed = speed;
+      newSession.incline = incline;
+    } else if (selectedType == "Protocolo Noruego") {
+      newSession.duration = 32;
+      newSession.machine = norwegianMachine;
+      if (norwegianMachine == "Cinta") {
+        newSession.speed = speed;
+        newSession.incline = incline;
+      } else if (norwegianMachine == "Elíptica") {
+        newSession.resistance = resistance;
+        newSession.watts = watts;
+      } else if (norwegianMachine == "Remo") {
+        newSession.resistance = resistance;
+      }
+    }
+
+    setState(() {
+      sessions.add(newSession);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text("Editar Rutina"),
+      content: SizedBox(
+        width: 500,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text("Fuerza:",
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              Wrap(
+                spacing: 5,
+                children: RUTINAS_POSIBLES
+                    .map((r) => FilterChip(
+                        label: Text(r),
+                        selected: fuerzaSel.contains(r),
+                        onSelected: (s) => setState(
+                            () => s ? fuerzaSel.add(r) : fuerzaSel.remove(r))))
+                    .toList(),
+              ),
+              const Divider(),
+              const Text("Sesiones de Cardio:",
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              if (sessions.isEmpty)
+                const Text("Ninguna sesión añadida",
+                    style: TextStyle(color: Colors.grey)),
+              ...sessions
+                  .asMap()
+                  .entries
+                  .map((entry) => Card(
+                        color: Colors.grey.shade50,
+                        child: ListTile(
+                          title: Text(entry.value.getSummary()),
+                          trailing: IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: () =>
+                                  setState(() => sessions.removeAt(entry.key))),
+                        ),
+                      ))
+                  .toList(),
+              const SizedBox(height: 15),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                    border: Border.all(color: Colors.blue.shade100),
+                    borderRadius: BorderRadius.circular(8),
+                    color: Colors.blue.shade50),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text("Añadir Nueva Sesión:",
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, color: Colors.blue)),
+                    DropdownButton<String>(
+                        isExpanded: true,
+                        value: selectedType,
+                        items: CARDIO_TYPES
+                            .map((c) =>
+                                DropdownMenuItem(value: c, child: Text(c)))
+                            .toList(),
+                        onChanged: (v) => setState(() => selectedType = v!)),
+
+                    // Inputs Dinámicos
+                    if (selectedType == "Andar")
+                      Row(children: [
+                        const Text("Pasos: "),
+                        IconButton(
+                            icon: const Icon(Icons.remove),
+                            onPressed: () => setState(() {
+                                  if (steps > 500) steps -= 500;
+                                })),
+                        Text("$steps",
+                            style:
+                                const TextStyle(fontWeight: FontWeight.bold)),
+                        IconButton(
+                            icon: const Icon(Icons.add),
+                            onPressed: () => setState(() => steps += 500)),
+                      ]),
+
+                    if (selectedType == "Elíptica")
+                      Column(children: [
+                        TextField(
+                            controller: durationCtrl,
+                            decoration:
+                                const InputDecoration(labelText: "Minutos")),
+                        Row(children: [
+                          const Text("Resistencia: "),
+                          Expanded(
+                              child: Slider(
+                                  value: resistance,
+                                  min: 1,
+                                  max: 20,
+                                  divisions: 19,
+                                  label: resistance.round().toString(),
+                                  onChanged: (v) =>
+                                      setState(() => resistance = v))),
+                          Text("${resistance.toInt()}")
+                        ]),
+                        TextField(
+                            decoration: const InputDecoration(
+                                labelText: "Watios (Opcional)"),
+                            keyboardType: TextInputType.number,
+                            onChanged: (v) => watts = double.tryParse(v) ?? 0),
+                      ]),
+
+                    if (selectedType == "Cinta Inclinada")
+                      Row(children: [
+                        Expanded(
+                            child: TextField(
+                                controller: durationCtrl,
+                                decoration:
+                                    const InputDecoration(labelText: "Min"))),
+                        const SizedBox(width: 10),
+                        Expanded(
+                            child: TextField(
+                                decoration:
+                                    const InputDecoration(labelText: "Km/h"),
+                                onChanged: (v) =>
+                                    speed = double.tryParse(v) ?? 6)),
+                        const SizedBox(width: 10),
+                        Expanded(
+                            child: TextField(
+                                decoration:
+                                    const InputDecoration(labelText: "% Inc"),
+                                onChanged: (v) =>
+                                    incline = double.tryParse(v) ?? 2)),
+                      ]),
+
+                    if (selectedType == "Protocolo Noruego")
+                      Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text("Duración fija: 32 min"),
+                            DropdownButton<String>(
+                                value: norwegianMachine,
+                                items: ["Cinta", "Elíptica", "Remo"]
+                                    .map((m) => DropdownMenuItem(
+                                        value: m, child: Text(m)))
+                                    .toList(),
+                                onChanged: (v) =>
+                                    setState(() => norwegianMachine = v!)),
+                            if (norwegianMachine == "Cinta")
+                              Row(children: [
+                                Expanded(
+                                    child: TextField(
+                                        decoration: const InputDecoration(
+                                            labelText: "Km/h"),
+                                        onChanged: (v) =>
+                                            speed = double.tryParse(v) ?? 0)),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                    child: TextField(
+                                        decoration: const InputDecoration(
+                                            labelText: "% Inc"),
+                                        onChanged: (v) =>
+                                            incline = double.tryParse(v) ?? 0)),
+                              ]),
+                            if (norwegianMachine == "Elíptica")
+                              Row(children: [
+                                Expanded(
+                                    child: TextField(
+                                        decoration: const InputDecoration(
+                                            labelText: "Resistencia"),
+                                        onChanged: (v) => resistance =
+                                            double.tryParse(v) ?? 0)),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                    child: TextField(
+                                        decoration: const InputDecoration(
+                                            labelText: "Watios"),
+                                        onChanged: (v) =>
+                                            watts = double.tryParse(v) ?? 0)),
+                              ]),
+                            if (norwegianMachine == "Remo")
+                              TextField(
+                                  decoration: const InputDecoration(
+                                      labelText: "Resistencia"),
+                                  onChanged: (v) =>
+                                      resistance = double.tryParse(v) ?? 0),
+                          ]),
+
+                    if (selectedType == "Remo Ergómetro" ||
+                        selectedType == "Descanso Cardio")
+                      TextField(
+                          controller: durationCtrl,
+                          decoration:
+                              const InputDecoration(labelText: "Minutos")),
+
+                    const SizedBox(height: 10),
+                    SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                            icon: const Icon(Icons.add),
+                            label: const Text("Añadir esta sesión"),
+                            onPressed: _addSession,
+                            style: FilledButton.styleFrom(
+                                backgroundColor: Colors.blue)))
+                  ],
+                ),
+              )
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancelar")),
+        FilledButton(
+            onPressed: () {
+              context.read<AppState>().guardarRutinaEditada(widget.fecha,
+                  RutinaDiaria(fuerza: fuerzaSel, cardioSessions: sessions));
+              Navigator.pop(context);
+            },
+            child: const Text("Guardar Todo"))
+      ],
+    );
+  }
+}
+
+// --- VISTA 2: SEMANAL ---
+class PanelSemanalView extends StatefulWidget {
+  const PanelSemanalView({super.key});
+  @override
+  State<PanelSemanalView> createState() => _PanelSemanalViewState();
+}
+
+class _PanelSemanalViewState extends State<PanelSemanalView>
+    with TickerProviderStateMixin {
+  late TabController _tabController;
+  final List<DateTime> _days = List.generate(
+      7,
+      (i) =>
+          DateTime.now().add(Duration(days: i - DateTime.now().weekday + 1)));
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(
+        length: 7, vsync: this, initialIndex: DateTime.now().weekday - 1);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    var state = context.watch<AppState>();
+    return Column(
+      children: [
+        TabBar(
+          controller: _tabController,
+          isScrollable: true,
+          labelColor: Colors.red,
+          unselectedLabelColor: Colors.grey,
+          tabs: _days
+              .map((d) => Tab(text: "${DateFormat('E').format(d)} ${d.day}"))
+              .toList(),
+        ),
+        Expanded(
+          child: TabBarView(
+            controller: _tabController,
+            children: _days.map((d) {
+              String fStr = DateFormat('yyyy-MM-dd').format(d);
+              var plans = state.planificados[fStr] ?? {};
+              RutinaDiaria rut = state.obtenerRutina(d);
+
+              return ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  if (state.esBenja)
+                    Card(
+                      child: ListTile(
+                        title: Text("🏋️ ${rut.fuerza.join(", ")}"),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (rut.cardioSessions.isEmpty)
+                              const Text("Sin cardio asignado",
+                                  style: TextStyle(
+                                      fontStyle: FontStyle.italic,
+                                      fontSize: 12))
+                            else
+                              ...rut.cardioSessions.map((c) => Padding(
+                                    padding: const EdgeInsets.only(top: 2),
+                                    child: Text("• ${c.getSummary()}",
+                                        style: const TextStyle(fontSize: 12)),
+                                  ))
+                          ],
+                        ),
+                        trailing: IconButton(
+                            icon: const Icon(Icons.edit),
+                            onPressed: () => showDialog(
+                                context: context,
+                                builder: (_) => EditRoutineDialog(
+                                    fecha: d, rutinaActual: rut))),
+                      ),
+                    ),
+                  const SizedBox(height: 10),
+                  _BuscadorManual(
+                    catalogo: state.catalogo,
+                    onAdd: (t, m) => state.planificarTratamiento(fStr, t.id, m),
+                    askTime: true,
+                  ),
+                  const Divider(),
+                  if (plans.isEmpty) const Center(child: Text("Sin planes")),
+                  ...plans.entries.map((e) {
+                    var t = state.catalogo.firstWhere((x) => x.id == e.key,
+                        orElse: () =>
+                            Tratamiento(id: "", nombre: "?", zona: ""));
+                    return TreatmentCard(
+                        t: t,
+                        isPlanned: true,
+                        plannedMoment: e.value,
+                        onDeletePlan: () =>
+                            state.desplanificarTratamiento(fStr, t.id));
+                  })
+                ],
+              );
+            }).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// --- VISTA 3: HISTORIAL (TABLA) ---
+class HistorialView extends StatelessWidget {
+  const HistorialView({super.key});
+  @override
+  Widget build(BuildContext context) {
+    var state = context.watch<AppState>();
+    List<Map<String, String>> rows = [];
+    state.historial.forEach((fecha, lista) {
+      for (var item in lista) {
+        var t = state.catalogo.firstWhere((element) => element.id == item['id'],
+            orElse: () => Tratamiento(id: "", nombre: "???", zona: ""));
+        rows.add({
+          "Fecha": fecha,
+          "Hora": item['hora'],
+          "Tratamiento": t.nombre,
+          "Momento": item['momento']
+        });
+      }
+    });
+    rows.sort((a, b) => b['Fecha']!.compareTo(a['Fecha']!));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text("📊 Historial de Registros",
+            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 20),
+        Expanded(
+          child: SingleChildScrollView(
+            child: DataTable(
+              columns: const [
+                DataColumn(label: Text("Fecha")),
+                DataColumn(label: Text("Hora")),
+                DataColumn(label: Text("Tratamiento")),
+                DataColumn(label: Text("Estado"))
+              ],
+              rows: rows
+                  .map((r) => DataRow(cells: [
+                        DataCell(Text(r['Fecha']!)),
+                        DataCell(Text(r['Hora']!)),
+                        DataCell(Text(r['Tratamiento']!)),
+                        DataCell(Text(r['Momento']!)),
+                      ]))
+                  .toList(),
+            ),
+          ),
+        )
+      ],
+    );
+  }
+}
+
+// --- VISTA 4: CLÍNICA ---
+class ClinicaView extends StatelessWidget {
+  const ClinicaView({super.key});
+  @override
+  Widget build(BuildContext context) {
+    var state = context.watch<AppState>();
+    return ListView(children: [
+      const Text("🏥 Clínica",
+          style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
+      const SizedBox(height: 20),
+      const Text("Tratamientos Activos en Curso:",
+          style: TextStyle(color: Colors.grey)),
+      const SizedBox(height: 10),
+      ...state.catalogo
+          .where((t) => state.ciclosActivos[t.id]?['activo'] == true)
+          .map((t) => Card(
+                color: Colors.blue.shade50,
+                child: ListTile(
+                  title: Text(t.nombre),
+                  subtitle:
+                      Text("Iniciado: ${state.ciclosActivos[t.id]['inicio']}"),
+                  trailing: FilledButton(
+                      onPressed: () => state.detenerCiclo(t.id),
+                      child: const Text("Finalizar")),
+                ),
+              )),
+      const Divider(height: 40),
+      const Text("Iniciar Nuevo Tratamiento:",
+          style: TextStyle(fontWeight: FontWeight.bold)),
+      _BuscadorManual(
+        catalogo: state.catalogo,
+        onAdd: (t, _) => state.iniciarCiclo(t.id),
+        askTime: false,
+      )
+    ]);
+  }
+}
+
+// --- VISTA 5: BUSCADOR IA ---
+class BuscadorIAView extends StatefulWidget {
+  const BuscadorIAView({super.key});
+  @override
+  State<BuscadorIAView> createState() => _BuscadorIAViewState();
+}
+
+class _BuscadorIAViewState extends State<BuscadorIAView> {
+  final _ctrl = TextEditingController();
+  List<Tratamiento> _results = [];
+  bool _loading = false;
+
+  @override
+  Widget build(BuildContext context) {
+    var state = context.watch<AppState>();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text("Buscador IA",
+            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 20),
+        TextField(
+          controller: _ctrl,
+          decoration: InputDecoration(
+              labelText: "Describe dolencia...",
+              suffixIcon: IconButton(
+                icon: const Icon(Icons.send),
+                onPressed: () async {
+                  setState(() => _loading = true);
+                  try {
+                    var r = await state.consultarIA(_ctrl.text);
+                    if (!context.mounted) return;
+                    setState(() {
+                      _results = r;
+                      _loading = false;
+                    });
+                  } catch (e) {
+                    if (!context.mounted) return;
+                    setState(() => _loading = false);
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text("Info: $e"),
+                        backgroundColor: Colors.orange));
+                  }
+                },
+              )),
+        ),
+        if (_loading) const LinearProgressIndicator(),
+        const SizedBox(height: 20),
+        Expanded(
+          child: ListView.builder(
+            itemCount: _results.length,
+            itemBuilder: (_, i) {
+              var t = _results[i];
+              return TreatmentCard(
+                  t: t,
+                  onRegister: () {
+                    state.agregarTratamientoCatalogo(t);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Guardado en Catálogo")));
+                  });
+            },
+          ),
+        )
+      ],
+    );
+  }
+}
+
+// --- VISTA 6: GESTION ---
+class GestionView extends StatelessWidget {
+  const GestionView({super.key});
+  @override
+  Widget build(BuildContext context) {
+    var state = context.watch<AppState>();
+    return ListView(
+      children: [
+        const Text("⚙️ Gestión de Tratamientos",
+            style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 20),
+        ...state.catalogo.map((t) => TreatmentCard(
+              t: t,
+              onDeletePlan: () => state.ocultarTratamiento(t.id),
+            ))
+      ],
+    );
+  }
+}
+
+// --- WIDGETS AUXILIARES MODIFICADOS ---
+
+class _BuscadorManual extends StatelessWidget {
+  final List<Tratamiento> catalogo;
+  final Function(Tratamiento, String) onAdd;
+  final bool askTime;
+
+  const _BuscadorManual(
+      {required this.catalogo, required this.onAdd, this.askTime = true});
+
+  @override
+  Widget build(BuildContext context) {
+    return ExpansionTile(
+      title: const Text("➕ Añadir Tratamiento Manual"),
+      collapsedShape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: BorderSide(color: Colors.grey.shade300)),
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: BorderSide(color: Colors.grey.shade300)),
+      children: [
+        SizedBox(
+          height: 300,
+          child: ListView.builder(
+            itemCount: catalogo.length,
+            itemBuilder: (ctx, i) {
+              var t = catalogo[i];
+              return ListTile(
+                title: Text(t.nombre),
+                subtitle: Text(t.sintomas,
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                trailing: const Icon(Icons.info_outline),
+                onTap: () {
+                  showDialog(
+                      context: context,
+                      builder: (dialogCtx) => AlertDialog(
+                            content: SingleChildScrollView(
+                              child: SizedBox(
+                                width: double.maxFinite,
+                                child: TreatmentCard(t: t),
+                              ),
+                            ),
+                            actions: [
+                              TextButton(
+                                  onPressed: () => Navigator.pop(dialogCtx),
+                                  child: const Text("Cancelar")),
+                              FilledButton(
+                                onPressed: () {
+                                  Navigator.pop(dialogCtx);
+                                  if (askTime) {
+                                    showDialog(
+                                        context: context,
+                                        builder: (_) => SimpleDialog(
+                                              title: const Text("¿Cuándo?"),
+                                              children: [
+                                                "PRE",
+                                                "POST",
+                                                "NOCHE",
+                                                "FLEX"
+                                              ]
+                                                  .map(
+                                                      (m) => SimpleDialogOption(
+                                                            child: Text(m),
+                                                            onPressed: () {
+                                                              onAdd(t, m);
+                                                              Navigator.pop(
+                                                                  context);
+                                                            },
+                                                          ))
+                                                  .toList(),
+                                            ));
+                                  } else {
+                                    onAdd(t, "Now");
+                                  }
+                                },
+                                child: const Text("Seleccionar / Añadir"),
+                              )
+                            ],
+                          ));
+                },
+              );
+            },
+          ),
+        )
+      ],
+    );
+  }
+}
+
+class TreatmentCard extends StatefulWidget {
+  final Tratamiento t;
+  final bool isPlanned;
+  final bool isDone;
+  final String? plannedMoment;
+  final VoidCallback? onRegister;
+  final VoidCallback? onDeletePlan;
+
+  const TreatmentCard(
+      {super.key,
+      required this.t,
+      this.isPlanned = false,
+      this.isDone = false,
+      this.plannedMoment,
+      this.onRegister,
+      this.onDeletePlan});
+
+  @override
+  State<TreatmentCard> createState() => _TreatmentCardState();
+}
+
+class _TreatmentCardState extends State<TreatmentCard> {
+  bool _initiallyExpanded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (!widget.isPlanned && !widget.isDone) {
+      _initiallyExpanded = true;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    Color statusColor = widget.isDone
+        ? Colors.green
+        : (widget.isPlanned ? Colors.blue : Colors.grey);
+
+    return Card(
+      elevation: 2,
+      child: ExpansionTile(
+        initiallyExpanded: _initiallyExpanded,
+        leading: Icon(
+            widget.isDone ? Icons.check_circle : Icons.circle_outlined,
+            color: statusColor),
+        title: Text(widget.t.nombre,
+            style: TextStyle(
+                fontWeight: FontWeight.bold,
+                decoration: widget.isDone ? TextDecoration.lineThrough : null)),
+        subtitle: widget.isPlanned
+            ? Text("Planificado: ${widget.plannedMoment}",
+                style: const TextStyle(color: Colors.blue))
+            : null,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (widget.t.sintomas.isNotEmpty)
+                  _buildSection("Indicado para", widget.t.sintomas,
+                      Icons.medical_information, Colors.grey.shade200),
+                const SizedBox(height: 10),
+                if (widget.t.posicion.isNotEmpty)
+                  _buildSection("Posición", widget.t.posicion,
+                      Icons.accessibility_new, Colors.purple.shade50),
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(8)),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      Column(children: [
+                        const Icon(Icons.waves, size: 20),
+                        Text("${widget.t.hz}")
+                      ]),
+                      Column(children: [
+                        const Icon(Icons.timer, size: 20),
+                        Text("${widget.t.duracion} min")
+                      ]),
+                      Column(children: [
+                        const Icon(Icons.light_mode, size: 20),
+                        Text(widget.t.frecuencias
+                            .map((f) => "${f['nm']}nm")
+                            .join("/ "))
+                      ]),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+                if (widget.t.tipsAntes.isNotEmpty)
+                  _buildSection("Consejos Antes", widget.t.tipsAntes.join("\n"),
+                      Icons.info_outline, Colors.blue.shade50),
+                const SizedBox(height: 5),
+                if (widget.t.tipsDespues.isNotEmpty)
+                  _buildSection(
+                      "Consejos Después",
+                      widget.t.tipsDespues.join("\n"),
+                      Icons.check_circle_outline,
+                      Colors.green.shade50),
+                const SizedBox(height: 5),
+                if (widget.t.prohibidos.isNotEmpty)
+                  _buildSection("PROHIBIDO", widget.t.prohibidos.join("\n"),
+                      Icons.warning_amber, Colors.red.shade50),
+                const SizedBox(height: 15),
+                if (widget.onDeletePlan != null || widget.onRegister != null)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      if (widget.isPlanned &&
+                          widget.onDeletePlan != null &&
+                          !widget.isDone)
+                        TextButton.icon(
+                          icon: const Icon(Icons.delete_outline),
+                          label: const Text("Quitar"),
+                          onPressed: widget.onDeletePlan,
+                        ),
+                      const SizedBox(width: 8),
+                      if (!widget.isDone && widget.onRegister != null)
+                        FilledButton.icon(
+                          icon: const Icon(Icons.check),
+                          label: const Text("Registrar"),
+                          onPressed: widget.onRegister,
+                        ),
+                    ],
+                  )
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSection(
+      String title, String content, IconData icon, Color color) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration:
+          BoxDecoration(color: color, borderRadius: BorderRadius.circular(8)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Icon(icon, size: 16),
+            const SizedBox(width: 5),
+            Text(title, style: const TextStyle(fontWeight: FontWeight.bold))
+          ]),
+          const SizedBox(height: 4),
+          Text(content),
+        ],
+      ),
+    );
+  }
+}
