@@ -321,7 +321,6 @@ final List<Tratamiento> DB_DEFINICIONES = [
       hz: "10Hz (Anti-inf)",
       duracion: "10",
       tipsDespues: ["No apoyar codo"]),
-
   // ESPALDA
   Tratamiento(
       id: "esp_cerv",
@@ -368,7 +367,6 @@ final List<Tratamiento> DB_DEFINICIONES = [
       duracion: "20",
       tipsAntes: ["Calor previo"],
       tipsDespues: ["No cargar peso"]),
-
   // ANTEBRAZO
   Tratamiento(
       id: "ant_sobre",
@@ -398,7 +396,6 @@ final List<Tratamiento> DB_DEFINICIONES = [
       hz: "50Hz (Dolor)",
       duracion: "10",
       tipsDespues: ["Reposo"]),
-
   // MUÑECA
   Tratamiento(
       id: "mun_tunel",
@@ -429,7 +426,6 @@ final List<Tratamiento> DB_DEFINICIONES = [
       hz: "50Hz (Dolor)",
       duracion: "10",
       tipsDespues: ["Hielo"]),
-
   // PIERNA
   Tratamiento(
       id: "pierna_itb",
@@ -459,7 +455,6 @@ final List<Tratamiento> DB_DEFINICIONES = [
       hz: "10Hz (Recup)",
       duracion: "15",
       tipsDespues: ["Estirar"]),
-
   // PIE
   Tratamiento(
       id: "pie_fasc",
@@ -505,7 +500,6 @@ final List<Tratamiento> DB_DEFINICIONES = [
       ],
       hz: "50Hz",
       duracion: "12"),
-
   // HOMBRO
   Tratamiento(
       id: "homb_tend",
@@ -521,7 +515,6 @@ final List<Tratamiento> DB_DEFINICIONES = [
       hz: "40Hz",
       duracion: "10",
       tipsDespues: ["Péndulos"]),
-
   // RODILLA
   Tratamiento(
       id: "rod_gen",
@@ -537,7 +530,6 @@ final List<Tratamiento> DB_DEFINICIONES = [
       hz: "10Hz",
       duracion: "10",
       tipsAntes: ["No hielo antes"]),
-
   // PIEL
   Tratamiento(
       id: "piel_cicat",
@@ -581,7 +573,6 @@ final List<Tratamiento> DB_DEFINICIONES = [
       duracion: "5",
       tipsAntes: ["Sin cremas"],
       tipsDespues: ["Aloe Vera"]),
-
   // ESTETICA
   Tratamiento(
       id: "fat_front",
@@ -616,7 +607,6 @@ final List<Tratamiento> DB_DEFINICIONES = [
       duracion: "10",
       tipsAntes: ["Cara lavada"],
       tipsDespues: ["Serum de Vitamina C"]),
-
   // SISTEMICO
   Tratamiento(
       id: "testo",
@@ -712,6 +702,7 @@ final List<Tratamiento> DB_DEFINICIONES = [
 
 class AppState extends ChangeNotifier {
   String currentUser = "";
+  bool isGuest = false;
   String _apiKey = apiKeyFromBuild;
 
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -724,8 +715,6 @@ class AppState extends ChangeNotifier {
 
   List<Tratamiento> catalogo = [];
 
-  bool get esBenja => currentUser == "Benja";
-  bool get esEva => currentUser == "Eva";
   bool get hasApiKey => _apiKey.isNotEmpty;
 
   AppState() {
@@ -739,26 +728,31 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  // --- LOGIN SEGURO CON CONTRASEÑA ---
+  // --- LOGIN SEGURO Y DINÁMICO ---
   Future<bool> login(String user, String passInput) async {
+    user = user.trim(); // Limpiar espacios
+    if (user.isEmpty || passInput.isEmpty) return false;
+
     try {
       var doc = await _db.collection('users').doc(user).get();
       if (!doc.exists) {
-        // Usuario nuevo: crear con contraseña por defecto
+        // Usuario nuevo: CREAR
         await _db.collection('users').doc(user).set(
-            {'password': '1234', 'created': FieldValue.serverTimestamp()},
+            {'password': passInput, 'created': FieldValue.serverTimestamp()},
             SetOptions(merge: true));
         currentUser = user;
+        isGuest = false;
         _suscribirseADatosEnNube();
-        notifyListeners(); // IMPORTANTE: Notificar cambio para actualizar UI
+        notifyListeners();
         return true;
       } else {
-        // Usuario existe: verificar contraseña
+        // Usuario existe: VALIDAR
         String realPass = doc.data()?['password'] ?? '1234';
         if (passInput == realPass) {
           currentUser = user;
+          isGuest = false;
           _suscribirseADatosEnNube();
-          notifyListeners(); // IMPORTANTE: Notificar cambio para actualizar UI
+          notifyListeners();
           return true;
         }
         return false;
@@ -769,33 +763,55 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  Future<void> changePassword(String currentPass, String newPass) async {
-    if (currentUser.isEmpty) return;
-    var doc = await _db.collection('users').doc(currentUser).get();
-    String realPass = doc.data()?['password'] ?? '1234';
+  void loginGuest() {
+    currentUser = "Invitado";
+    isGuest = true;
+    historial = {};
+    planificados = {};
+    ciclosActivos = {};
+    rutinasEditadas = {};
+    catalogo = _generarCatalogoCompleto(); // Catálogo limpio
+    notifyListeners();
+  }
 
-    if (realPass == currentPass) {
-      await _db
-          .collection('users')
-          .doc(currentUser)
-          .update({'password': newPass});
+  Future<void> changePassword(
+      String user, String currentPass, String newPass) async {
+    var doc = await _db.collection('users').doc(user).get();
+    if (doc.exists) {
+      String realPass = doc.data()?['password'] ?? '';
+      if (realPass == currentPass) {
+        await _db.collection('users').doc(user).update({'password': newPass});
+      } else {
+        throw "Contraseña actual incorrecta";
+      }
     } else {
-      throw "Contraseña actual incorrecta";
+      throw "Usuario no encontrado";
     }
   }
 
   void logout() {
     _userSubscription?.cancel();
     currentUser = "";
+    isGuest = false;
+    // LIMPIEZA TOTAL PARA EVITAR MEZCLA DE DATOS
+    historial = {};
+    planificados = {};
+    ciclosActivos = {};
+    rutinasEditadas = {};
+    catalogo = _generarCatalogoCompleto(); // Resetear catálogo a estado puro
     notifyListeners();
   }
 
   void _suscribirseADatosEnNube() {
+    if (isGuest) return; // Invitados no usan nube
+
     _userSubscription?.cancel();
     _userSubscription =
         _db.collection('users').doc(currentUser).snapshots().listen((snapshot) {
       if (snapshot.exists && snapshot.data() != null) {
         Map<String, dynamic> data = snapshot.data()!;
+
+        // 1. Cargar Datos Básicos
         if (data.containsKey('historial')) {
           historial = Map<String, List<Map<String, dynamic>>>.from(json
               .decode(data['historial'])
@@ -816,19 +832,25 @@ class AppState extends ChangeNotifier {
               .map<String, RutinaDiaria>(
                   (k, v) => MapEntry(k, RutinaDiaria.fromJson(v)));
         }
+
+        // 2. Cargar Tratamientos Personalizados (Y mezclar con base limpia)
+        catalogo =
+            _generarCatalogoCompleto(); // SIEMPRE empezar de cero al recibir datos
         if (data.containsKey('custom_treatments')) {
           List<Tratamiento> customs =
               (json.decode(data['custom_treatments']) as List)
                   .map((e) => Tratamiento.fromJson(e))
                   .toList();
-          catalogo = _generarCatalogoCompleto();
           for (var c in customs) {
             catalogo.removeWhere((element) => element.id == c.id);
             catalogo.add(c);
           }
-          catalogo = catalogo.where((t) => !t.oculto).toList();
-          catalogo.sort((a, b) => a.zona.compareTo(b.zona));
         }
+
+        // Ordenar y filtrar
+        catalogo = catalogo.where((t) => !t.oculto).toList();
+        catalogo.sort((a, b) => a.zona.compareTo(b.zona));
+
         notifyListeners();
       } else {
         _guardarTodo();
@@ -852,7 +874,8 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> _guardarTodo() async {
-    if (currentUser.isEmpty) return;
+    if (currentUser.isEmpty || isGuest) return; // Invitados no guardan
+
     List<Tratamiento> aGuardar =
         catalogo.where((t) => t.esCustom || t.oculto).toList();
     await _db.collection('users').doc(currentUser).set({
@@ -875,12 +898,14 @@ class AppState extends ChangeNotifier {
       'momento': momento
     });
     _guardarTodo();
+    notifyListeners(); // Actualizar UI Invitado
   }
 
   void planificarTratamiento(String fecha, String id, String momento) {
     if (!planificados.containsKey(fecha)) planificados[fecha] = {};
     planificados[fecha]![id] = momento;
     _guardarTodo();
+    notifyListeners();
   }
 
   void desplanificarTratamiento(String fecha, String id) {
@@ -888,6 +913,7 @@ class AppState extends ChangeNotifier {
       planificados[fecha]!.remove(id);
       _guardarTodo();
     }
+    notifyListeners();
   }
 
   void iniciarCiclo(String id) {
@@ -896,6 +922,7 @@ class AppState extends ChangeNotifier {
       'activo': true
     };
     _guardarTodo();
+    notifyListeners();
   }
 
   void detenerCiclo(String id) {
@@ -903,6 +930,7 @@ class AppState extends ChangeNotifier {
       ciclosActivos[id]['activo'] = false;
       _guardarTodo();
     }
+    notifyListeners();
   }
 
   void agregarTratamientoCatalogo(Tratamiento t) {
@@ -913,6 +941,7 @@ class AppState extends ChangeNotifier {
     else
       catalogo.add(t);
     _guardarTodo();
+    notifyListeners();
   }
 
   void ocultarTratamiento(String id) {
@@ -924,6 +953,7 @@ class AppState extends ChangeNotifier {
         catalogo[index].oculto = true;
       _guardarTodo();
     }
+    notifyListeners();
   }
 
   RutinaDiaria obtenerRutina(DateTime fecha) {
@@ -939,6 +969,7 @@ class AppState extends ChangeNotifier {
     String fStr = DateFormat('yyyy-MM-dd').format(fecha);
     rutinasEditadas[fStr] = rutina;
     _guardarTodo();
+    notifyListeners();
   }
 
   Future<List<Tratamiento>> consultarIA(String dolencia) async {
@@ -1065,18 +1096,19 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  final _userCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
   bool _loading = false;
 
-  void _tryLogin(String user) async {
+  void _tryLogin() async {
     setState(() => _loading = true);
-    // Verificar login
-    bool ok = await context.read<AppState>().login(user, _passCtrl.text);
+    bool ok =
+        await context.read<AppState>().login(_userCtrl.text, _passCtrl.text);
     setState(() => _loading = false);
     if (!ok) {
       if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text("Contraseña incorrecta"),
+            content: Text("Usuario o contraseña incorrectos"),
             backgroundColor: Colors.red));
     }
   }
@@ -1093,8 +1125,7 @@ class _LoginScreenState extends State<LoginScreen> {
               content: Column(mainAxisSize: MainAxisSize.min, children: [
                 TextField(
                     controller: userCtrl,
-                    decoration: const InputDecoration(
-                        labelText: "Usuario (Benja/Eva)")),
+                    decoration: const InputDecoration(labelText: "Usuario")),
                 TextField(
                     controller: oldCtrl,
                     decoration:
@@ -1113,22 +1144,12 @@ class _LoginScreenState extends State<LoginScreen> {
                 FilledButton(
                     onPressed: () async {
                       try {
-                        bool ok = await context
-                            .read<AppState>()
-                            .login(userCtrl.text, oldCtrl.text);
-                        if (ok) {
-                          await context
-                              .read<AppState>()
-                              .changePassword(oldCtrl.text, newCtrl.text);
-                          context.read<AppState>().logout();
-                          Navigator.pop(ctx);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Text(
-                                      "Contraseña cambiada. Entra de nuevo.")));
-                        } else {
-                          throw "Usuario o contraseña actual incorrectos";
-                        }
+                        await context.read<AppState>().changePassword(
+                            userCtrl.text, oldCtrl.text, newCtrl.text);
+                        Navigator.pop(ctx);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text("Contraseña cambiada.")));
                       } catch (e) {
                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                             content: Text(e.toString()),
@@ -1162,6 +1183,14 @@ class _LoginScreenState extends State<LoginScreen> {
                         TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 30),
                 TextField(
+                  controller: _userCtrl,
+                  decoration: const InputDecoration(
+                      labelText: "Usuario",
+                      border: OutlineInputBorder(),
+                      hintText: "Ej: Benja, Eva, Pepe..."),
+                ),
+                const SizedBox(height: 10),
+                TextField(
                   controller: _passCtrl,
                   decoration: const InputDecoration(
                       labelText: "Contraseña", border: OutlineInputBorder()),
@@ -1174,19 +1203,21 @@ class _LoginScreenState extends State<LoginScreen> {
                   SizedBox(
                       width: double.infinity,
                       child: FilledButton(
-                          onPressed: () => _tryLogin("Benja"),
-                          child: const Text("Entrar como Benja"))),
+                          onPressed: _tryLogin,
+                          child: const Text("Entrar / Crear Usuario"))),
                   const SizedBox(height: 10),
                   SizedBox(
                       width: double.infinity,
                       child: OutlinedButton(
-                          onPressed: () => _tryLogin("Eva"),
-                          child: const Text("Entrar como Eva"))),
+                          onPressed: () =>
+                              context.read<AppState>().loginGuest(),
+                          child: const Text(
+                              "Entrar como Invitado (Sin guardar)"))),
                 ],
                 const SizedBox(height: 20),
                 TextButton(
                     onPressed: _showChangePassDialog,
-                    child: const Text("Cambiar contraseña inicial"))
+                    child: const Text("Cambiar contraseña"))
               ],
             ),
           ),
@@ -1196,7 +1227,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
-// --- LAYOUT PRINCIPAL RESPONSIVE (SOLUCION MOVIL) ---
+// --- LAYOUT PRINCIPAL RESPONSIVE ---
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
   @override
@@ -1228,15 +1259,12 @@ class _MainLayoutState extends State<MainLayout> {
       );
     }
 
-    // Usar LayoutBuilder para detectar el tamaño de la pantalla
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxWidth < 800) {
-          // VISTA MOVIL
           return _MobileLayout(
               idx: _idx, onNav: (i) => setState(() => _idx = i));
         } else {
-          // VISTA ESCRITORIO (Original)
           return _DesktopLayout(
               idx: _idx, onNav: (i) => setState(() => _idx = i));
         }
@@ -1433,7 +1461,7 @@ class _SidebarItem extends StatelessWidget {
   }
 }
 
-// --- VISTA 1: DIARIO (ACTUALIZADA Y COMPLETA) ---
+// --- VISTA 1: DIARIO ---
 class PanelDiarioView extends StatelessWidget {
   const PanelDiarioView({super.key});
   @override
@@ -1464,7 +1492,7 @@ class PanelDiarioView extends StatelessWidget {
       Text("Fecha: ${DateFormat('yyyy/MM/dd').format(hoyDt)}",
           style: const TextStyle(color: Colors.grey)),
       const SizedBox(height: 20),
-      if (state.esBenja) ...[
+      if (state.currentUser.toLowerCase() == "benja") ...[
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -1536,7 +1564,7 @@ class PanelDiarioView extends StatelessWidget {
   }
 }
 
-// --- DIALOGO EDICIÓN RUTINA (COMPLETO) ---
+// --- DIALOGO EDICIÓN RUTINA ---
 class EditRoutineDialog extends StatefulWidget {
   final DateTime fecha;
   final RutinaDiaria rutinaActual;
@@ -1729,7 +1757,7 @@ class _EditRoutineDialogState extends State<EditRoutineDialog> {
   }
 }
 
-// --- VISTA 2: SEMANAL (COMPLETA) ---
+// --- VISTA 2: SEMANAL ---
 class PanelSemanalView extends StatefulWidget {
   const PanelSemanalView({super.key});
   @override
@@ -1770,7 +1798,7 @@ class _PanelSemanalViewState extends State<PanelSemanalView>
                 var plans = state.planificados[fStr] ?? {};
                 RutinaDiaria rut = state.obtenerRutina(d);
                 return ListView(padding: const EdgeInsets.all(16), children: [
-                  if (state.esBenja)
+                  if (state.currentUser.toLowerCase() == "benja")
                     Card(
                         child: ListTile(
                             title: Text("🏋️ ${rut.fuerza.join(", ")}"),
@@ -1809,7 +1837,7 @@ class _PanelSemanalViewState extends State<PanelSemanalView>
   }
 }
 
-// --- OTRAS VISTAS (COMPLETAS) ---
+// --- VISTA 3: HISTORIAL ---
 class HistorialView extends StatelessWidget {
   const HistorialView({super.key});
   @override
@@ -1829,29 +1857,39 @@ class HistorialView extends StatelessWidget {
       }
     });
     rows.sort((a, b) => b['Fecha']!.compareTo(a['Fecha']!));
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text("📊 Historial",
-          style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
-      const SizedBox(height: 20),
-      Expanded(
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text("📊 Historial de Registros",
+            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 20),
+        Expanded(
           child: SingleChildScrollView(
-              child: DataTable(
-                  columns: const [
-            DataColumn(label: Text("Fecha")),
-            DataColumn(label: Text("Hora")),
-            DataColumn(label: Text("Tratamiento"))
-          ],
-                  rows: rows
-                      .map((r) => DataRow(cells: [
-                            DataCell(Text(r['Fecha']!)),
-                            DataCell(Text(r['Hora']!)),
-                            DataCell(Text(r['Tratamiento']!))
-                          ]))
-                      .toList())))
-    ]);
+            child: DataTable(
+              columns: const [
+                DataColumn(label: Text("Fecha")),
+                DataColumn(label: Text("Hora")),
+                DataColumn(label: Text("Tratamiento")),
+                DataColumn(label: Text("Estado"))
+              ],
+              rows: rows
+                  .map((r) => DataRow(cells: [
+                        DataCell(Text(r['Fecha']!)),
+                        DataCell(Text(r['Hora']!)),
+                        DataCell(Text(r['Tratamiento']!)),
+                        DataCell(Text(r['Momento']!)),
+                      ]))
+                  .toList(),
+            ),
+          ),
+        )
+      ],
+    );
   }
 }
 
+// --- VISTA 4: CLÍNICA ---
 class ClinicaView extends StatelessWidget {
   const ClinicaView({super.key});
   @override
@@ -1860,24 +1898,36 @@ class ClinicaView extends StatelessWidget {
     return ListView(children: [
       const Text("🏥 Clínica",
           style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
+      const SizedBox(height: 20),
+      const Text("Tratamientos Activos en Curso:",
+          style: TextStyle(color: Colors.grey)),
+      const SizedBox(height: 10),
       ...state.catalogo
           .where((t) => state.ciclosActivos[t.id]?['activo'] == true)
           .map((t) => Card(
-              color: Colors.blue.shade50,
-              child: ListTile(
+                color: Colors.blue.shade50,
+                child: ListTile(
                   title: Text(t.nombre),
+                  subtitle:
+                      Text("Iniciado: ${state.ciclosActivos[t.id]['inicio']}"),
                   trailing: FilledButton(
                       onPressed: () => state.detenerCiclo(t.id),
-                      child: const Text("Finalizar"))))),
-      const Divider(),
+                      child: const Text("Finalizar")),
+                ),
+              )),
+      const Divider(height: 40),
+      const Text("Iniciar Nuevo Tratamiento:",
+          style: TextStyle(fontWeight: FontWeight.bold)),
       _BuscadorManual(
-          catalogo: state.catalogo,
-          onAdd: (t, _) => state.iniciarCiclo(t.id),
-          askTime: false)
+        catalogo: state.catalogo,
+        onAdd: (t, _) => state.iniciarCiclo(t.id),
+        askTime: false,
+      )
     ]);
   }
 }
 
+// --- VISTA 5: BUSCADOR IA ---
 class BuscadorIAView extends StatefulWidget {
   const BuscadorIAView({super.key});
   @override
@@ -1888,54 +1938,85 @@ class _BuscadorIAViewState extends State<BuscadorIAView> {
   final _ctrl = TextEditingController();
   List<Tratamiento> _results = [];
   bool _loading = false;
+
   @override
   Widget build(BuildContext context) {
     var state = context.watch<AppState>();
-    return Column(children: [
-      TextField(
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text("Buscador IA",
+            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 20),
+        TextField(
           controller: _ctrl,
           decoration: InputDecoration(
+              labelText: "Describe dolencia...",
               suffixIcon: IconButton(
-                  icon: const Icon(Icons.send),
-                  onPressed: () async {
-                    setState(() => _loading = true);
-                    try {
-                      var r = await state.consultarIA(_ctrl.text);
-                      if (mounted)
-                        setState(() {
-                          _results = r;
-                          _loading = false;
-                        });
-                    } catch (e) {
-                      if (mounted) setState(() => _loading = false);
-                    }
-                  }))),
-      if (_loading) const LinearProgressIndicator(),
-      Expanded(
+                icon: const Icon(Icons.send),
+                onPressed: () async {
+                  setState(() => _loading = true);
+                  try {
+                    var r = await state.consultarIA(_ctrl.text);
+                    if (!context.mounted) return;
+                    setState(() {
+                      _results = r;
+                      _loading = false;
+                    });
+                  } catch (e) {
+                    if (!context.mounted) return;
+                    setState(() => _loading = false);
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text("Info: $e"),
+                        backgroundColor: Colors.orange));
+                  }
+                },
+              )),
+        ),
+        if (_loading) const LinearProgressIndicator(),
+        const SizedBox(height: 20),
+        Expanded(
           child: ListView.builder(
-              itemCount: _results.length,
-              itemBuilder: (_, i) => TreatmentCard(
-                  t: _results[i],
-                  onRegister: () =>
-                      state.agregarTratamientoCatalogo(_results[i]))))
-    ]);
+            itemCount: _results.length,
+            itemBuilder: (_, i) {
+              var t = _results[i];
+              return TreatmentCard(
+                  t: t,
+                  onRegister: () {
+                    state.agregarTratamientoCatalogo(t);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Guardado en Catálogo")));
+                  });
+            },
+          ),
+        )
+      ],
+    );
   }
 }
 
+// --- VISTA 6: GESTION ---
 class GestionView extends StatelessWidget {
   const GestionView({super.key});
   @override
   Widget build(BuildContext context) {
     var state = context.watch<AppState>();
     return ListView(
-        children: state.catalogo
-            .map((t) => TreatmentCard(
-                t: t, onDeletePlan: () => state.ocultarTratamiento(t.id)))
-            .toList());
+      children: [
+        const Text("⚙️ Gestión de Tratamientos",
+            style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 20),
+        ...state.catalogo.map((t) => TreatmentCard(
+              t: t,
+              onDeletePlan: () => state.ocultarTratamiento(t.id),
+            ))
+      ],
+    );
   }
 }
 
-// --- WIDGETS AUXILIARES (RESTAURADOS COMPLETOS CON DISEÑO) ---
+// --- WIDGETS AUXILIARES ---
 
 class _BuscadorManual extends StatelessWidget {
   final List<Tratamiento> catalogo;
