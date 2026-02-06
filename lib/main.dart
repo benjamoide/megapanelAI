@@ -80,7 +80,7 @@ class Tratamiento {
   String posicion;
   String hz;
   String duracion;
-  List<Map<String, dynamic>> frecuencias;
+  List<Map<String, dynamic>> frecuencias; // Ej: [{'nm': 660, 'p': 100}, ...]
   List<String> tipsAntes;
   List<String> tipsDespues;
   List<String> prohibidos;
@@ -242,7 +242,6 @@ class RutinaDiaria {
     if (sessionsList != null) {
       sessions = sessionsList.map((e) => CardioSession.fromJson(e)).toList();
     } else {
-      // Migración legacy
       if (json['cardioTipo'] != null) {
         sessions.add(CardioSession(
             type: json['cardioTipo'],
@@ -260,7 +259,7 @@ class RutinaDiaria {
 }
 
 // ==============================================================================
-// 3. BASE DE DATOS MAESTRA (DEFINICIONES PURAS)
+// 3. BASE DE DATOS MAESTRA
 // ==============================================================================
 final List<Tratamiento> DB_DEFINICIONES = [
   // CODO
@@ -664,7 +663,6 @@ final List<Tratamiento> DB_DEFINICIONES = [
       ],
       hz: "CW",
       duracion: "20"),
-
   // CABEZA
   Tratamiento(
       id: "cab_migr",
@@ -793,17 +791,17 @@ class AppState extends ChangeNotifier {
     _userSubscription?.cancel();
     currentUser = "";
     isGuest = false;
-    // LIMPIEZA TOTAL PARA EVITAR MEZCLA DE DATOS
+    // Solo descargamos la sesión de la memoria RAM, NO borramos de Firebase
     historial = {};
     planificados = {};
     ciclosActivos = {};
     rutinasEditadas = {};
-    catalogo = _generarCatalogoCompleto(); // Resetear catálogo a estado puro
+    catalogo = _generarCatalogoCompleto();
     notifyListeners();
   }
 
   void _suscribirseADatosEnNube() {
-    if (isGuest) return; // Invitados no usan nube
+    if (isGuest) return;
 
     _userSubscription?.cancel();
     _userSubscription =
@@ -811,7 +809,6 @@ class AppState extends ChangeNotifier {
       if (snapshot.exists && snapshot.data() != null) {
         Map<String, dynamic> data = snapshot.data()!;
 
-        // 1. Cargar Datos Básicos
         if (data.containsKey('historial')) {
           historial = Map<String, List<Map<String, dynamic>>>.from(json
               .decode(data['historial'])
@@ -833,9 +830,7 @@ class AppState extends ChangeNotifier {
                   (k, v) => MapEntry(k, RutinaDiaria.fromJson(v)));
         }
 
-        // 2. Cargar Tratamientos Personalizados (Y mezclar con base limpia)
-        catalogo =
-            _generarCatalogoCompleto(); // SIEMPRE empezar de cero al recibir datos
+        catalogo = _generarCatalogoCompleto();
         if (data.containsKey('custom_treatments')) {
           List<Tratamiento> customs =
               (json.decode(data['custom_treatments']) as List)
@@ -847,7 +842,6 @@ class AppState extends ChangeNotifier {
           }
         }
 
-        // Ordenar y filtrar
         catalogo = catalogo.where((t) => !t.oculto).toList();
         catalogo.sort((a, b) => a.zona.compareTo(b.zona));
 
@@ -874,7 +868,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> _guardarTodo() async {
-    if (currentUser.isEmpty || isGuest) return; // Invitados no guardan
+    if (currentUser.isEmpty || isGuest) return;
 
     List<Tratamiento> aGuardar =
         catalogo.where((t) => t.esCustom || t.oculto).toList();
@@ -898,7 +892,7 @@ class AppState extends ChangeNotifier {
       'momento': momento
     });
     _guardarTodo();
-    notifyListeners(); // Actualizar UI Invitado
+    notifyListeners();
   }
 
   void planificarTratamiento(String fecha, String id, String momento) {
@@ -2182,17 +2176,21 @@ class _TreatmentCardState extends State<TreatmentCard> {
                     children: [
                       Column(children: [
                         const Icon(Icons.waves, size: 20),
-                        Text("${widget.t.hz}")
+                        Text(widget.t.hz,
+                            style: const TextStyle(fontWeight: FontWeight.bold))
                       ]),
                       Column(children: [
                         const Icon(Icons.timer, size: 20),
-                        Text("${widget.t.duracion} min")
+                        Text("${widget.t.duracion} min",
+                            style: const TextStyle(fontWeight: FontWeight.bold))
                       ]),
                       Column(children: [
                         const Icon(Icons.light_mode, size: 20),
-                        Text(widget.t.frecuencias
-                            .map((f) => "${f['nm']}nm")
-                            .join("/ "))
+                        ...widget.t.frecuencias
+                            .map((f) => Text("${f['nm']}nm: ${f['p']}%",
+                                style: const TextStyle(
+                                    fontSize: 12, fontWeight: FontWeight.bold)))
+                            .toList()
                       ]),
                     ],
                   ),
