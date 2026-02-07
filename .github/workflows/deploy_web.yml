@@ -1,42 +1,61 @@
-name: Build Web & Android
+name: Deploy Web & Android
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main  # O 'master', asegúrate de que coincida con tu rama principal
+
+# Permisos para que el robot pueda escribir en GitHub Pages
+permissions:
+  contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-java@v3
+      - name: Setup Java (Necesario para Android)
+        uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
 
-      - uses: subosito/flutter-action@v2
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
 
-      - run: flutter pub get
+      - name: Get Dependencies
+        run: flutter pub get
 
-      # PARTE A: WEB
+      # ---------------------------------------------------------
+      # PASO 1: CONSTRUIR WEB (CON LA CLAVE SECRETA INYECTADA)
+      # ---------------------------------------------------------
       - name: Build Web
-        # IMPORTANTE: Aquí está configurado para tu repo "megapanelAI"
         run: flutter build web --release --base-href "/megapanelAI/" --dart-define=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+        # NOTA: Asegúrate de que el 'base-href' coincida con el nombre de tu repositorio (/megapanelAI/)
 
-      - name: Deploy Web to GitHub Pages
+      # ---------------------------------------------------------
+      # PASO 2: CONSTRUIR APK (CON LA CLAVE SECRETA INYECTADA)
+      # ---------------------------------------------------------
+      - name: Build APK
+        run: flutter build apk --release --dart-define=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+
+      # ---------------------------------------------------------
+      # PASO 3: PUBLICAR WEB EN GITHUB PAGES
+      # ---------------------------------------------------------
+      - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./build/web
 
-      # PARTE B: ANDROID
-      - name: Build Android APK
-        run: flutter build apk --release --dart-define=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
-
+      # ---------------------------------------------------------
+      # PASO 4: GUARDAR EL APK PARA QUE LO DESCARGUES
+      # ---------------------------------------------------------
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
