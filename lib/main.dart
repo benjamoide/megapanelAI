@@ -1571,14 +1571,18 @@ class EditRoutineDialog extends StatefulWidget {
 class _EditRoutineDialogState extends State<EditRoutineDialog> {
   late List<String> fuerzaSel;
   late List<CardioSession> sessions;
+
+  // Valores por defecto
   String selectedType = CARDIO_TYPES[0];
   TextEditingController durationCtrl = TextEditingController(text: "20");
+
+  // Variables temporales para inputs
   int steps = 5000;
   double speed = 6.0;
   double incline = 2.0;
   double resistance = 5.0;
   double watts = 100.0;
-  String norwegianMachine = "Cinta";
+  String norwegianMachine = "Cinta"; // Por defecto
 
   @override
   void initState() {
@@ -1599,8 +1603,10 @@ class _EditRoutineDialogState extends State<EditRoutineDialog> {
       newSession.speed = speed;
       newSession.incline = incline;
     } else if (selectedType == "Protocolo Noruego") {
-      newSession.duration = 32;
+      newSession.duration =
+          32; // Duración fija del protocolo (4x4 + calentamiento/enfriamiento aprox)
       newSession.machine = norwegianMachine;
+      // Guardar parámetros específicos según la máquina del Noruego
       if (norwegianMachine == "Cinta") {
         newSession.speed = speed;
         newSession.incline = incline;
@@ -1608,6 +1614,7 @@ class _EditRoutineDialogState extends State<EditRoutineDialog> {
         newSession.resistance = resistance;
         newSession.watts = watts;
       } else if (norwegianMachine == "Remo") {
+        newSession.speed = speed; // Usamos campo speed para ritmo/velocidad
         newSession.resistance = resistance;
       }
     }
@@ -1714,17 +1721,90 @@ class _EditRoutineDialogState extends State<EditRoutineDialog> {
                                       incline = double.tryParse(v) ?? 2))
                         ]),
                       if (selectedType == "Protocolo Noruego")
-                        Column(children: [
-                          const Text("32 min fijos"),
-                          DropdownButton<String>(
-                              value: norwegianMachine,
-                              items: ["Cinta", "Elíptica", "Remo"]
-                                  .map((m) => DropdownMenuItem(
-                                      value: m, child: Text(m)))
-                                  .toList(),
-                              onChanged: (v) =>
-                                  setState(() => norwegianMachine = v!))
-                        ]),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text("⏱️ Duración fija: 32 min (4x4)",
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.blue)),
+                            const SizedBox(height: 5),
+                            DropdownButton<String>(
+                                value: norwegianMachine,
+                                isExpanded: true,
+                                items: ["Cinta", "Elíptica", "Remo"]
+                                    .map((m) => DropdownMenuItem(
+                                        value: m, child: Text("Máquina: $m")))
+                                    .toList(),
+                                onChanged: (v) =>
+                                    setState(() => norwegianMachine = v!)),
+                            const SizedBox(height: 10),
+
+                            // CAMPOS ESPECÍFICOS NORUEGO
+                            if (norwegianMachine == "Cinta")
+                              Row(children: [
+                                Expanded(
+                                    child: TextField(
+                                        decoration: const InputDecoration(
+                                            labelText: "Vel (Km/h)",
+                                            border: OutlineInputBorder()),
+                                        keyboardType: TextInputType.number,
+                                        onChanged: (v) =>
+                                            speed = double.tryParse(v) ?? 0)),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                    child: TextField(
+                                        decoration: const InputDecoration(
+                                            labelText: "Inclinación %",
+                                            border: OutlineInputBorder()),
+                                        keyboardType: TextInputType.number,
+                                        onChanged: (v) =>
+                                            incline = double.tryParse(v) ?? 0)),
+                              ]),
+
+                            if (norwegianMachine == "Remo")
+                              Row(children: [
+                                Expanded(
+                                    child: TextField(
+                                        decoration: const InputDecoration(
+                                            labelText: "Velocidad",
+                                            border: OutlineInputBorder()),
+                                        keyboardType: TextInputType.number,
+                                        onChanged: (v) =>
+                                            speed = double.tryParse(v) ?? 0)),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                    child: TextField(
+                                        decoration: const InputDecoration(
+                                            labelText: "Resistencia",
+                                            border: OutlineInputBorder()),
+                                        keyboardType: TextInputType.number,
+                                        onChanged: (v) => resistance =
+                                            double.tryParse(v) ?? 0)),
+                              ]),
+
+                            if (norwegianMachine == "Elíptica")
+                              Row(children: [
+                                Expanded(
+                                    child: TextField(
+                                        decoration: const InputDecoration(
+                                            labelText: "Watios",
+                                            border: OutlineInputBorder()),
+                                        keyboardType: TextInputType.number,
+                                        onChanged: (v) =>
+                                            watts = double.tryParse(v) ?? 0)),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                    child: TextField(
+                                        decoration: const InputDecoration(
+                                            labelText: "Resistencia",
+                                            border: OutlineInputBorder()),
+                                        keyboardType: TextInputType.number,
+                                        onChanged: (v) => resistance =
+                                            double.tryParse(v) ?? 0)),
+                              ]),
+                          ],
+                        ),
                       if (selectedType == "Remo Ergómetro" ||
                           selectedType == "Descanso Cardio")
                         TextField(
