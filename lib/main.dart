@@ -12,6 +12,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_options.dart';
 import 'bluetooth/ble_manager.dart';
 import 'bluetooth/ble_protocol.dart';
+import 'views/bluetooth_custom_view.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 // ==============================================================================
