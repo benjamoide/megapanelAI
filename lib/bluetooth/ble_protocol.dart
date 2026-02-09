@@ -100,7 +100,8 @@ class BleProtocol {
   }
   
   /// Helper for Quick Start (0x21)
-  static List<int> quickStart() {
-    return buildPacket(CMD_QUICK_START, [0x01]);
+  /// [mode] 0x01 = Preset 1?, 0x00 = Manual?
+  static List<int> quickStart({int mode = 0x00}) {
+    return buildPacket(CMD_QUICK_START, [mode]);
   }
 }

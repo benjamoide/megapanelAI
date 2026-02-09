@@ -2,6 +2,7 @@
 import 'dart:async';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:intl/intl.dart';
 
 class BleManager {
   // Singleton pattern
@@ -19,6 +20,15 @@ class BleManager {
   // Persistent stream controller for connection state
   final _connectionStateController = StreamController<BluetoothConnectionState>.broadcast();
   Stream<BluetoothConnectionState> get connectionState => _connectionStateController.stream;
+
+  // Log stream
+  final _logController = StreamController<String>.broadcast();
+  Stream<String> get logs => _logController.stream;
+
+  void log(String msg) {
+    print(msg); // Keep console print
+    _logController.add("${DateFormat('HH:mm:ss').format(DateTime.now())}: $msg");
+  }
 
   // Expose current state synchronously
   bool get isConnected => _connectedDevice != null && _connectedDevice!.isConnected;
@@ -45,10 +55,10 @@ class BleManager {
         await FlutterBluePlus.startScan(
             timeout: const Duration(seconds: 10), androidUsesFineLocation: true);
       } catch (e) {
-        print("Error starting scan: $e");
+          log("Error starting scan: $e");
       }
     } else {
-      print("Permissions not granted for scanning");
+      log("Permissions not granted for scanning");
     }
   }
 
@@ -56,7 +66,7 @@ class BleManager {
     try {
       await FlutterBluePlus.stopScan();
     } catch (e) {
-      print("Error stopping scan: $e");
+      log("Error stopping scan: $e");
     }
   }
 
@@ -77,7 +87,7 @@ class BleManager {
       _connectionSubscription = device.connectionState.listen((state) {
         _connectionStateController.add(state);
         if (state == BluetoothConnectionState.disconnected) {
-          print("BleManager: Device Disconnected");
+          log("BleManager: Device Disconnected");
           _cleanup();
         }
       });
@@ -86,7 +96,7 @@ class BleManager {
       await Future.delayed(const Duration(milliseconds: 500));
 
       // Discover services
-      print("BleManager: Discovering Services...");
+      log("BleManager: Discovering Services...");
       List<BluetoothService> services = await device.discoverServices();
       
       // Find write characteristic
@@ -102,22 +112,22 @@ class BleManager {
             _notifyCharacteristic = characteristic;
              await _notifyCharacteristic?.setNotifyValue(true);
              _notifySubscription = _notifyCharacteristic?.lastValueStream.listen((value) {
-               print("Received data: $value");
+               log("Received data: $value");
              });
           }
         }
       }
       
       if (_writeCharacteristic == null) {
-        print("No write characteristic found!");
+        log("No write characteristic found!");
         await disconnect();
         return false;
       }
       
-      print("BleManager: Connected and ready.");
+      log("BleManager: Connected and ready.");
       return true;
     } catch (e) {
-      print("Connection failed: $e");
+      log("Connection failed: $e");
       await disconnect();
       return false;
     }
@@ -129,7 +139,7 @@ class BleManager {
   }
 
   void _cleanup() {
-    print("BleManager: Cleaning up resources");
+    log("BleManager: Cleaning up resources");
     _connectionSubscription?.cancel();
     _notifySubscription?.cancel();
     _connectedDevice = null;
@@ -141,14 +151,18 @@ class BleManager {
   Future<void> write(List<int> data) async {
     if (_writeCharacteristic != null) {
       String hexData = data.map((e) => e.toRadixString(16).padLeft(2, '0')).join(' ');
-      print("BLE WRITE: $hexData");
-      if (_writeCharacteristic!.properties.writeWithoutResponse) {
-         await _writeCharacteristic!.write(data, withoutResponse: true);
-      } else {
-         await _writeCharacteristic!.write(data, withoutResponse: false);
+      log("BLE WRITE: $hexData");
+      try {
+        if (_writeCharacteristic!.properties.writeWithoutResponse) {
+           await _writeCharacteristic!.write(data, withoutResponse: true);
+        } else {
+           await _writeCharacteristic!.write(data, withoutResponse: false);
+        }
+      } catch (e) {
+        log("Write Error: $e");
       }
     } else {
-      print("Not connected or no write characteristic");
+      log("Not connected or no write characteristic");
     }
   }
 }
