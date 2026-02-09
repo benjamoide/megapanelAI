@@ -10,6 +10,9 @@ import 'package:intl/intl.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_options.dart';
+import 'bluetooth/ble_manager.dart';
+import 'bluetooth/ble_protocol.dart';
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 // ==============================================================================
 // 1. CONFIGURACIÓN Y CONSTANTES
@@ -713,10 +716,31 @@ class AppState extends ChangeNotifier {
 
   List<Tratamiento> catalogo = [];
 
+  // BLE
+  final BleManager _bleManager = BleManager();
+  bool isConnected = false;
+
   bool get hasApiKey => _apiKey.isNotEmpty;
 
   AppState() {
     catalogo = _generarCatalogoCompleto();
+    _initBle();
+  }
+
+  void _initBle() {
+    _bleManager.init();
+    _bleManager.connectionState.listen((state) {
+      isConnected = state == BluetoothConnectionState.connected;
+      notifyListeners();
+    });
+  }
+
+  Future<void> connectToDevice(BluetoothDevice device) async {
+    await _bleManager.connect(device);
+  }
+
+  Future<void> disconnectDevice() async {
+    await _bleManager.disconnect();
   }
 
   void setApiKey(String key) {
@@ -905,24 +929,94 @@ class AppState extends ChangeNotifier {
   void desplanificarTratamiento(String fecha, String id) {
     if (planificados.containsKey(fecha)) {
       planificados[fecha]!.remove(id);
-      _guardarTodo();
-    }
-    notifyListeners();
-  }
-
-  void iniciarCiclo(String id) {
+  Future<void> iniciarCiclo(String id) async {
     ciclosActivos[id] = {
-      'inicio': DateFormat('yyyy-MM-dd').format(DateTime.now()),
-      'activo': true
+      'activo': true,
+      'inicio': DateFormat('HH:mm:ss').format(DateTime.now())
     };
-    _guardarTodo();
+    
+        // 1. Set Countdown (Duration)
+        int duration = int.tryParse(t.duracion) ?? 10;
+        await _bleManager.write(BleProtocol.setCountdown(duration));
+        
+        // 2. Set Pulse (Hz)
+        // Format example: "50Hz (Dolor)", "CW", "10Hz"
+        int hz = 0;
+        if (t.hz.toUpperCase().contains("CW")) {
+          hz = 0;
+        } else {
+          // Extract number
+          RegExp reg = RegExp(r'(\d+)');
+          var match = reg.firstMatch(t.hz);
+          if (match != null) {
+            hz = int.parse(match.group(1)!);
+          }
+        }
+        await _bleManager.write(BleProtocol.setPulse(hz));
+
+        // 3. Set Brightness (Frequencies)
+        // Format: [{'nm': 660, 'p': 50}, {'nm': 850, 'p': 100}]
+        // We need to map `nm` to channels. 
+        // Assumption based on common panels: 
+        // Channel 1: Red (630/660)
+        // Channel 2: NIR (810/830/850)
+        // If the device supports more, we can expand. 
+        // For now we'll create a 5-element list to be safe or just 2 if we determine that.
+        // Let's create a 5-channel array [Red1, Red2, NIR1, NIR2, Blue?] just in case, 
+        // or simplistic: [Red_Avg, NIR_Avg].
+        // Let's assume a standard 5-channel layout for "Mega Panel AI":
+        // 1: 630, 2: 660, 3: 810, 4: 830, 5: 850.
+        
+        List<int> brightnessValues = [0, 0, 0, 0, 0];
+        
+        for (var f in t.frecuencias) {
+          int nm = f['nm'];
+          int p = (f['p'] as num).toInt();
+          
+          if (nm == 630) brightnessValues[0] = p;
+          else if (nm == 660) brightnessValues[1] = p;
+          else if (nm == 810) brightnessValues[2] = p;
+          else if (nm == 830) brightnessValues[3] = p;
+          else if (nm == 850) brightnessValues[4] = p;
+          // Fallback groupings if needed
+          else if (nm < 700) brightnessValues[1] = p; // Treat as 660
+          else brightnessValues[4] = p; // Treat as 850
+        }
+        
+        // If the device only accepts 2 channels, `BleProtocol` or the device checks might fail/ignore extra.
+        // We send all 5.
+        await _bleManager.write(BleProtocol.setBrightness(brightnessValues));
+
+        // 4. Turn ON
+        await _bleManager.write(BleProtocol.setPower(true));
+        
+      } catch (e) {
+        print("BLE Error: $e");
+      }
+    }
+    
     notifyListeners();
   }
 
-  void detenerCiclo(String id) {
+  Future<void> detenerCiclo(String id) async {
     if (ciclosActivos.containsKey(id)) {
-      ciclosActivos[id]['activo'] = false;
-      _guardarTodo();
+      ciclosActivos[id]!['activo'] = false;
+      ciclosActivos[id]!['fin'] =
+          DateFormat('HH:mm:ss').format(DateTime.now());
+          
+      // BLE Command: Turn Off
+      if (isConnected) {
+        await _bleManager.write(BleProtocol.setPower(false));
+      }
+
+      // Guardar en historial (Mock)
+      String hoy = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      if (!historial.containsKey(hoy)) historial[hoy] = [];
+      historial[hoy]!.add({
+        'id': id,
+        'hora': ciclosActivos[id]!['inicio'],
+        'momento': 'Clínica'
+      });
     }
     notifyListeners();
   }
@@ -2339,6 +2433,88 @@ class _TreatmentCardState extends State<TreatmentCard> {
           Text(content),
         ],
       ),
+    );
+  }
+}
+// --- BLUETOOTH DIALOG ---
+class BluetoothScanDialog extends StatefulWidget {
+  const BluetoothScanDialog({super.key});
+
+  @override
+  State<BluetoothScanDialog> createState() => _BluetoothScanDialogState();
+}
+
+class _BluetoothScanDialogState extends State<BluetoothScanDialog> {
+  final BleManager _ble = BleManager();
+  
+  @override
+  void initState() {
+    super.initState();
+    _ble.startScan();
+  }
+
+  @override
+  void dispose() {
+    _ble.stopScan();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    var state = context.watch<AppState>();
+    
+    return AlertDialog(
+      title: const Text("Dispositivos Bluetooth"),
+      content: SizedBox(
+        width: 300,
+        height: 400,
+        child: Column(
+          children: [
+             if (state.isConnected)
+              ListTile(
+                title: Text(state._bleManager.connectedDevice?.platformName ?? "Desconocido"),
+                subtitle: const Text("Conectado"),
+                trailing: IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () {
+                    state.disconnectDevice();
+                    Navigator.pop(context);
+                  },
+                ),
+              ),
+            const Divider(),
+            Expanded(
+              child: StreamBuilder<List<ScanResult>>(
+                stream: _ble.scanResults,
+                initialData: const [],
+                builder: (c, snapshot) {
+                  var results = snapshot.data ?? [];
+                  return ListView.builder(
+                    itemCount: results.length,
+                    itemBuilder: (ctx, i) {
+                      var d = results[i].device;
+                      return ListTile(
+                        title: Text(d.platformName.isNotEmpty ? d.platformName : "Sin Nombre"),
+                        subtitle: Text(d.remoteId.toString()),
+                        onTap: () {
+                          state.connectToDevice(d);
+                          Navigator.pop(context);
+                        },
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text("Cerrar"),
+        )
+      ],
     );
   }
 }
