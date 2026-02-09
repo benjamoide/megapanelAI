@@ -1591,7 +1591,7 @@ class _MobileLayout extends StatelessWidget {
       const ClinicaView(),
       const BuscadorIAView(),
       const GestionView(),
-      const BluetoothCustomView()
+      BluetoothCustomView()
     ];
     return Scaffold(
       appBar: AppBar(
@@ -1622,7 +1622,7 @@ class _DesktopLayout extends StatelessWidget {
       const ClinicaView(),
       const BuscadorIAView(),
       const GestionView(),
-      const BluetoothCustomView()
+      BluetoothCustomView()
     ];
     return Scaffold(
       body: Row(
