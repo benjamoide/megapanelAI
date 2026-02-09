@@ -1038,6 +1038,11 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  bool isTratamientoActivo(String id) {
+    if (!ciclosActivos.containsKey(id)) return false;
+    return ciclosActivos[id]!['activo'] == true;
+  }
+
   void agregarTratamientoCatalogo(Tratamiento t) {
     int index =
         catalogo.indexWhere((e) => e.id == t.id || e.nombre == t.nombre);
