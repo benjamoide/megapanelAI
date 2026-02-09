@@ -1446,6 +1446,26 @@ class _SidebarContent extends StatelessWidget {
             }),
         const Spacer(),
         Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
+            child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: state.isConnected
+                            ? Colors.green.shade600
+                            : Colors.blue.shade700,
+                        foregroundColor: Colors.white),
+                    icon: Icon(
+                        state.isConnected
+                            ? Icons.bluetooth_connected
+                            : Icons.bluetooth,
+                        size: 20),
+                    label: Text(
+                        state.isConnected ? "Conectado" : "Conectar Panel"),
+                    onPressed: () => showDialog(
+                        context: context,
+                        builder: (_) => const BluetoothScanDialog())))),
+        Padding(
             padding: const EdgeInsets.all(20),
             child: OutlinedButton.icon(
                 onPressed: state.logout,
@@ -1655,6 +1675,27 @@ class PanelDiarioView extends StatelessWidget {
           isPlanned: true,
           plannedMoment: planificadosMap[t.id],
           onDeletePlan: () => state.desplanificarTratamiento(hoy, t.id),
+          onStart: () async {
+            if (!state.isConnected) {
+              await showDialog(
+                  context: context,
+                  builder: (_) => const BluetoothScanDialog());
+            }
+            if (state.isConnected) {
+              await state.iniciarCiclo(t.id);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text("Iniciando ${t.nombre}..."),
+                    backgroundColor: Colors.green));
+              }
+            } else {
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text("No conectado. Intente de nuevo."),
+                    backgroundColor: Colors.orange));
+              }
+            }
+          },
           onRegister: () =>
               state.registrarTratamiento(hoy, t.id, planificadosMap[t.id]!))),
     ]);
@@ -2079,24 +2120,6 @@ class ClinicaView extends StatelessWidget {
       const Text("Tratamientos Activos en Curso:",
           style: TextStyle(color: Colors.grey)),
       const SizedBox(height: 10),
-      if (!state.isConnected)
-        Container(
-          margin: const EdgeInsets.only(bottom: 20),
-          width: double.infinity,
-          height: 50,
-          child: ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue.shade700,
-              foregroundColor: Colors.white,
-            ),
-            icon: const Icon(Icons.bluetooth),
-            label: const Text("CONECTAR DISPOSITIVO"),
-            onPressed: () => showDialog(
-              context: context,
-              builder: (_) => const BluetoothScanDialog(),
-            ),
-          ),
-        ),
       ...state.catalogo
           .where((t) => state.ciclosActivos[t.id]?['activo'] == true)
           .map((t) => Card(
@@ -2307,6 +2330,7 @@ class TreatmentCard extends StatefulWidget {
   final String? plannedMoment;
   final VoidCallback? onRegister;
   final VoidCallback? onDeletePlan;
+  final VoidCallback? onStart;
 
   const TreatmentCard(
       {super.key,
@@ -2315,7 +2339,8 @@ class TreatmentCard extends StatefulWidget {
       this.isDone = false,
       this.plannedMoment,
       this.onRegister,
-      this.onDeletePlan});
+      this.onDeletePlan,
+      this.onStart});
 
   @override
   State<TreatmentCard> createState() => _TreatmentCardState();
@@ -2416,6 +2441,15 @@ class _TreatmentCardState extends State<TreatmentCard> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
+                      if (widget.onStart != null && !widget.isDone)
+                        FilledButton.icon(
+                          style: FilledButton.styleFrom(
+                              backgroundColor: Colors.orange.shade700),
+                          icon: const Icon(Icons.play_arrow),
+                          label: const Text("Iniciar"),
+                          onPressed: widget.onStart,
+                        ),
+                      const SizedBox(width: 8),
                       if (widget.isPlanned &&
                           widget.onDeletePlan != null &&
                           !widget.isDone)
