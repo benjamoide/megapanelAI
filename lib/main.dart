@@ -735,8 +735,8 @@ class AppState extends ChangeNotifier {
     });
   }
 
-  Future<void> connectToDevice(BluetoothDevice device) async {
-    await _bleManager.connect(device);
+  Future<bool> connectToDevice(BluetoothDevice device) async {
+    return await _bleManager.connect(device);
   }
 
   Future<void> disconnectDevice() async {
@@ -2555,10 +2555,17 @@ class _BluetoothScanDialogState extends State<BluetoothScanDialog> {
                   filtered.sort((a, b) {
                     var nameA = a.device.platformName.toLowerCase();
                     var nameB = b.device.platformName.toLowerCase();
+                    // Prioritize "BLOCK" (user device), then "Panel"/"Mega"
+                    bool aIsBlock = nameA.contains("block");
+                    bool bIsBlock = nameB.contains("block");
                     bool aIsTarget = nameA.contains("panel") || nameA.contains("mega");
                     bool bIsTarget = nameB.contains("panel") || nameB.contains("mega");
+                    
+                    if (aIsBlock && !bIsBlock) return -1;
+                    if (!aIsBlock && bIsBlock) return 1;
                     if (aIsTarget && !bIsTarget) return -1;
                     if (!aIsTarget && bIsTarget) return 1;
+                    
                     return b.rssi.compareTo(a.rssi); // Strongest signal first
                   });
 
@@ -2575,8 +2582,28 @@ class _BluetoothScanDialogState extends State<BluetoothScanDialog> {
                         title: Text(d.platformName, style: const TextStyle(fontWeight: FontWeight.bold)),
                         subtitle: Text("${d.remoteId} (${filtered[i].rssi} dBm)"),
                         onTap: () async {
-                          await state.connectToDevice(d);
-                          if (context.mounted) Navigator.pop(context);
+                           // Show loading indicator
+                           showDialog(
+                             context: context, 
+                             barrierDismissible: false,
+                             builder: (c) => const Center(child: CircularProgressIndicator())
+                           );
+                           
+                           bool success = await state.connectToDevice(d);
+                           
+                           if (context.mounted) {
+                             Navigator.pop(context); // Dismiss loading
+                             if (success) {
+                               Navigator.pop(context); // Dismiss scan dialog
+                               ScaffoldMessenger.of(context).showSnackBar(
+                                 SnackBar(content: Text("Conectado a ${d.platformName}"), backgroundColor: Colors.green)
+                               );
+                             } else {
+                               ScaffoldMessenger.of(context).showSnackBar(
+                                 const SnackBar(content: Text("Error al conectar. Intente de nuevo."), backgroundColor: Colors.red)
+                               );
+                             }
+                           }
                         },
                       );
                     },

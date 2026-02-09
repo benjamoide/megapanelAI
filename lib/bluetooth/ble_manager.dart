@@ -57,40 +57,51 @@ class BleManager {
 
   Stream<List<ScanResult>> get scanResults => FlutterBluePlus.scanResults;
 
-  Future<void> connect(BluetoothDevice device) async {
-    await device.connect();
-    _connectedDevice = device;
-    
-    // Listen to connection state
-    _connectionSubscription = device.connectionState.listen((state) {
-      if (state == BluetoothConnectionState.disconnected) {
-        _cleanup();
-      }
-    });
+  Future<bool> connect(BluetoothDevice device) async {
+    try {
+      await device.connect(timeout: const Duration(seconds: 15));
+      _connectedDevice = device;
+      
+      // Listen to connection state
+      _connectionSubscription = device.connectionState.listen((state) {
+        if (state == BluetoothConnectionState.disconnected) {
+          _cleanup();
+        }
+      });
+  
+      // Discover services
+      List<BluetoothService> services = await device.discoverServices();
+      
+      // Find write characteristic
+      _writeCharacteristic = null;
+      _notifyCharacteristic = null;
 
-    // Discover services
-    List<BluetoothService> services = await device.discoverServices();
-    
-    // Find write characteristic
-    // Based on analysis, we don't know the exact UUIDs yet.
-    // We will look for a characteristic that supports WRITE.
-    for (var service in services) {
-      for (var characteristic in service.characteristics) {
-        if (characteristic.properties.write || characteristic.properties.writeWithoutResponse) {
-          _writeCharacteristic = characteristic;
-        }
-        if (characteristic.properties.notify) {
-          _notifyCharacteristic = characteristic;
-           await _notifyCharacteristic?.setNotifyValue(true);
-           _notifySubscription = _notifyCharacteristic?.lastValueStream.listen((value) {
-             print("Received data: $value");
-           });
+      for (var service in services) {
+        for (var characteristic in service.characteristics) {
+          if (characteristic.properties.write || characteristic.properties.writeWithoutResponse) {
+            _writeCharacteristic = characteristic;
+          }
+          if (characteristic.properties.notify) {
+            _notifyCharacteristic = characteristic;
+             await _notifyCharacteristic?.setNotifyValue(true);
+             _notifySubscription = _notifyCharacteristic?.lastValueStream.listen((value) {
+               print("Received data: $value");
+             });
+          }
         }
       }
-    }
-    
-    if (_writeCharacteristic == null) {
-      print("No write characteristic found!");
+      
+      if (_writeCharacteristic == null) {
+        print("No write characteristic found!");
+        await disconnect();
+        return false;
+      }
+      
+      return true;
+    } catch (e) {
+      print("Connection failed: $e");
+      await disconnect();
+      return false;
     }
   }
 
