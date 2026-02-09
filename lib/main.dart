@@ -935,6 +935,11 @@ class AppState extends ChangeNotifier {
       'inicio': DateFormat('HH:mm:ss').format(DateTime.now())
     };
     
+    // BLE Command
+    if (isConnected) {
+      try {
+        var t = catalogo.firstWhere((e) => e.id == id);
+
         // 1. Set Countdown (Duration)
         int duration = int.tryParse(t.duracion) ?? 10;
         await _bleManager.write(BleProtocol.setCountdown(duration));
@@ -2070,6 +2075,24 @@ class ClinicaView extends StatelessWidget {
       const Text("Tratamientos Activos en Curso:",
           style: TextStyle(color: Colors.grey)),
       const SizedBox(height: 10),
+      if (!state.isConnected)
+        Container(
+          margin: const EdgeInsets.only(bottom: 20),
+          width: double.infinity,
+          height: 50,
+          child: ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue.shade700,
+              foregroundColor: Colors.white,
+            ),
+            icon: const Icon(Icons.bluetooth),
+            label: const Text("CONECTAR DISPOSITIVO"),
+            onPressed: () => showDialog(
+              context: context,
+              builder: (_) => const BluetoothScanDialog(),
+            ),
+          ),
+        ),
       ...state.catalogo
           .where((t) => state.ciclosActivos[t.id]?['activo'] == true)
           .map((t) => Card(
