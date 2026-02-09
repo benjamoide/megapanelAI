@@ -929,6 +929,10 @@ class AppState extends ChangeNotifier {
   void desplanificarTratamiento(String fecha, String id) {
     if (planificados.containsKey(fecha)) {
       planificados[fecha]!.remove(id);
+    }
+    notifyListeners();
+  }
+
   Future<void> iniciarCiclo(String id) async {
     ciclosActivos[id] = {
       'activo': true,
