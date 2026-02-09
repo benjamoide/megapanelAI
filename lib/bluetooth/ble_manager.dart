@@ -32,12 +32,27 @@ class BleManager {
   }
 
   Future<void> startScan() async {
-    // Optional: filter by service UUIDs if known
-    await FlutterBluePlus.startScan(timeout: const Duration(seconds: 5));
+    // Ensure permissions are granted before scanning
+    if (await Permission.bluetoothScan.request().isGranted &&
+        await Permission.bluetoothConnect.request().isGranted &&
+        (await Permission.location.request().isGranted || await Permission.locationWhenInUse.request().isGranted)) {
+      try {
+        await FlutterBluePlus.startScan(
+            timeout: const Duration(seconds: 10), androidUsesFineLocation: true);
+      } catch (e) {
+        print("Error starting scan: $e");
+      }
+    } else {
+      print("Permissions not granted for scanning");
+    }
   }
 
   Future<void> stopScan() async {
-    await FlutterBluePlus.stopScan();
+    try {
+      await FlutterBluePlus.stopScan();
+    } catch (e) {
+      print("Error stopping scan: $e");
+    }
   }
 
   Stream<List<ScanResult>> get scanResults => FlutterBluePlus.scanResults;

@@ -2550,16 +2550,33 @@ class _BluetoothScanDialogState extends State<BluetoothScanDialog> {
                 initialData: const [],
                 builder: (c, snapshot) {
                   var results = snapshot.data ?? [];
+                  // Filter and Sort
+                  var filtered = results.where((r) => r.device.platformName.isNotEmpty).toList();
+                  filtered.sort((a, b) {
+                    var nameA = a.device.platformName.toLowerCase();
+                    var nameB = b.device.platformName.toLowerCase();
+                    bool aIsTarget = nameA.contains("panel") || nameA.contains("mega");
+                    bool bIsTarget = nameB.contains("panel") || nameB.contains("mega");
+                    if (aIsTarget && !bIsTarget) return -1;
+                    if (!aIsTarget && bIsTarget) return 1;
+                    return b.rssi.compareTo(a.rssi); // Strongest signal first
+                  });
+
+                  if (filtered.isEmpty) {
+                     return const Center(child: Text("Buscando dispositivos..."));
+                  }
+
                   return ListView.builder(
-                    itemCount: results.length,
+                    itemCount: filtered.length,
                     itemBuilder: (ctx, i) {
-                      var d = results[i].device;
+                      var d = filtered[i].device;
                       return ListTile(
-                        title: Text(d.platformName.isNotEmpty ? d.platformName : "Sin Nombre"),
-                        subtitle: Text(d.remoteId.toString()),
-                        onTap: () {
-                          state.connectToDevice(d);
-                          Navigator.pop(context);
+                        leading: const Icon(Icons.bluetooth),
+                        title: Text(d.platformName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Text("${d.remoteId} (${filtered[i].rssi} dBm)"),
+                        onTap: () async {
+                          await state.connectToDevice(d);
+                          if (context.mounted) Navigator.pop(context);
                         },
                       );
                     },
