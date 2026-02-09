@@ -946,31 +946,42 @@ class AppState extends ChangeNotifier {
     if (isConnected) {
       try {
         var t = catalogo.firstWhere((e) => e.id == id);
-
-        // 1. Set Countdown (Duration)
-        int duration = int.tryParse(t.duracion) ?? 10;
-        print("BLE: Sending Duration $duration");
-        await _bleManager.write(BleProtocol.setCountdown(duration));
-        await Future.delayed(const Duration(milliseconds: 300)); // Delay to prevent flooding
         
-        // 2. Set Pulse (Hz)
-        // Format example: "50Hz (Dolor)", "CW", "10Hz"
-        int hz = 0;
-        if (t.hz.toUpperCase().contains("CW")) {
-          hz = 0;
-        } else {
-          // Extract number
-          RegExp reg = RegExp(r'(\d+)');
-          var match = reg.firstMatch(t.hz);
-          if (match != null) {
-            hz = int.parse(match.group(1)!);
-          }
-        }
-        print("BLE: Sending Hz $hz");
-        await _bleManager.write(BleProtocol.setPulse(hz));
+        print("BLE: Starting Treatment '${t.nombre}'");
+
+        // 1. Set Work Mode (0x50)
+        // 0 = CW (Continuous Wave), 1 = Pulse (if Hz > 0)
+        // Check if Hz contains "CW"
+        bool isCW = t.hz.toUpperCase().contains("CW");
+        int workMode = isCW ? 0 : 1; 
+        print("BLE: Sending Work Mode: $workMode (${isCW ? 'CW' : 'Pulse'})");
+        await _bleManager.write(BleProtocol.setWorkMode(workMode));
         await Future.delayed(const Duration(milliseconds: 300));
 
-        // 3. Set Brightness (Frequencies)
+        // 2. Set Countdown (Duration)
+        int duration = int.tryParse(t.duracion) ?? 10;
+        print("BLE: Sending Duration: $duration min");
+        await _bleManager.write(BleProtocol.setCountdown(duration));
+        await Future.delayed(const Duration(milliseconds: 300));
+        
+        // 3. Set Pulse (Hz) - Only if not CW
+        if (!isCW) {
+           int hz = 0;
+           RegExp reg = RegExp(r'(\d+)');
+           var match = reg.firstMatch(t.hz);
+           if (match != null) {
+             hz = int.parse(match.group(1)!);
+           }
+           print("BLE: Sending Pulse: $hz Hz");
+           await _bleManager.write(BleProtocol.setPulse(hz));
+           await Future.delayed(const Duration(milliseconds: 300));
+        }
+
+        // 4. Set Brightness (Frequencies)
+        // Protocol expects 5 byte payload for channels.
+        // Mapping (Best Guess for 5-channel panel):
+        // [Red1, Red2, NIR1, NIR2, Blue?] 
+        // 0: 630nm, 1: 660nm, 2: 810nm, 3: 830nm, 4: 850nm
         List<int> brightnessValues = [0, 0, 0, 0, 0];
         
         for (var f in t.frecuencias) {
@@ -982,21 +993,22 @@ class AppState extends ChangeNotifier {
           else if (nm == 810) brightnessValues[2] = p;
           else if (nm == 830) brightnessValues[3] = p;
           else if (nm == 850) brightnessValues[4] = p;
-          // Fallback groupings if needed
-          else if (nm < 700) brightnessValues[1] = p; // Treat as 660
-          else brightnessValues[4] = p; // Treat as 850
+          // Fallback logic
+          else if (nm < 700) brightnessValues[1] = p; // Map other reds to 660 slot
+          else brightnessValues[4] = p; // Map other NIRs to 850 slot
         }
         
-        print("BLE: Sending Brightness $brightnessValues");
+        print("BLE: Sending Brightness: $brightnessValues");
         await _bleManager.write(BleProtocol.setBrightness(brightnessValues));
         await Future.delayed(const Duration(milliseconds: 300));
 
-        // 4. Turn ON
+        // 5. Turn ON
         print("BLE: Sending Power ON");
         await _bleManager.write(BleProtocol.setPower(true));
         
       } catch (e) {
         print("BLE Error: $e");
+        // Optional: Notify UI of error
       }
     }
     
@@ -1440,7 +1452,69 @@ class _SidebarContent extends StatelessWidget {
               onItemSelected(5);
               if (isMobile) Navigator.pop(context);
             }),
+       // Start Button
+      if (onStart != null)
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              icon: const Icon(Icons.play_arrow),
+              label: const Text("Iniciar Tratamiento"),
+              style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFFB71C1C),
+                  padding: const EdgeInsets.symmetric(vertical: 12)),
+              onPressed: () {
+                Navigator.pop(context); // Close dialog if open
+                onStart!();
+              },
+            ),
+          ),
+        ),
+
+      // Stop Button (New)
+      if (t != null && state.isTratamientoActivo(t!.id))
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              icon: const Icon(Icons.stop, color: Colors.red),
+              label: const Text("Detener Tratamiento", style: TextStyle(color: Colors.red)),
+              style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Colors.red),
+                  padding: const EdgeInsets.symmetric(vertical: 12)),
+              onPressed: () {
+                 context.read<AppState>().detenerCiclo(t!.id);
+                 Navigator.pop(context); // Close dialog if open
+                 ScaffoldMessenger.of(context).showSnackBar(
+                   const SnackBar(content: Text("Tratamiento detenido"), backgroundColor: Colors.red)
+                 );
+              },
+            ),
+          ),
+        ),
         const Spacer(),
+        // Bluetooth Disconnect Button
+        if (state.isConnected)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
+            child: SizedBox(
+               width: double.infinity,
+               child: OutlinedButton.icon(
+                 icon: const Icon(Icons.bluetooth_disabled, color: Colors.indigo),
+                 label: const Text("Desconectar", style: TextStyle(color: Colors.indigo)),
+                 style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.indigo)),
+                 onPressed: () {
+                   state.disconnectDevice();
+                   ScaffoldMessenger.of(context).showSnackBar(
+                     const SnackBar(content: Text("Bluetooth Desconectado"))
+                   );
+                   if (isMobile) Navigator.pop(context);
+                 },
+               ),
+            ),
+          ),
         Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
             child: SizedBox(
