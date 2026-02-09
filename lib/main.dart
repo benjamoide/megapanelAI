@@ -1452,48 +1452,7 @@ class _SidebarContent extends StatelessWidget {
               onItemSelected(5);
               if (isMobile) Navigator.pop(context);
             }),
-       // Start Button
-      if (onStart != null)
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              icon: const Icon(Icons.play_arrow),
-              label: const Text("Iniciar Tratamiento"),
-              style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFFB71C1C),
-                  padding: const EdgeInsets.symmetric(vertical: 12)),
-              onPressed: () {
-                Navigator.pop(context); // Close dialog if open
-                onStart!();
-              },
-            ),
-          ),
-        ),
 
-      // Stop Button (New)
-      if (t != null && state.isTratamientoActivo(t!.id))
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              icon: const Icon(Icons.stop, color: Colors.red),
-              label: const Text("Detener Tratamiento", style: TextStyle(color: Colors.red)),
-              style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Colors.red),
-                  padding: const EdgeInsets.symmetric(vertical: 12)),
-              onPressed: () {
-                 context.read<AppState>().detenerCiclo(t!.id);
-                 Navigator.pop(context); // Close dialog if open
-                 ScaffoldMessenger.of(context).showSnackBar(
-                   const SnackBar(content: Text("Tratamiento detenido"), backgroundColor: Colors.red)
-                 );
-              },
-            ),
-          ),
-        ),
         const Spacer(),
         // Bluetooth Disconnect Button
         if (state.isConnected)
@@ -2429,25 +2388,30 @@ class _TreatmentCardState extends State<TreatmentCard> {
 
   @override
   Widget build(BuildContext context) {
+    var state = context.watch<AppState>();
+    bool isActive = state.isTratamientoActivo(widget.t.id);
+    
     Color statusColor = widget.isDone
         ? Colors.green
-        : (widget.isPlanned ? Colors.blue : Colors.grey);
+        : (isActive ? Colors.red : (widget.isPlanned ? Colors.blue : Colors.grey));
 
     return Card(
       elevation: 2,
       child: ExpansionTile(
-        initiallyExpanded: _initiallyExpanded,
+        initiallyExpanded: _initiallyExpanded || isActive,
         leading: Icon(
-            widget.isDone ? Icons.check_circle : Icons.circle_outlined,
+            widget.isDone ? Icons.check_circle : (isActive ? Icons.flash_on : Icons.circle_outlined),
             color: statusColor),
         title: Text(widget.t.nombre,
             style: TextStyle(
                 fontWeight: FontWeight.bold,
                 decoration: widget.isDone ? TextDecoration.lineThrough : null)),
-        subtitle: widget.isPlanned
-            ? Text("Planificado: ${widget.plannedMoment}",
-                style: const TextStyle(color: Colors.blue))
-            : null,
+        subtitle: isActive 
+             ? const Text("EN CURSO...", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold))
+             : (widget.isPlanned
+                ? Text("Planificado: ${widget.plannedMoment}",
+                    style: const TextStyle(color: Colors.blue))
+                : null),
         children: [
           Padding(
             padding: const EdgeInsets.all(16),
@@ -2507,11 +2471,27 @@ class _TreatmentCardState extends State<TreatmentCard> {
                   _buildSection("PROHIBIDO", widget.t.prohibidos.join("\n"),
                       Icons.warning_amber, Colors.red.shade50),
                 const SizedBox(height: 15),
-                if (widget.onDeletePlan != null || widget.onRegister != null)
+                
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      if (widget.onStart != null && !widget.isDone)
+                      // STOP BUTTON
+                      if (isActive)
+                        OutlinedButton.icon(
+                          icon: const Icon(Icons.stop, color: Colors.red),
+                          label: const Text("Detener Tratamiento", style: TextStyle(color: Colors.red)),
+                          style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.red)),
+                          onPressed: () {
+                             state.detenerCiclo(widget.t.id);
+                             ScaffoldMessenger.of(context).showSnackBar(
+                               const SnackBar(content: Text("Tratamiento detenido"), backgroundColor: Colors.red)
+                             );
+                          },
+                        ),
+                        
+                      const SizedBox(width: 8),
+
+                      if (widget.onStart != null && !widget.isDone && !isActive)
                         FilledButton.icon(
                           style: FilledButton.styleFrom(
                               backgroundColor: Colors.orange.shade700),
@@ -2520,16 +2500,18 @@ class _TreatmentCardState extends State<TreatmentCard> {
                           onPressed: widget.onStart,
                         ),
                       const SizedBox(width: 8),
+                      // Delete Plan
                       if (widget.isPlanned &&
                           widget.onDeletePlan != null &&
-                          !widget.isDone)
+                          !widget.isDone && !isActive)
                         TextButton.icon(
                           icon: const Icon(Icons.delete_outline),
                           label: const Text("Quitar"),
                           onPressed: widget.onDeletePlan,
                         ),
                       const SizedBox(width: 8),
-                      if (!widget.isDone && widget.onRegister != null)
+                      // Register
+                      if (!widget.isDone && !isActive && widget.onRegister != null)
                         FilledButton.icon(
                           icon: const Icon(Icons.check),
                           label: const Text("Registrar"),
