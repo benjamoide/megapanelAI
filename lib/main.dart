@@ -949,10 +949,10 @@ class AppState extends ChangeNotifier {
         
         print("BLE: Starting Treatment '${t.nombre}'");
 
-        // 0. STOP First (Reset state)
-        print("BLE: Sending Power OFF (Reset)");
-        await _bleManager.write(BleProtocol.setPower(false));
-        await Future.delayed(const Duration(milliseconds: 500));
+        // 0. Power ON First (Wake up / Reset)
+        print("BLE: Sending Power ON");
+        await _bleManager.write(BleProtocol.setPower(true));
+        await Future.delayed(const Duration(milliseconds: 1000)); // Wait for boot
 
         // 1. Set Countdown (Duration)
         int duration = int.tryParse(t.duracion) ?? 10;
@@ -998,10 +998,11 @@ class AppState extends ChangeNotifier {
         print("BLE: Sending Brightness: $brightnessValues");
         await _bleManager.write(BleProtocol.setBrightness(brightnessValues));
         await Future.delayed(const Duration(milliseconds: 300));
-
-        // 4. Turn ON
-        print("BLE: Sending Power ON");
-        await _bleManager.write(BleProtocol.setPower(true));
+        
+        // 4. Quick Start (Just in case)
+        // await _bleManager.write(BleProtocol.quickStart());
+        
+        print("BLE: Configuration sent.");
         
       } catch (e) {
         print("BLE Error: $e");

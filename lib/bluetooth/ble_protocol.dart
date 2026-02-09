@@ -87,13 +87,20 @@ class BleProtocol {
   /// Helper to Set Pulse (0x42)
   /// [hz] Frequency in Hz.
   static List<int> setPulse(int hz) {
-    // Send 2 bytes for potential future support, though 1 might suffice
-    return buildPacket(CMD_SET_PULSE, [hz & 0xFF]); 
+    if (hz > 255) {
+        return buildPacket(CMD_SET_PULSE, [(hz >> 8) & 0xFF, hz & 0xFF]);
+    }
+    return buildPacket(CMD_SET_PULSE, [hz]); 
   }
 
   /// Helper to Set Countdown (0x31)
-  /// [minutes] Duration. Should be 1 byte usually, but let's check.
+  /// [minutes] Duration.
   static List<int> setCountdown(int minutes) {
     return buildPacket(CMD_SET_COUNTDOWN, [minutes]);
+  }
+  
+  /// Helper for Quick Start (0x21)
+  static List<int> quickStart() {
+    return buildPacket(CMD_QUICK_START, [0x01]);
   }
 }
