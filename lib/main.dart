@@ -949,33 +949,25 @@ class AppState extends ChangeNotifier {
         
         print("BLE: Starting Treatment '${t.nombre}'");
 
-        // 1. Set Work Mode (0x50)
-        // 0 = CW (Continuous Wave), 1 = Pulse (if Hz > 0)
-        // Check if Hz contains "CW"
-        bool isCW = t.hz.toUpperCase().contains("CW");
-        int workMode = isCW ? 0 : 1; 
-        print("BLE: Sending Work Mode: $workMode (${isCW ? 'CW' : 'Pulse'})");
-        await _bleManager.write(BleProtocol.setWorkMode(workMode));
-        await Future.delayed(const Duration(milliseconds: 300));
-
-        // 2. Set Countdown (Duration)
+        // 1. Set Countdown (Duration)
         int duration = int.tryParse(t.duracion) ?? 10;
         print("BLE: Sending Duration: $duration min");
         await _bleManager.write(BleProtocol.setCountdown(duration));
         await Future.delayed(const Duration(milliseconds: 300));
         
-        // 3. Set Pulse (Hz) - Only if not CW
+        // 2. Set Pulse (Hz) - Send 0 for CW
+        int hz = 0;
+        bool isCW = t.hz.toUpperCase().contains("CW");
         if (!isCW) {
-           int hz = 0;
            RegExp reg = RegExp(r'(\d+)');
            var match = reg.firstMatch(t.hz);
            if (match != null) {
              hz = int.parse(match.group(1)!);
            }
-           print("BLE: Sending Pulse: $hz Hz");
-           await _bleManager.write(BleProtocol.setPulse(hz));
-           await Future.delayed(const Duration(milliseconds: 300));
         }
+        print("BLE: Sending Pulse: $hz Hz (Mode: ${hz == 0 ? 'CW' : 'Pulse'})");
+        await _bleManager.write(BleProtocol.setPulse(hz));
+        await Future.delayed(const Duration(milliseconds: 300));
 
         // 4. Set Brightness (Frequencies)
         // Protocol expects 5 byte payload for channels.
