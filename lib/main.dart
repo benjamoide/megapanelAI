@@ -729,10 +729,13 @@ class AppState extends ChangeNotifier {
 
   void _initBle() {
     _bleManager.init();
+    // Subscribe to state changes
     _bleManager.connectionState.listen((state) {
       isConnected = state == BluetoothConnectionState.connected;
       notifyListeners();
     });
+    // Check initial state
+    isConnected = _bleManager.isConnected;
   }
 
   Future<bool> connectToDevice(BluetoothDevice device) async {
@@ -2507,6 +2510,7 @@ class BluetoothScanDialog extends StatefulWidget {
 
 class _BluetoothScanDialogState extends State<BluetoothScanDialog> {
   final BleManager _ble = BleManager();
+  bool showAll = false;
   
   @override
   void initState() {
@@ -2552,30 +2556,50 @@ class _BluetoothScanDialogState extends State<BluetoothScanDialog> {
                   var results = snapshot.data ?? [];
                   // Filter and Sort
                   var filtered = results.where((r) => r.device.platformName.isNotEmpty).toList();
+                  
+                  // Strict Filter by default
+                  if (!showAll) {
+                    filtered = filtered.where((r) {
+                      String name = r.device.platformName.toLowerCase();
+                      return name.contains("block") || name.contains("panel") || name.contains("mega");
+                    }).toList();
+                  }
+
                   filtered.sort((a, b) {
                     var nameA = a.device.platformName.toLowerCase();
                     var nameB = b.device.platformName.toLowerCase();
-                    // Prioritize "BLOCK" (user device), then "Panel"/"Mega"
                     bool aIsBlock = nameA.contains("block");
                     bool bIsBlock = nameB.contains("block");
-                    bool aIsTarget = nameA.contains("panel") || nameA.contains("mega");
-                    bool bIsTarget = nameB.contains("panel") || nameB.contains("mega");
                     
                     if (aIsBlock && !bIsBlock) return -1;
                     if (!aIsBlock && bIsBlock) return 1;
-                    if (aIsTarget && !bIsTarget) return -1;
-                    if (!aIsTarget && bIsTarget) return 1;
                     
-                    return b.rssi.compareTo(a.rssi); // Strongest signal first
+                    return b.rssi.compareTo(a.rssi);
                   });
 
                   if (filtered.isEmpty) {
-                     return const Center(child: Text("Buscando dispositivos..."));
+                     return Center(child: Column(
+                       mainAxisAlignment: MainAxisAlignment.center,
+                       children: [
+                         const Text("Buscando dispositivos..."),
+                         if (!showAll)
+                           TextButton(
+                             onPressed: () => setState(() => showAll = true),
+                             child: const Text("Mostrar todos (Debug)")
+                           )
+                       ],
+                     ));
                   }
 
                   return ListView.builder(
-                    itemCount: filtered.length,
+                    itemCount: filtered.length + (showAll ? 0 : 1), // +1 for the toggle button at bottom
                     itemBuilder: (ctx, i) {
+                      if (i == filtered.length) {
+                        return Center(child: TextButton(
+                             onPressed: () => setState(() => showAll = true),
+                             child: const Text("Mostrar todos los dispositivos")
+                           ));
+                      }
                       var d = filtered[i].device;
                       return ListTile(
                         leading: const Icon(Icons.bluetooth),

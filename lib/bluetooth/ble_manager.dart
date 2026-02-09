@@ -16,10 +16,13 @@ class BleManager {
   StreamSubscription<BluetoothConnectionState>? _connectionSubscription;
   StreamSubscription<List<int>>? _notifySubscription;
 
-  // Expose connection state
-  Stream<BluetoothConnectionState> get connectionState => 
-      _connectedDevice?.connectionState ?? Stream.value(BluetoothConnectionState.disconnected);
-  
+  // Persistent stream controller for connection state
+  final _connectionStateController = StreamController<BluetoothConnectionState>.broadcast();
+  Stream<BluetoothConnectionState> get connectionState => _connectionStateController.stream;
+
+  // Expose current state synchronously
+  bool get isConnected => _connectedDevice != null && _connectedDevice!.isConnected;
+
   BluetoothDevice? get connectedDevice => _connectedDevice;
 
   Future<void> init() async {
@@ -29,6 +32,8 @@ class BleManager {
         await Permission.location.request().isGranted) {
       // Permissions granted
     }
+    // Emit initial disconnected state
+    _connectionStateController.add(BluetoothConnectionState.disconnected);
   }
 
   Future<void> startScan() async {
@@ -59,11 +64,18 @@ class BleManager {
 
   Future<bool> connect(BluetoothDevice device) async {
     try {
+        // Stop scanning before connecting
+      await stopScan();
+      
       await device.connect(timeout: const Duration(seconds: 15));
       _connectedDevice = device;
       
+      // Update local stream
+      _connectionStateController.add(BluetoothConnectionState.connected);
+
       // Listen to connection state
       _connectionSubscription = device.connectionState.listen((state) {
+        _connectionStateController.add(state);
         if (state == BluetoothConnectionState.disconnected) {
           _cleanup();
         }
@@ -116,6 +128,7 @@ class BleManager {
     _connectedDevice = null;
     _writeCharacteristic = null;
     _notifyCharacteristic = null;
+    _connectionStateController.add(BluetoothConnectionState.disconnected);
   }
 
   Future<void> write(List<int> data) async {
