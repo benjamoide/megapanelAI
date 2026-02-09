@@ -1006,6 +1006,74 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Starts a manual treatment not in the catalog
+  Future<void> iniciarCicloManual(Tratamiento t) async {
+     String tempId = t.id;
+     
+     ciclosActivos[tempId] = {
+       'activo': true,
+       'inicio': DateFormat('HH:mm:ss').format(DateTime.now())
+     };
+     
+     // BLE Command
+     if (isConnected) {
+       try {
+         print("BLE: Starting Manual Treatment");
+
+        // 0. STOP First (Reset state)
+        print("BLE: Sending Power OFF (Reset)");
+        await _bleManager.write(BleProtocol.setPower(false));
+        await Future.delayed(const Duration(milliseconds: 500));
+        
+        // 1. Set Countdown (Duration)
+        int duration = int.tryParse(t.duracion) ?? 10;
+        print("BLE: Sending Duration: $duration min");
+        await _bleManager.write(BleProtocol.setCountdown(duration));
+        await Future.delayed(const Duration(milliseconds: 300));
+        
+        // 2. Set Pulse (Hz)
+        int hz = 0;
+        bool isCW = t.hz.toUpperCase().contains("CW");
+        if (!isCW) {
+           RegExp reg = RegExp(r'(\d+)');
+           var match = reg.firstMatch(t.hz);
+           if (match != null) {
+             hz = int.parse(match.group(1)!);
+           }
+        }
+        print("BLE: Sending Pulse: $hz Hz");
+        await _bleManager.write(BleProtocol.setPulse(hz));
+        await Future.delayed(const Duration(milliseconds: 300));
+
+        // 3. Set Brightness (Frequencies)
+        List<int> brightnessValues = [0, 0, 0, 0, 0];
+        for (var f in t.frecuencias) {
+          int nm = f['nm'];
+          int p = (f['p'] as num).toInt();
+          if (nm == 630) brightnessValues[0] = p;
+          else if (nm == 660) brightnessValues[1] = p;
+          else if (nm == 810) brightnessValues[2] = p;
+          else if (nm == 830) brightnessValues[3] = p;
+          else if (nm == 850) brightnessValues[4] = p;
+          else if (nm < 700) brightnessValues[1] = p; 
+          else brightnessValues[4] = p; 
+        }
+        print("BLE: Sending Brightness: $brightnessValues");
+        await _bleManager.write(BleProtocol.setBrightness(brightnessValues));
+        await Future.delayed(const Duration(milliseconds: 300));
+        
+        // 4. Quick Start
+        print("BLE: Sending Quick Start (0x21)");
+        await _bleManager.write(BleProtocol.quickStart());
+        
+       } catch (e) {
+         print("BLE Manual Error: $e");
+         ciclosActivos.remove(tempId);
+       }
+     }
+     notifyListeners();
+  }
+
   Future<void> detenerCiclo(String id) async {
     if (ciclosActivos.containsKey(id)) {
       ciclosActivos[id]!['activo'] = false;
@@ -1448,7 +1516,14 @@ class _SidebarContent extends StatelessWidget {
               onItemSelected(5);
               if (isMobile) Navigator.pop(context);
             }),
-
+        _SidebarItem(
+            icon: Icons.settings_remote,
+            label: "Control Manual",
+            selected: selectedIndex == 6,
+            onTap: () {
+              onItemSelected(6);
+              if (isMobile) Navigator.pop(context);
+            }),
         const Spacer(),
         // Bluetooth Disconnect Button
         if (state.isConnected)
@@ -1515,7 +1590,8 @@ class _MobileLayout extends StatelessWidget {
       const HistorialView(),
       const ClinicaView(),
       const BuscadorIAView(),
-      const GestionView()
+      const GestionView(),
+      const BluetoothCustomView()
     ];
     return Scaffold(
       appBar: AppBar(
@@ -1545,7 +1621,8 @@ class _DesktopLayout extends StatelessWidget {
       const HistorialView(),
       const ClinicaView(),
       const BuscadorIAView(),
-      const GestionView()
+      const GestionView(),
+      const BluetoothCustomView()
     ];
     return Scaffold(
       body: Row(
