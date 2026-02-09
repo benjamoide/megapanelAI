@@ -949,11 +949,11 @@ class AppState extends ChangeNotifier {
         
         print("BLE: Starting Treatment '${t.nombre}'");
 
-        // 0. Power ON First (Wake up / Reset)
-        print("BLE: Sending Power ON");
-        await _bleManager.write(BleProtocol.setPower(true));
-        await Future.delayed(const Duration(milliseconds: 1000)); // Wait for boot
-
+        // 0. STOP First (Reset state)
+        print("BLE: Sending Power OFF (Reset)");
+        await _bleManager.write(BleProtocol.setPower(false));
+        await Future.delayed(const Duration(milliseconds: 500));
+        
         // 1. Set Countdown (Duration)
         int duration = int.tryParse(t.duracion) ?? 10;
         print("BLE: Sending Duration: $duration min");
@@ -975,32 +975,25 @@ class AppState extends ChangeNotifier {
         await Future.delayed(const Duration(milliseconds: 300));
 
         // 3. Set Brightness (Frequencies)
-        // Protocol expects 5 byte payload for channels.
-        // Mapping (Best Guess for 5-channel panel):
-        // [Red1, Red2, NIR1, NIR2, Blue?] 
-        // 0: 630nm, 1: 660nm, 2: 810nm, 3: 830nm, 4: 850nm
         List<int> brightnessValues = [0, 0, 0, 0, 0];
-        
         for (var f in t.frecuencias) {
           int nm = f['nm'];
           int p = (f['p'] as num).toInt();
-          
           if (nm == 630) brightnessValues[0] = p;
           else if (nm == 660) brightnessValues[1] = p;
           else if (nm == 810) brightnessValues[2] = p;
           else if (nm == 830) brightnessValues[3] = p;
           else if (nm == 850) brightnessValues[4] = p;
-          // Fallback logic
-          else if (nm < 700) brightnessValues[1] = p; // Map other reds to 660 slot
-          else brightnessValues[4] = p; // Map other NIRs to 850 slot
+          else if (nm < 700) brightnessValues[1] = p; 
+          else brightnessValues[4] = p; 
         }
-        
         print("BLE: Sending Brightness: $brightnessValues");
         await _bleManager.write(BleProtocol.setBrightness(brightnessValues));
         await Future.delayed(const Duration(milliseconds: 300));
         
-        // 4. Quick Start (Just in case)
-        // await _bleManager.write(BleProtocol.quickStart());
+        // 4. Quick Start (Use CMD_QUICK_START 0x21 instead of Power On 0x20)
+        print("BLE: Sending Quick Start (0x21)");
+        await _bleManager.write(BleProtocol.quickStart());
         
         print("BLE: Configuration sent.");
         
