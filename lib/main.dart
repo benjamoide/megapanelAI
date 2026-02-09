@@ -949,7 +949,9 @@ class AppState extends ChangeNotifier {
 
         // 1. Set Countdown (Duration)
         int duration = int.tryParse(t.duracion) ?? 10;
+        print("BLE: Sending Duration $duration");
         await _bleManager.write(BleProtocol.setCountdown(duration));
+        await Future.delayed(const Duration(milliseconds: 300)); // Delay to prevent flooding
         
         // 2. Set Pulse (Hz)
         // Format example: "50Hz (Dolor)", "CW", "10Hz"
@@ -964,21 +966,11 @@ class AppState extends ChangeNotifier {
             hz = int.parse(match.group(1)!);
           }
         }
+        print("BLE: Sending Hz $hz");
         await _bleManager.write(BleProtocol.setPulse(hz));
+        await Future.delayed(const Duration(milliseconds: 300));
 
         // 3. Set Brightness (Frequencies)
-        // Format: [{'nm': 660, 'p': 50}, {'nm': 850, 'p': 100}]
-        // We need to map `nm` to channels. 
-        // Assumption based on common panels: 
-        // Channel 1: Red (630/660)
-        // Channel 2: NIR (810/830/850)
-        // If the device supports more, we can expand. 
-        // For now we'll create a 5-element list to be safe or just 2 if we determine that.
-        // Let's create a 5-channel array [Red1, Red2, NIR1, NIR2, Blue?] just in case, 
-        // or simplistic: [Red_Avg, NIR_Avg].
-        // Let's assume a standard 5-channel layout for "Mega Panel AI":
-        // 1: 630, 2: 660, 3: 810, 4: 830, 5: 850.
-        
         List<int> brightnessValues = [0, 0, 0, 0, 0];
         
         for (var f in t.frecuencias) {
@@ -995,11 +987,12 @@ class AppState extends ChangeNotifier {
           else brightnessValues[4] = p; // Treat as 850
         }
         
-        // If the device only accepts 2 channels, `BleProtocol` or the device checks might fail/ignore extra.
-        // We send all 5.
+        print("BLE: Sending Brightness $brightnessValues");
         await _bleManager.write(BleProtocol.setBrightness(brightnessValues));
+        await Future.delayed(const Duration(milliseconds: 300));
 
         // 4. Turn ON
+        print("BLE: Sending Power ON");
         await _bleManager.write(BleProtocol.setPower(true));
         
       } catch (e) {

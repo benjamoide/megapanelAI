@@ -77,11 +77,16 @@ class BleManager {
       _connectionSubscription = device.connectionState.listen((state) {
         _connectionStateController.add(state);
         if (state == BluetoothConnectionState.disconnected) {
+          print("BleManager: Device Disconnected");
           _cleanup();
         }
       });
   
+      // Stabilization delay
+      await Future.delayed(const Duration(milliseconds: 500));
+
       // Discover services
+      print("BleManager: Discovering Services...");
       List<BluetoothService> services = await device.discoverServices();
       
       // Find write characteristic
@@ -109,6 +114,7 @@ class BleManager {
         return false;
       }
       
+      print("BleManager: Connected and ready.");
       return true;
     } catch (e) {
       print("Connection failed: $e");
@@ -123,6 +129,7 @@ class BleManager {
   }
 
   void _cleanup() {
+    print("BleManager: Cleaning up resources");
     _connectionSubscription?.cancel();
     _notifySubscription?.cancel();
     _connectedDevice = null;
@@ -133,7 +140,13 @@ class BleManager {
 
   Future<void> write(List<int> data) async {
     if (_writeCharacteristic != null) {
-      await _writeCharacteristic!.write(data, withoutResponse: true); // usually BLE devices use writeNoResponse for fast updates
+      String hexData = data.map((e) => e.toRadixString(16).padLeft(2, '0')).join(' ');
+      print("BLE WRITE: $hexData");
+      if (_writeCharacteristic!.properties.writeWithoutResponse) {
+         await _writeCharacteristic!.write(data, withoutResponse: true);
+      } else {
+         await _writeCharacteristic!.write(data, withoutResponse: false);
+      }
     } else {
       print("Not connected or no write characteristic");
     }
