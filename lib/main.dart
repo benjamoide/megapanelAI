@@ -949,6 +949,11 @@ class AppState extends ChangeNotifier {
         
         print("BLE: Starting Treatment '${t.nombre}'");
 
+        // 0. STOP First (Reset state)
+        print("BLE: Sending Power OFF (Reset)");
+        await _bleManager.write(BleProtocol.setPower(false));
+        await Future.delayed(const Duration(milliseconds: 500));
+
         // 1. Set Countdown (Duration)
         int duration = int.tryParse(t.duracion) ?? 10;
         print("BLE: Sending Duration: $duration min");
@@ -969,7 +974,7 @@ class AppState extends ChangeNotifier {
         await _bleManager.write(BleProtocol.setPulse(hz));
         await Future.delayed(const Duration(milliseconds: 300));
 
-        // 4. Set Brightness (Frequencies)
+        // 3. Set Brightness (Frequencies)
         // Protocol expects 5 byte payload for channels.
         // Mapping (Best Guess for 5-channel panel):
         // [Red1, Red2, NIR1, NIR2, Blue?] 
@@ -994,7 +999,7 @@ class AppState extends ChangeNotifier {
         await _bleManager.write(BleProtocol.setBrightness(brightnessValues));
         await Future.delayed(const Duration(milliseconds: 300));
 
-        // 5. Turn ON
+        // 4. Turn ON
         print("BLE: Sending Power ON");
         await _bleManager.write(BleProtocol.setPower(true));
         

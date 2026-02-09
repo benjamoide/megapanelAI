@@ -84,15 +84,15 @@ class BleProtocol {
     return buildPacket(CMD_SET_WORK_MODE, [mode]);
   }
 
-    /// Helper to Set Pulse (0x42)
-  /// [hz] Frequency in Hz. Format unknown, assume 1 or 2 bytes.
+  /// Helper to Set Pulse (0x42)
+  /// [hz] Frequency in Hz.
   static List<int> setPulse(int hz) {
-    // If Hz is > 255, we need 2 bytes.
+    // Send 2 bytes for potential future support, though 1 might suffice
     return buildPacket(CMD_SET_PULSE, [hz & 0xFF]); 
   }
 
   /// Helper to Set Countdown (0x31)
-  /// [minutes] Duration.
+  /// [minutes] Duration. Should be 1 byte usually, but let's check.
   static List<int> setCountdown(int minutes) {
     return buildPacket(CMD_SET_COUNTDOWN, [minutes]);
   }
