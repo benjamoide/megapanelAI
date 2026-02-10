@@ -28555,8 +28555,9 @@ a31:function a31(){},
 a32:function a32(){},
 a3i:function a3i(a){this.a=a},
 a3h:function a3h(a){this.a=a},
-a3g:function a3g(a,b){this.a=a
-this.b=b},
+a3g:function a3g(a,b,c){this.a=a
+this.b=b
+this.c=c},
 a3f:function a3f(a,b,c){this.a=a
 this.b=b
 this.c=c},
@@ -96085,7 +96086,7 @@ break
 case 2:q=5
 A.dG("BLE: Starting Manual Treatment (Seq: "+b+", Cmd: "+c+", Mode: "+d+")")
 n=new A.a3h(o)
-m=new A.a3g(o,c)
+m=new A.a3g(o,c,d)
 l=new A.a3f(o,d,a)
 s=b===0?8:10
 break
@@ -96345,9 +96346,10 @@ var $async$$0=A.F(function(a,b){if(a===1)return A.H(b,r)
 for(;;)switch(s){case 0:p=q.b
 s=p===33?2:4
 break
-case 2:A.dG("BLE: Sending Quick Start (0x21)")
+case 2:p=q.c
+A.dG("BLE: Sending Quick Start (0x21) with Mode: "+p)
 s=5
-return A.q(q.a.z.dI(A.fL(33,A.b([0],t.t))),$async$$0)
+return A.q(q.a.z.dI(A.fL(33,A.b([p],t.t))),$async$$0)
 case 5:s=3
 break
 case 4:s=p===32?6:8
