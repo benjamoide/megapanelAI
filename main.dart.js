@@ -96059,7 +96059,7 @@ s=4
 return A.q(p.dI(A.aJd(l)),$async$lT)
 case 4:s=5
 return A.q(A.ez(B.aG,null,n),$async$lT)
-case 5:j=A.b([0,0,0,0,0],o)
+case 5:j=A.b([0,0,0,0,0,0,0],o)
 for(o=a.x,m=o.length,i=0;i<o.length;o.length===m||(0,A.C)(o),++i){h=o[i]
 g=h.h(0,"nm")
 f=B.d.ct(A.er(h.h(0,"p")))
@@ -96069,7 +96069,7 @@ else if(g===810)j[2]=f
 else if(g===830)j[3]=f
 else if(g===850)j[4]=f
 else if(g<700)j[1]=f
-else j[4]=f}A.dG("BLE: Sending Brightness: "+A.m(j))
+else j[4]=f}A.dG("BLE: Sending Brightness (7 bytes): "+A.m(j))
 s=6
 return A.q(p.dI(A.aJc(j)),$async$lT)
 case 6:s=7
