@@ -132,7 +132,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
               ),
             ),
 
-            ),
+
 
             const SizedBox(height: 20),
             const Divider(),
