@@ -179,7 +179,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text("Debug Console", style: TextStyle(fontWeight: FontWeight.bold)),
-                ),
+
                 TextButton.icon(
                   icon: const Icon(Icons.info_outline, size: 16),
                   label: const Text("Leer Estado"),
@@ -258,7 +258,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
       nombre: "Manual Custom",
       zona: "Manual",
       sintomas: "Personalizado",
-      sintomas: "Personalizado",
+
       duracion: _duration.toInt().toString(),
       hz: !_pulseEnabled ? "CW" : (_pulseHz == 0 ? "CW" : "${_pulseHz.toInt()}Hz"),
       frecuencias: [
