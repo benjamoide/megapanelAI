@@ -97334,7 +97334,7 @@ m.push(B.cD)
 m.push(B.bc)
 m.push(B.a09)
 s=r.z
-m.push(A.amF(q,29,""+B.d.ct(s)+" min",30,1,new A.aqv(r),s))
+m.push(A.amF(q,59,""+B.d.ct(s)+" min",60,1,new A.aqv(r),s))
 m.push(B.B1)
 m.push(A.dd(A.aFw(B.pe,B.a_P,p?new A.aqw(r,a):q,q),50,q))
 m.push(B.aX)
