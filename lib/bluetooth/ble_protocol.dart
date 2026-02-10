@@ -94,10 +94,11 @@ class BleProtocol {
   }
 
   /// Helper to Set Countdown (0x31)
-  /// [minutes] Duration in minutes.
-  /// Sends [minutes, 0] (Minutes, Seconds)
+  /// [minutes] Duration.
+  /// Sends Total Seconds in Big Endian (2 bytes).
   static List<int> setCountdown(int minutes) {
-    return buildPacket(CMD_SET_COUNTDOWN, [minutes, 0]);
+    int totalSeconds = minutes * 60;
+    return buildPacket(CMD_SET_COUNTDOWN, [(totalSeconds >> 8) & 0xFF, totalSeconds & 0xFF]);
   }
   
   /// Helper for Quick Start (0x21)
