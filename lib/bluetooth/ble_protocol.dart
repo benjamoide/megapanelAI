@@ -104,4 +104,10 @@ class BleProtocol {
   static List<int> quickStart({int mode = 0x00}) {
     return buildPacket(CMD_QUICK_START, [mode]);
   }
+
+  // --- READ HELPERS ---
+  static List<int> getCountdown() => buildPacket(CMD_GET_COUNTDOWN, []);
+  static List<int> getBrightness() => buildPacket(CMD_GET_BRIGHTNESS, []);
+  static List<int> getWorkMode() => buildPacket(CMD_GET_WORK_MODE, []);
+  static List<int> getStatus() => buildPacket(CMD_GET_STATUS, []);
 }

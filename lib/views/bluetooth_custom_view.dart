@@ -23,6 +23,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
   double _nir850 = 0.0;
   
   double _pulseHz = 0.0; // 0 means CW
+  bool _pulseEnabled = true; 
   double _duration = 10.0; // Minutes
 
   // Protocol Debugging
@@ -95,15 +96,25 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
 
             const Text("Pulsación (Hz)", 
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            const Text("0 Hz = Modo Continuo (CW)", style: TextStyle(color: Colors.grey)),
-            Slider(
-              value: _pulseHz,
-              min: 0,
-              max: 50,
-              divisions: 50,
-              label: "${_pulseHz.toInt()} Hz",
-              onChanged: (v) => setState(() => _pulseHz = v),
+            const Text("Pulsación (Hz)", 
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            Row(
+              children: [
+                Switch(value: _pulseEnabled, onChanged: (v) => setState(() => _pulseEnabled = v)),
+                const Text("Activar Pulsación"),
+              ],
             ),
+            if (_pulseEnabled) ...[
+                const Text("0 Hz = Modo Continuo (CW)", style: TextStyle(color: Colors.grey)),
+                Slider(
+                  value: _pulseHz,
+                  min: 0,
+                  max: 50,
+                  divisions: 50,
+                  label: "${_pulseHz.toInt()} Hz",
+                  onChanged: (v) => setState(() => _pulseHz = v),
+                ),
+            ],
             
             const SizedBox(height: 20),
             const Divider(),
@@ -168,6 +179,21 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text("Debug Console", style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+                TextButton.icon(
+                  icon: const Icon(Icons.info_outline, size: 16),
+                  label: const Text("Leer Estado"),
+                  onPressed: () async {
+                     BleManager().log("--- READING DEVICE STATE ---");
+                     await BleManager().write(BleProtocol.getStatus());
+                     await Future.delayed(const Duration(milliseconds: 200));
+                     await BleManager().write(BleProtocol.getWorkMode());
+                     await Future.delayed(const Duration(milliseconds: 200));
+                     await BleManager().write(BleProtocol.getCountdown());
+                     await Future.delayed(const Duration(milliseconds: 200));
+                     await BleManager().write(BleProtocol.getBrightness());
+                  },
+                ),
                 TextButton.icon(
                   icon: const Icon(Icons.copy, size: 16),
                   label: const Text("Copiar Logs"),
@@ -232,8 +258,9 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
       nombre: "Manual Custom",
       zona: "Manual",
       sintomas: "Personalizado",
+      sintomas: "Personalizado",
       duracion: _duration.toInt().toString(),
-      hz: _pulseHz == 0 ? "CW" : "${_pulseHz.toInt()}Hz",
+      hz: !_pulseEnabled ? "CW" : (_pulseHz == 0 ? "CW" : "${_pulseHz.toInt()}Hz"),
       frecuencias: [
         {"nm": 630, "p": _red630.toInt()},
         {"nm": 660, "p": _red660.toInt()},
