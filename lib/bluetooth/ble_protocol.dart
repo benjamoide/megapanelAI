@@ -94,9 +94,10 @@ class BleProtocol {
   }
 
   /// Helper to Set Countdown (0x31)
-  /// [minutes] Duration.
+  /// [minutes] Duration in minutes.
+  /// Sends [minutes, 0] (Minutes, Seconds)
   static List<int> setCountdown(int minutes) {
-    return buildPacket(CMD_SET_COUNTDOWN, [minutes]);
+    return buildPacket(CMD_SET_COUNTDOWN, [minutes, 0]);
   }
   
   /// Helper for Quick Start (0x21)

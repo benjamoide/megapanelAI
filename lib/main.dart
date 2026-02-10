@@ -1014,7 +1014,7 @@ class AppState extends ChangeNotifier {
         int duration = int.tryParse(t.duracion) ?? 10;
         print("BLE: Sending Duration: $duration min");
         await _bleManager.write(BleProtocol.setCountdown(duration));
-        await Future.delayed(const Duration(milliseconds: 300));
+        await Future.delayed(const Duration(milliseconds: 800));
         
         // 2. Set Pulse (Hz)
         int hz = 0;
@@ -1028,7 +1028,7 @@ class AppState extends ChangeNotifier {
         }
         print("BLE: Sending Pulse: $hz Hz");
         await _bleManager.write(BleProtocol.setPulse(hz));
-        await Future.delayed(const Duration(milliseconds: 300));
+        await Future.delayed(const Duration(milliseconds: 800));
 
         // 3. Set Brightness (Frequencies)
         List<int> brightnessValues = [0, 0, 0, 0, 0, 0, 0]; // 7 bytes based on readback
@@ -1046,7 +1046,7 @@ class AppState extends ChangeNotifier {
         }
         print("BLE: Sending Brightness (7 bytes): $brightnessValues");
         await _bleManager.write(BleProtocol.setBrightness(brightnessValues));
-        await Future.delayed(const Duration(milliseconds: 300));
+        await Future.delayed(const Duration(milliseconds: 800));
   }
 
   /// Starts a manual treatment not in the catalog
@@ -1089,7 +1089,7 @@ class AppState extends ChangeNotifier {
              // 0.5 Set Work Mode
             print("BLE: Sending Work Mode: $workMode");
             await _bleManager.write(BleProtocol.setWorkMode(workMode));
-            await Future.delayed(const Duration(milliseconds: 300));
+            await Future.delayed(const Duration(milliseconds: 800));
 
             await _sendParameters(t); // Note: _sendParameters inside also sets workMode=0 hardcoded, we need to fix that
         }
