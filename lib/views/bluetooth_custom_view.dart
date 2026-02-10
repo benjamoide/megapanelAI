@@ -4,6 +4,7 @@ import 'package:mega_panel_ai/main.dart'; // To access AppState and Tratamiento
 import 'package:provider/provider.dart';
 import 'package:mega_panel_ai/bluetooth/ble_manager.dart';
 import 'dart:async';
+import 'package:intl/intl.dart';
 
 class BluetoothCustomView extends StatefulWidget {
   const BluetoothCustomView({Key? key}) : super(key: key);
@@ -22,6 +23,29 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
   
   double _pulseHz = 0.0; // 0 means CW
   double _duration = 10.0; // Minutes
+
+  // --- LOGGING ---
+  final List<String> _logs = [];
+  StreamSubscription? _logSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _logSub = BleManager().logs.listen((log) {
+      if (mounted) {
+        setState(() {
+          _logs.insert(0, log);
+          if (_logs.length > 100) _logs.removeLast();
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _logSub?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -103,8 +127,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
                 } : null,
               ),
             ),
-            ),
-            
+
             const SizedBox(height: 30),
             const Divider(),
             const Text("Debug Console", style: TextStyle(fontWeight: FontWeight.bold)),
@@ -126,32 +149,6 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
         ),
       ),
     );
-  }
-
-    );
-  }
-
-  // --- LOGGING ---
-  final List<String> _logs = [];
-  StreamSubscription? _logSub;
-
-  @override
-  void initState() {
-    super.initState();
-    _logSub = BleManager().logs.listen((log) {
-      if (mounted) {
-        setState(() {
-          _logs.insert(0, log);
-          if (_logs.length > 100) _logs.removeLast();
-        });
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _logSub?.cancel();
-    super.dispose();
   }
 
   Widget _buildSlider(String label, double value, Function(double) onChanged, Color color) {
