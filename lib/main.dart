@@ -1026,8 +1026,8 @@ class AppState extends ChangeNotifier {
         await _bleManager.write(BleProtocol.setPower(false));
         await Future.delayed(const Duration(milliseconds: 500));
         
-        // 0.5 Set Work Mode (Try to force mode)
-        int mode = t.hz.toUpperCase().contains("CW") ? 0 : 1;
+        // 0.5 Set Work Mode (Force Mode 0 = Manual?)
+        int mode = 0; 
         print("BLE: Sending Work Mode: $mode");
         await _bleManager.write(BleProtocol.setWorkMode(mode));
         await Future.delayed(const Duration(milliseconds: 300));
