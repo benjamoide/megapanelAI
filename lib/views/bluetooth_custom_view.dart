@@ -6,6 +6,7 @@ import 'package:mega_panel_ai/bluetooth/ble_manager.dart';
 import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:mega_panel_ai/bluetooth/ble_protocol.dart';
 
 class BluetoothCustomView extends StatefulWidget {
   const BluetoothCustomView({Key? key}) : super(key: key);
