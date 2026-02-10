@@ -1005,27 +1005,11 @@ class AppState extends ChangeNotifier {
     }
     
     notifyListeners();
+    notifyListeners();
   }
 
-  /// Starts a manual treatment not in the catalog
-  Future<void> iniciarCicloManual(Tratamiento t, {int startCommand = 0x21}) async {
-     String tempId = t.id;
-     
-     ciclosActivos[tempId] = {
-       'activo': true,
-       'inicio': DateFormat('HH:mm:ss').format(DateTime.now())
-     };
-     
-     // BLE Command
-     if (isConnected) {
-       try {
-         print("BLE: Starting Manual Treatment");
-
-        // 0. STOP First (Reset state)
-        print("BLE: Sending Power OFF (Reset)");
-        await _bleManager.write(BleProtocol.setPower(false));
-        await Future.delayed(const Duration(milliseconds: 500));
-        
+  /// Helper to just send parameters
+  Future<void> _sendParameters(Tratamiento t) async {
         // 0.5 Set Work Mode (Force Mode 0 = Manual?)
         int mode = 0; 
         print("BLE: Sending Work Mode: $mode");
@@ -1068,16 +1052,56 @@ class AppState extends ChangeNotifier {
         print("BLE: Sending Brightness: $brightnessValues");
         await _bleManager.write(BleProtocol.setBrightness(brightnessValues));
         await Future.delayed(const Duration(milliseconds: 300));
-        
-        // 4. Start Command
-        if (startCommand == 0x21) {
-           print("BLE: Sending Quick Start (0x21)");
-           await _bleManager.write(BleProtocol.quickStart(mode: 0x00));
-        } else if (startCommand == 0x20) {
-           print("BLE: Sending Power ON (0x20)");
-           await _bleManager.write(BleProtocol.setPower(true));
-        } else {
-           print("BLE: Skipping Start Command");
+  }
+
+  /// Starts a manual treatment not in the catalog
+  /// [sequenceMode]: 0=Standard (Stop->Params->Start), 1=Live (Params Only), 2=Inverse (Start->Params)
+  Future<void> iniciarCicloManual(Tratamiento t, {int startCommand = 0x21, int sequenceMode = 0}) async {
+     String tempId = t.id;
+     
+     ciclosActivos[tempId] = {
+       'activo': true,
+       'inicio': DateFormat('HH:mm:ss').format(DateTime.now())
+     };
+     
+     // BLE Command
+     if (isConnected) {
+       try {
+         print("BLE: Starting Manual Treatment (Seq: $sequenceMode, Cmd: $startCommand)");
+
+        // DEFINE HELPERS
+        Future<void> stop() async {
+            print("BLE: Sending Power OFF (Reset)");
+            await _bleManager.write(BleProtocol.setPower(false));
+            await Future.delayed(const Duration(milliseconds: 500));
+        }
+
+        Future<void> start() async {
+            if (startCommand == 0x21) {
+               print("BLE: Sending Quick Start (0x21)");
+               await _bleManager.write(BleProtocol.quickStart(mode: 0x00));
+            } else if (startCommand == 0x20) {
+               print("BLE: Sending Power ON (0x20)");
+               await _bleManager.write(BleProtocol.setPower(true));
+            } else {
+               print("BLE: Skipping Start Command");
+            }
+            await Future.delayed(const Duration(milliseconds: 300));
+        }
+
+        // EXECUTE SEQUENCE
+        if (sequenceMode == 0) {
+            // Standard: Stop -> Params -> Start
+            await stop();
+            await _sendParameters(t);
+            await start();
+        } else if (sequenceMode == 1) {
+            // Live: Params Only (Good if already running)
+            await _sendParameters(t);
+        } else if (sequenceMode == 2) {
+            // Inverse: Start -> Params (If device needs to be ON to accept params)
+            await start();
+            await _sendParameters(t);
         }
         
        } catch (e) {

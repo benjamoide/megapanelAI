@@ -27,6 +27,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
 
   // Protocol Debugging
   int _startCommand = 0x21; // Default to QuickStart
+  int _sequenceMode = 0; // 0=Std, 1=Live, 2=Inverse
 
   // --- LOGGING ---
   final List<String> _logs = [];
@@ -141,11 +142,24 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
               value: _startCommand,
               isExpanded: true,
               items: const [
-                DropdownMenuItem(value: 0x21, child: Text("Quick Start (0x21) - [Default]")),
-                DropdownMenuItem(value: 0x20, child: Text("Power ON (0x20) - [Alternative]")),
-                DropdownMenuItem(value: -1, child: Text("None (Params Only) - [Test]")),
+                DropdownMenuItem(value: 0x21, child: Text("Cmd: Quick Start (0x21)")),
+                DropdownMenuItem(value: 0x20, child: Text("Cmd: Power ON (0x20)")),
+                DropdownMenuItem(value: -1, child: Text("Cmd: None")),
               ], 
               onChanged: (v) => setState(() => _startCommand = v!)
+            ),
+            
+            const SizedBox(height: 10),
+            
+            DropdownButton<int>(
+              value: _sequenceMode,
+              isExpanded: true,
+              items: const [
+                DropdownMenuItem(value: 0, child: Text("Seq: Standard (Reset -> Params -> Start)")),
+                DropdownMenuItem(value: 1, child: Text("Seq: Live (Params Only)")),
+                DropdownMenuItem(value: 2, child: Text("Seq: Inverse (Start -> Params)")),
+              ], 
+              onChanged: (v) => setState(() => _sequenceMode = v!)
             ),
 
             const SizedBox(height: 20),
@@ -229,7 +243,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
       ]
     );
 
-    state.iniciarCicloManual(manualT, startCommand: _startCommand);
+    state.iniciarCicloManual(manualT, startCommand: _startCommand, sequenceMode: _sequenceMode);
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Enviando configuración al dispositivo..."))
