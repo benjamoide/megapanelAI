@@ -30,6 +30,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
   // Protocol Debugging
   int _startCommand = 0x21; // Default to QuickStart
   int _sequenceMode = 0; // 0=Std, 1=Live, 2=Inverse
+  int _workMode = 0; // Manual Mode Selector
 
   // --- LOGGING ---
   final List<String> _logs = [];
@@ -174,6 +175,20 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
               onChanged: (v) => setState(() => _sequenceMode = v!)
             ),
 
+            const SizedBox(height: 10),
+
+            DropdownButton<int>(
+              value: _workMode,
+              isExpanded: true,
+              items: const [
+                DropdownMenuItem(value: 0, child: Text("Mode: 0 (Tested)")),
+                DropdownMenuItem(value: 1, child: Text("Mode: 1")),
+                DropdownMenuItem(value: 2, child: Text("Mode: 2")),
+                DropdownMenuItem(value: 3, child: Text("Mode: 3")),
+              ], 
+              onChanged: (v) => setState(() => _workMode = v!)
+            ),
+
             const SizedBox(height: 20),
             const Divider(),
             Row(
@@ -271,7 +286,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
       ]
     );
 
-    state.iniciarCicloManual(manualT, startCommand: _startCommand, sequenceMode: _sequenceMode);
+    state.iniciarCicloManual(manualT, startCommand: _startCommand, sequenceMode: _sequenceMode, workMode: _workMode);
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Enviando configuración al dispositivo..."))

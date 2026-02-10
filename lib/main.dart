@@ -1010,12 +1010,6 @@ class AppState extends ChangeNotifier {
 
   /// Helper to just send parameters
   Future<void> _sendParameters(Tratamiento t) async {
-        // 0.5 Set Work Mode (Force Mode 0 = Manual?)
-        int mode = 0; 
-        print("BLE: Sending Work Mode: $mode");
-        await _bleManager.write(BleProtocol.setWorkMode(mode));
-        await Future.delayed(const Duration(milliseconds: 300));
-
         // 1. Set Countdown (Duration)
         int duration = int.tryParse(t.duracion) ?? 10;
         print("BLE: Sending Duration: $duration min");
@@ -1056,7 +1050,7 @@ class AppState extends ChangeNotifier {
 
   /// Starts a manual treatment not in the catalog
   /// [sequenceMode]: 0=Standard (Stop->Params->Start), 1=Live (Params Only), 2=Inverse (Start->Params)
-  Future<void> iniciarCicloManual(Tratamiento t, {int startCommand = 0x21, int sequenceMode = 0}) async {
+  Future<void> iniciarCicloManual(Tratamiento t, {int startCommand = 0x21, int sequenceMode = 0, int workMode = 0}) async {
      String tempId = t.id;
      
      ciclosActivos[tempId] = {
@@ -1067,7 +1061,7 @@ class AppState extends ChangeNotifier {
      // BLE Command
      if (isConnected) {
        try {
-         print("BLE: Starting Manual Treatment (Seq: $sequenceMode, Cmd: $startCommand)");
+         print("BLE: Starting Manual Treatment (Seq: $sequenceMode, Cmd: $startCommand, Mode: $workMode)");
 
         // DEFINE HELPERS
         Future<void> stop() async {
@@ -1088,20 +1082,30 @@ class AppState extends ChangeNotifier {
             }
             await Future.delayed(const Duration(milliseconds: 300));
         }
+        
+        // Helper to just send parameters
+        Future<void> sendParams() async {
+             // 0.5 Set Work Mode
+            print("BLE: Sending Work Mode: $workMode");
+            await _bleManager.write(BleProtocol.setWorkMode(workMode));
+            await Future.delayed(const Duration(milliseconds: 300));
+
+            await _sendParameters(t); // Note: _sendParameters inside also sets workMode=0 hardcoded, we need to fix that
+        }
 
         // EXECUTE SEQUENCE
         if (sequenceMode == 0) {
             // Standard: Stop -> Params -> Start
             await stop();
-            await _sendParameters(t);
+            await sendParams();
             await start();
         } else if (sequenceMode == 1) {
             // Live: Params Only (Good if already running)
-            await _sendParameters(t);
+            await sendParams();
         } else if (sequenceMode == 2) {
             // Inverse: Start -> Params (If device needs to be ON to accept params)
             await start();
-            await _sendParameters(t);
+            await sendParams();
         }
         
        } catch (e) {
