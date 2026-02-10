@@ -1031,10 +1031,11 @@ class AppState extends ChangeNotifier {
         await Future.delayed(const Duration(milliseconds: 300));
 
         // 3. Set Brightness (Frequencies)
-        List<int> brightnessValues = [0, 0, 0, 0, 0];
+        List<int> brightnessValues = [0, 0, 0, 0, 0, 0, 0]; // 7 bytes based on readback
         for (var f in t.frecuencias) {
           int nm = f['nm'];
           int p = (f['p'] as num).toInt();
+          // Simplified mapping for debug
           if (nm == 630) brightnessValues[0] = p;
           else if (nm == 660) brightnessValues[1] = p;
           else if (nm == 810) brightnessValues[2] = p;
@@ -1043,7 +1044,7 @@ class AppState extends ChangeNotifier {
           else if (nm < 700) brightnessValues[1] = p; 
           else brightnessValues[4] = p; 
         }
-        print("BLE: Sending Brightness: $brightnessValues");
+        print("BLE: Sending Brightness (7 bytes): $brightnessValues");
         await _bleManager.write(BleProtocol.setBrightness(brightnessValues));
         await Future.delayed(const Duration(milliseconds: 300));
   }
