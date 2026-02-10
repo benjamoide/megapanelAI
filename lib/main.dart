@@ -1072,8 +1072,8 @@ class AppState extends ChangeNotifier {
 
         Future<void> start() async {
             if (startCommand == 0x21) {
-               print("BLE: Sending Quick Start (0x21)");
-               await _bleManager.write(BleProtocol.quickStart(mode: 0x00));
+               print("BLE: Sending Quick Start (0x21) with Mode: $workMode");
+               await _bleManager.write(BleProtocol.quickStart(mode: workMode));
             } else if (startCommand == 0x20) {
                print("BLE: Sending Power ON (0x20)");
                await _bleManager.write(BleProtocol.setPower(true));
