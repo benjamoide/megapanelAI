@@ -127,8 +127,8 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
             Slider(
               value: _duration,
               min: 1,
-              max: 30,
-              divisions: 29,
+              max: 60,
+              divisions: 59,
               label: "${_duration.toInt()} min",
               onChanged: (v) => setState(() => _duration = v),
             ),
