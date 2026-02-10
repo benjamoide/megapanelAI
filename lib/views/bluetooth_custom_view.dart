@@ -4,6 +4,7 @@ import 'package:mega_panel_ai/main.dart'; // To access AppState and Tratamiento
 import 'package:provider/provider.dart';
 import 'package:mega_panel_ai/bluetooth/ble_manager.dart';
 import 'dart:async';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 class BluetoothCustomView extends StatefulWidget {
@@ -23,6 +24,9 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
   
   double _pulseHz = 0.0; // 0 means CW
   double _duration = 10.0; // Minutes
+
+  // Protocol Debugging
+  int _startCommand = 0x21; // Default to QuickStart
 
   // --- LOGGING ---
   final List<String> _logs = [];
@@ -128,9 +132,40 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
               ),
             ),
 
-            const SizedBox(height: 30),
+            ),
+
+            const SizedBox(height: 20),
             const Divider(),
-            const Text("Debug Console", style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text("Protocol Debugging", style: TextStyle(fontWeight: FontWeight.bold)),
+            DropdownButton<int>(
+              value: _startCommand,
+              isExpanded: true,
+              items: const [
+                DropdownMenuItem(value: 0x21, child: Text("Quick Start (0x21) - [Default]")),
+                DropdownMenuItem(value: 0x20, child: Text("Power ON (0x20) - [Alternative]")),
+                DropdownMenuItem(value: -1, child: Text("None (Params Only) - [Test]")),
+              ], 
+              onChanged: (v) => setState(() => _startCommand = v!)
+            ),
+
+            const SizedBox(height: 20),
+            const Divider(),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text("Debug Console", style: TextStyle(fontWeight: FontWeight.bold)),
+                TextButton.icon(
+                  icon: const Icon(Icons.copy, size: 16),
+                  label: const Text("Copiar Logs"),
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(text: _logs.join("\n")));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Logs copiados al portapapeles"))
+                    );
+                  },
+                )
+              ],
+            ),
             Container(
               height: 200,
               padding: const EdgeInsets.all(8),
@@ -194,7 +229,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
       ]
     );
 
-    state.iniciarCicloManual(manualT);
+    state.iniciarCicloManual(manualT, startCommand: _startCommand);
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Enviando configuración al dispositivo..."))

@@ -1008,7 +1008,7 @@ class AppState extends ChangeNotifier {
   }
 
   /// Starts a manual treatment not in the catalog
-  Future<void> iniciarCicloManual(Tratamiento t) async {
+  Future<void> iniciarCicloManual(Tratamiento t, {int startCommand = 0x21}) async {
      String tempId = t.id;
      
      ciclosActivos[tempId] = {
@@ -1069,9 +1069,16 @@ class AppState extends ChangeNotifier {
         await _bleManager.write(BleProtocol.setBrightness(brightnessValues));
         await Future.delayed(const Duration(milliseconds: 300));
         
-        // 4. Quick Start
-        print("BLE: Sending Quick Start (0x21)");
-        await _bleManager.write(BleProtocol.quickStart());
+        // 4. Start Command
+        if (startCommand == 0x21) {
+           print("BLE: Sending Quick Start (0x21)");
+           await _bleManager.write(BleProtocol.quickStart(mode: 0x00));
+        } else if (startCommand == 0x20) {
+           print("BLE: Sending Power ON (0x20)");
+           await _bleManager.write(BleProtocol.setPower(true));
+        } else {
+           print("BLE: Skipping Start Command");
+        }
         
        } catch (e) {
          print("BLE Manual Error: $e");
