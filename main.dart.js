@@ -95041,33 +95041,33 @@ return A.u(c.ei(A.j8(32,A.b([0],b))),$async$hI)
 case 8:a=t.z
 s=9
 return A.u(A.fR(B.cD,null,a),$async$hI)
-case 9:a0=a7.r
-n=B.c.p(a0.toUpperCase(),"CW")?0:1
+case 9:n=0
 A.dF("BLE: Sending Work Mode: "+A.m(n))
 s=10
 return A.u(c.ei(A.j8(80,A.b([n],b))),$async$hI)
 case 10:s=11
 return A.u(A.fR(B.aM,null,a),$async$hI)
-case 11:a1=A.mh(a7.w,null)
-m=a1==null?10:a1
+case 11:a0=A.mh(a7.w,null)
+m=a0==null?10:a0
 A.dF("BLE: Sending Duration: "+A.m(m)+" min")
 s=12
 return A.u(c.ei(A.j8(49,A.b([m],b))),$async$hI)
 case 12:s=13
 return A.u(A.fR(B.aM,null,a),$async$hI)
 case 13:l=0
-k=B.c.p(a0.toUpperCase(),"CW")
+a1=a7.r
+k=B.c.p(a1.toUpperCase(),"CW")
 if(!k){j=A.cb("(\\d+)",!0,!1)
-i=j.m6(a0)
-if(i!=null){a0=i.b[1]
-a0.toString
-l=A.ig(a0,null)}}A.dF("BLE: Sending Pulse: "+A.m(l)+" Hz")
+i=j.m6(a1)
+if(i!=null){a1=i.b[1]
+a1.toString
+l=A.ig(a1,null)}}A.dF("BLE: Sending Pulse: "+A.m(l)+" Hz")
 s=14
 return A.u(c.ei(A.aIw(l)),$async$hI)
 case 14:s=15
 return A.u(A.fR(B.aM,null,a),$async$hI)
 case 15:h=A.b([0,0,0,0,0],b)
-for(a0=a7.x,a2=a0.length,a3=0;a3<a0.length;a0.length===a2||(0,A.A)(a0),++a3){g=a0[a3]
+for(a1=a7.x,a2=a1.length,a3=0;a3<a1.length;a1.length===a2||(0,A.A)(a1),++a3){g=a1[a3]
 f=J.dH(g,"nm")
 e=B.d.cr(A.eq(J.dH(g,"p")))
 if(J.d(f,630))J.dp(h,0,e)
