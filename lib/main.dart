@@ -1031,10 +1031,11 @@ class AppState extends ChangeNotifier {
         await Future.delayed(const Duration(milliseconds: 800));
 
         // 3. Set Brightness (Frequencies)
-      // SHOTGUN MAPPING v34: 
-      // Known Active: B0, B5, B6.
-      // Unknown: S2, S3. We map them to multpile slots.
-      // Map: [S1, S2, S3, S2, S3, S4, S5]
+      // FINAL MAPPING v35: Confirmed by v34 logs.
+      // Registers 0,1,2 map to Indicies 0,1,2.
+      // Registers 3,4 map to Indicies 5,6.
+      // Indicies 3,4 are ignored holes.
+      // Map: [S1, S2, S3, 0, 0, S4, S5]
       List<int> brightnessValues = [0, 0, 0, 0, 0, 0, 0]; 
       
       // Extract values 
@@ -1054,15 +1055,15 @@ class AppState extends ChangeNotifier {
         else if (nm == 850) p850 = p;
       }
 
-      brightnessValues[0] = p630; // Byte 0 (Known Good)
-      brightnessValues[1] = p660; // Byte 1 (Trial)
-      brightnessValues[2] = p810; // Byte 2 (Trial)
-      brightnessValues[3] = p660; // Byte 3 (Mirror S2)
-      brightnessValues[4] = p810; // Byte 4 (Mirror S3)
-      brightnessValues[5] = p830; // Byte 5 (Known Good)
-      brightnessValues[6] = p850; // Byte 6 (Known Good)
+      brightnessValues[0] = p630; // Ch 1 -> Byte 0
+      brightnessValues[1] = p660; // Ch 2 -> Byte 1
+      brightnessValues[2] = p810; // Ch 3 -> Byte 2
+      brightnessValues[3] = 0;    // Hole
+      brightnessValues[4] = 0;    // Hole
+      brightnessValues[5] = p830; // Ch 4 -> Byte 5
+      brightnessValues[6] = p850; // Ch 5 -> Byte 6
 
-      print("BLE: Sending Brightness (Shotgun v34): $brightnessValues");
+      print("BLE: Sending Brightness (Final v35): $brightnessValues");
       await _bleManager.write(BleProtocol.setBrightness(brightnessValues));
       await Future.delayed(const Duration(milliseconds: 800));
   }
