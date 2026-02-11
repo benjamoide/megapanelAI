@@ -1031,11 +1031,13 @@ class AppState extends ChangeNotifier {
         await Future.delayed(const Duration(milliseconds: 800));
 
         // 3. Set Brightness (Frequencies)
-      // EXPERIMENTAL MAPPING v32: Device seems to skip Bytes 1 and 2.
-      // We map [S1, S2, S3, S4, S5] -> [S1, 0, 0, S2, S3, S4, S5]
+      // SHOTGUN MAPPING v34: 
+      // Known Active: B0, B5, B6.
+      // Unknown: S2, S3. We map them to multpile slots.
+      // Map: [S1, S2, S3, S2, S3, S4, S5]
       List<int> brightnessValues = [0, 0, 0, 0, 0, 0, 0]; 
       
-      // Extract values from Treatment object (assumes ordered list or uses specific nm logic)
+      // Extract values 
       int p630 = 0;
       int p660 = 0;
       int p810 = 0;
@@ -1052,15 +1054,15 @@ class AppState extends ChangeNotifier {
         else if (nm == 850) p850 = p;
       }
 
-      brightnessValues[0] = p630; // Byte 0
-      brightnessValues[1] = 0;    // Skipped?
-      brightnessValues[2] = 0;    // Skipped?
-      brightnessValues[3] = p660; // Byte 3
-      brightnessValues[4] = p810; // Byte 4
-      brightnessValues[5] = p830; // Byte 5
-      brightnessValues[6] = p850; // Byte 6
+      brightnessValues[0] = p630; // Byte 0 (Known Good)
+      brightnessValues[1] = p660; // Byte 1 (Trial)
+      brightnessValues[2] = p810; // Byte 2 (Trial)
+      brightnessValues[3] = p660; // Byte 3 (Mirror S2)
+      brightnessValues[4] = p810; // Byte 4 (Mirror S3)
+      brightnessValues[5] = p830; // Byte 5 (Known Good)
+      brightnessValues[6] = p850; // Byte 6 (Known Good)
 
-      print("BLE: Sending Brightness (Spread v32.2): $brightnessValues");
+      print("BLE: Sending Brightness (Shotgun v34): $brightnessValues");
       await _bleManager.write(BleProtocol.setBrightness(brightnessValues));
       await Future.delayed(const Duration(milliseconds: 800));
   }
