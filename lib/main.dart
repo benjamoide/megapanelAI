@@ -1031,14 +1031,11 @@ class AppState extends ChangeNotifier {
         await Future.delayed(const Duration(milliseconds: 800));
 
         // 3. Set Brightness (Frequencies)
-      // CORRECT MAPPING v36: Derived from v34/v35 analysis.
-      // Reg 0 <- Byte 0
-      // Reg 1 <- Byte 3
-      // Reg 2 <- Byte 4
-      // Reg 3 <- Byte 5
-      // Reg 4 <- Byte 6
-      // Bytes 1 and 2 are IGNORED.
-      // Map: [S1, 0, 0, S2, S3, S4, S5]
+      // RESTORED MAPPING v37: v35 Logs proved this populates all registers.
+      // Reg 0,1,2 <- Indices 0,1,2
+      // Reg 3,4   <- Indices 5,6
+      // Indices 3,4 are Holes.
+      // Map: [S1, S2, S3, 0, 0, S4, S5]
       List<int> brightnessValues = [0, 0, 0, 0, 0, 0, 0]; 
       
       // Extract values 
@@ -1059,14 +1056,14 @@ class AppState extends ChangeNotifier {
       }
 
       brightnessValues[0] = p630; // Ch 1 -> Byte 0
-      brightnessValues[1] = 0;    // Ignored
-      brightnessValues[2] = 0;    // Ignored
-      brightnessValues[3] = p660; // Ch 2 -> Byte 3
-      brightnessValues[4] = p810; // Ch 3 -> Byte 4
+      brightnessValues[1] = p660; // Ch 2 -> Byte 1
+      brightnessValues[2] = p810; // Ch 3 -> Byte 2
+      brightnessValues[3] = 0;    // Hole
+      brightnessValues[4] = 0;    // Hole
       brightnessValues[5] = p830; // Ch 4 -> Byte 5
       brightnessValues[6] = p850; // Ch 5 -> Byte 6
 
-      print("BLE: Sending Brightness (Correct v36): $brightnessValues");
+      print("BLE: Sending Brightness (Restored v37): $brightnessValues");
       await _bleManager.write(BleProtocol.setBrightness(brightnessValues));
       await Future.delayed(const Duration(milliseconds: 800));
   }
