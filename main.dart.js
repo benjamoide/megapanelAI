@@ -96039,18 +96039,18 @@ return A.I(null,r)
 case 1:return A.H(p.at(-1),r)}})
 return A.J($async$j4,r)},
 lT(a){return this.akJ(a)},
-akJ(a){var s=0,r=A.K(t.H),q=this,p,o,n,m,l,k,j,i,h,g,f,e
-var $async$lT=A.F(function(b,c){if(b===1)return A.H(c,r)
-for(;;)switch(s){case 0:e=A.mm(a.w,null)
-if(e==null)e=10
-A.dG("BLE: Sending Duration: "+e+" min")
+akJ(a1){var s=0,r=A.K(t.H),q=this,p,o,n,m,l,k,j,i,h,g,f,e,d,c,b,a,a0
+var $async$lT=A.F(function(a2,a3){if(a2===1)return A.H(a3,r)
+for(;;)switch(s){case 0:a0=A.mm(a1.w,null)
+if(a0==null)a0=10
+A.dG("BLE: Sending Duration: "+a0+" min")
 p=q.z
 s=2
-return A.q(p.dI(A.aJd(e)),$async$lT)
+return A.q(p.dI(A.aJd(a0)),$async$lT)
 case 2:o=t.z
 s=3
 return A.q(A.ez(B.hl,null,o),$async$lT)
-case 3:n=a.r
+case 3:n=a1.r
 m=0
 if(!B.c.p(n.toUpperCase(),"CW")){l=A.cb("(\\d+)",!0,!1).mf(n)
 if(l!=null){n=l.b[1]
@@ -96061,16 +96061,21 @@ return A.q(p.dI(A.aJe(m)),$async$lT)
 case 4:s=5
 return A.q(A.ez(B.hl,null,o),$async$lT)
 case 5:k=A.b([0,0,0,0,0,0,0],t.t)
-for(n=a.x,j=n.length,i=0;i<n.length;n.length===j||(0,A.C)(n),++i){h=n[i]
-g=h.h(0,"nm")
-f=B.d.ct(A.er(h.h(0,"p")))
-if(g===630)k[0]=f
-else if(g===660)k[1]=f
-else if(g===810)k[2]=f
-else if(g===830)k[3]=f
-else if(g===850)k[4]=f
-else if(g<700)k[1]=f
-else k[4]=f}A.dG("BLE: Sending Brightness (7 bytes): "+A.m(k))
+for(n=a1.x,j=n.length,i=0,h=0,g=0,f=0,e=0,d=0;d<n.length;n.length===j||(0,A.C)(n),++d){c=n[d]
+b=c.h(0,"nm")
+a=B.d.ct(A.er(c.h(0,"p")))
+if(b===630)i=a
+else if(b===660)h=a
+else if(b===810)g=a
+else if(b===830)f=a
+else if(b===850)e=a}k[0]=i
+k[1]=0
+k[2]=0
+k[3]=h
+k[4]=g
+k[5]=f
+k[6]=e
+A.dG("BLE: Sending Brightness (Spread v32.2): "+A.m(k))
 s=6
 return A.q(p.dI(A.aJc(k)),$async$lT)
 case 6:s=7
