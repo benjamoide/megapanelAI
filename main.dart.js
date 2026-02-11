@@ -96069,13 +96069,13 @@ else if(b===660)h=a
 else if(b===810)g=a
 else if(b===830)f=a
 else if(b===850)e=a}k[0]=i
-k[1]=0
-k[2]=0
+k[1]=h
+k[2]=g
 k[3]=h
 k[4]=g
 k[5]=f
 k[6]=e
-A.dG("BLE: Sending Brightness (Spread v32.2): "+A.m(k))
+A.dG("BLE: Sending Brightness (Shotgun v34): "+A.m(k))
 s=6
 return A.q(p.dI(A.aJc(k)),$async$lT)
 case 6:s=7
