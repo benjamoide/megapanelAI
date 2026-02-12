@@ -97816,11 +97816,11 @@ else if(g===830)k=f
 else if(g===850)j=f}a[0]=n
 a[1]=m
 a[2]=l
-a[3]=0
-a[4]=0
+a[3]=m
+a[4]=l
 a[5]=k
 a[6]=j
-A.dQ("BLE: Sending Brightness (Priority - v45): "+A.m(a))
+A.dQ("BLE: Sending Brightness (Shotgun v46): "+A.m(a))
 p=q.z
 s=2
 return A.q(p.dL(A.aK4(a)),$async$m0)
