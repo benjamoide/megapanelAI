@@ -1014,7 +1014,11 @@ class AppState extends ChangeNotifier {
   /// New Order: Brightness (Priority) -> Time -> Pulse.
   Future<void> _sendParameters(Tratamiento t) async {
         // 1. Set Brightness (Frequencies) - MOVED TO FIRST
-        // Using v37 Mapping [S1, S2, S3, 0, 0, S4, S5]
+        // Using SHOTGUN MAPPING v46 (Restored v34/v41):
+        // v45 (Holes) updated Ch4/Ch5 (Byte 5/6) but failed Ch1-3.
+        // v45 proved Sequence (Brightness First) works for packet acceptance.
+        // We restore Shotgun to ensure we hit Ch1-3 (Byte 0-2 or 3-4?).
+        // Map: [S1, S2, S3, S2, S3, S4, S5]
       List<int> brightnessValues = [0, 0, 0, 0, 0, 0, 0]; 
       
       // Extract values 
@@ -1037,14 +1041,14 @@ class AppState extends ChangeNotifier {
       brightnessValues[0] = p630; // Ch 1
       brightnessValues[1] = p660; // Ch 2
       brightnessValues[2] = p810; // Ch 3
-      brightnessValues[3] = 0;    // Hole
-      brightnessValues[4] = 0;    // Hole
+      brightnessValues[3] = p660; // Mirror Ch 2
+      brightnessValues[4] = p810; // Mirror Ch 3
       brightnessValues[5] = p830; // Ch 4
       brightnessValues[6] = p850; // Ch 5
 
-      print("BLE: Sending Brightness (Priority - v45): $brightnessValues");
+      print("BLE: Sending Brightness (Shotgun v46): $brightnessValues");
       await _bleManager.write(BleProtocol.setBrightness(brightnessValues));
-      await Future.delayed(const Duration(milliseconds: 1000)); // Increased delay
+      await Future.delayed(const Duration(milliseconds: 1000));
 
         // 2. Set Countdown (Duration)
         int duration = int.tryParse(t.duracion) ?? 10;
