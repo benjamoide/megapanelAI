@@ -97813,14 +97813,14 @@ if(g===630)n=f
 else if(g===660)m=f
 else if(g===810)l=f
 else if(g===830)k=f
-else if(g===850)j=f}a[0]=0
-a[1]=0
-a[2]=n
-a[3]=m
-a[4]=l
-a[5]=k
-a[6]=j
-A.dQ("BLE: Sending Brightness (Offset v47): "+A.m(a))
+else if(g===850)j=f}a[0]=n
+a[1]=m
+a[2]=l
+a[3]=k
+a[4]=j
+a[5]=0
+a[6]=0
+A.dQ("BLE: Sending Brightness (Linear v48): "+A.m(a))
 p=q.z
 s=2
 return A.q(p.dL(A.aK4(a)),$async$m0)
