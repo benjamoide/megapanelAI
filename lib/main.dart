@@ -1014,10 +1014,14 @@ class AppState extends ChangeNotifier {
   /// New Order: Brightness (Priority) -> Time -> Pulse.
   Future<void> _sendParameters(Tratamiento t) async {
         // 1. Set Brightness (Frequencies) - MOVED TO FIRST
-        // LINEAR MAPPING v48 (Restored v42):
-        // v47 (Offset) failed. The "Shift" was likely misleading.
-        // We revert to the most logical map: [S1, S2, S3, S4, S5, 0, 0].
-        // AND we change the Start Command to QuickStart (0x21) to latch it.
+        // UNIVERSAL SHOTGUN v49:
+        // v45 confirmed Byte 5->Ch4, Byte 6->Ch5.
+        // v45 failed Ch1-3 (Sent at 0,1,2).
+        // v45 sent 0s at 3,4 and Ch1-3 did NOT change to 0 (so 3,4 are likely NOT Ch1-3, or 0 is ignored).
+        // BUT v46 (Shotgun) failed too (using PowerON 0x20).
+        // v49 combines: SHOTGUN + BRIGHTNESS FIRST + QUICK START (0x21).
+        // Map: [S1, S2, S3, S1, S2, S4, S5]
+        // If Ch1-3 are at Byte 3-4, we hit them. If at 0-2, we hit them.
       List<int> brightnessValues = [0, 0, 0, 0, 0, 0, 0]; 
       
       // Extract values 
@@ -1040,12 +1044,12 @@ class AppState extends ChangeNotifier {
       brightnessValues[0] = p630; // Ch 1
       brightnessValues[1] = p660; // Ch 2
       brightnessValues[2] = p810; // Ch 3
-      brightnessValues[3] = p830; // Ch 4
-      brightnessValues[4] = p850; // Ch 5
-      brightnessValues[5] = 0;    // Pad
-      brightnessValues[6] = 0;    // Pad
+      brightnessValues[3] = p630; // Copy Ch 1 (Try Byte 3)
+      brightnessValues[4] = p660; // Copy Ch 2 (Try Byte 4)
+      brightnessValues[5] = p830; // Ch 4 (Confirmed Byte 5)
+      brightnessValues[6] = p850; // Ch 5 (Confirmed Byte 6)
 
-      print("BLE: Sending Brightness (Linear v48): $brightnessValues");
+      print("BLE: Sending Brightness (Univ Shotgun v49): $brightnessValues");
       await _bleManager.write(BleProtocol.setBrightness(brightnessValues));
       await Future.delayed(const Duration(milliseconds: 1000));
 
