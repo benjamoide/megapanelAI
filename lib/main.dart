@@ -1113,11 +1113,15 @@ class AppState extends ChangeNotifier {
         }
 
         // EXECUTE SEQUENCE
+        // Update v43: Default to INVERSE (Start -> Params).
+        // Reason: v34 Mode 2 success used this. v42 Mode 0 (Standard) failed to update Brightness.
+        // Device likely needs to be ON/Running to accept Brightness 0x41.
         if (sequenceMode == 0) {
-            // Standard: Stop -> Params -> Start
-            await stop();
-            await sendParams();
+            // New Standard = INVERSE
+            print("BLE v43: Forcing Inverse Sequence (Start -> Params)");
             await start();
+            await Future.delayed(const Duration(milliseconds: 1500)); // Give it time to boot
+            await sendParams();
         } else if (sequenceMode == 1) {
             // Live: Params Only (Good if already running)
             await sendParams();
