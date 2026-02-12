@@ -30,6 +30,7 @@ class BleProtocol {
   // Footer: 0x0A (\n)
 
   /// Constructs a packet for the given command and payload.
+  /// Update v39: Sanitize payload to remove 0x0A (10) and 0x3A (58) which are framing bytes.
   static List<int> buildPacket(int command, List<int> payload) {
     List<int> packet = [];
     
@@ -40,13 +41,21 @@ class BleProtocol {
     // Command
     packet.add(command);
     
+    // Sanitize Payload: Replace 10 (0x0A) with 11, and 58 (0x3A) with 59.
+    // This prevents the device from interpreting data as Header/Footer.
+    List<int> safePayload = payload.map((b) {
+      if (b == 0x0A) return 0x0B; // 10 -> 11
+      if (b == 0x3A) return 0x3B; // 58 -> 59
+      return b;
+    }).toList();
+    
     // Length (Big Endian based on analysis e.length / 256)
-    int len = payload.length;
+    int len = safePayload.length;
     packet.add((len >> 8) & 0xFF); // High byte
     packet.add(len & 0xFF);        // Low byte
     
     // Payload
-    packet.addAll(payload);
+    packet.addAll(safePayload);
     
     // Checksum: Sum of bytes from Index 1 to End-2 (Address...Data) % 256
     int sum = 0;
