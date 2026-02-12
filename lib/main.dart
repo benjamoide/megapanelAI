@@ -1031,10 +1031,10 @@ class AppState extends ChangeNotifier {
         await Future.delayed(const Duration(milliseconds: 800));
 
         // 3. Set Brightness (Frequencies)
-      // LINEAR MAPPING v42:
-      // The "Shotgun" (v41) failed in Mode 0.
-      // Readback logs show [Ch1, Ch2, Ch3, Ch4, Ch5, 0, 11].
-      // This implies a Linear Map: [S1, S2, S3, S4, S5, 0, 0].
+      // RESTORED v37 MAPPING (v44):
+      // v37 was the ONLY version confirmed to work for all channels.
+      // v42 (Linear) failed. v41 (Shotgun) failed in Mode 0.
+      // Map: [S1, S2, S3, 0, 0, S4, S5]
       List<int> brightnessValues = [0, 0, 0, 0, 0, 0, 0]; 
       
       // Extract values 
@@ -1057,12 +1057,12 @@ class AppState extends ChangeNotifier {
       brightnessValues[0] = p630; // Ch 1
       brightnessValues[1] = p660; // Ch 2
       brightnessValues[2] = p810; // Ch 3
-      brightnessValues[3] = p830; // Ch 4
-      brightnessValues[4] = p850; // Ch 5
-      brightnessValues[5] = 0;    // Padding
-      brightnessValues[6] = 0;    // Padding
+      brightnessValues[3] = 0;    // Hole
+      brightnessValues[4] = 0;    // Hole
+      brightnessValues[5] = p830; // Ch 4
+      brightnessValues[6] = p850; // Ch 5
 
-      print("BLE: Sending Brightness (Linear v42): $brightnessValues");
+      print("BLE: Sending Brightness (Restored v37): $brightnessValues");
       await _bleManager.write(BleProtocol.setBrightness(brightnessValues));
       await Future.delayed(const Duration(milliseconds: 800));
   }
@@ -1113,15 +1113,14 @@ class AppState extends ChangeNotifier {
         }
 
         // EXECUTE SEQUENCE
-        // Update v43: Default to INVERSE (Start -> Params).
-        // Reason: v34 Mode 2 success used this. v42 Mode 0 (Standard) failed to update Brightness.
-        // Device likely needs to be ON/Running to accept Brightness 0x41.
+        // Update v44: Restore STANDARD (Stop -> Params -> Start).
+        // v43 (Inverse) failed to update Brightness.
+        // v37 (Standard) worked. Code reverted.
         if (sequenceMode == 0) {
-            // New Standard = INVERSE
-            print("BLE v43: Forcing Inverse Sequence (Start -> Params)");
-            await start();
-            await Future.delayed(const Duration(milliseconds: 1500)); // Give it time to boot
+            // Standard: Stop -> Params -> Start
+            await stop();
             await sendParams();
+            await start();
         } else if (sequenceMode == 1) {
             // Live: Params Only (Good if already running)
             await sendParams();
