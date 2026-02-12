@@ -1009,32 +1009,12 @@ class AppState extends ChangeNotifier {
   }
 
   /// Helper to just send parameters
+  /// Update v45: Reordered Commands.
+  /// Hypothesis: The 2-byte Pulse command (v38) might be stalling the device, causing the subsequent Brightness command to be ignored.
+  /// New Order: Brightness (Priority) -> Time -> Pulse.
   Future<void> _sendParameters(Tratamiento t) async {
-        // 1. Set Countdown (Duration)
-        int duration = int.tryParse(t.duracion) ?? 10;
-        print("BLE: Sending Duration: $duration min");
-        await _bleManager.write(BleProtocol.setCountdown(duration));
-        await Future.delayed(const Duration(milliseconds: 800));
-        
-        // 2. Set Pulse (Hz)
-        int hz = 0;
-        bool isCW = t.hz.toUpperCase().contains("CW");
-        if (!isCW) {
-           RegExp reg = RegExp(r'(\d+)');
-           var match = reg.firstMatch(t.hz);
-           if (match != null) {
-             hz = int.parse(match.group(1)!);
-           }
-        }
-        print("BLE: Sending Pulse: $hz Hz");
-        await _bleManager.write(BleProtocol.setPulse(hz));
-        await Future.delayed(const Duration(milliseconds: 800));
-
-        // 3. Set Brightness (Frequencies)
-      // RESTORED v37 MAPPING (v44):
-      // v37 was the ONLY version confirmed to work for all channels.
-      // v42 (Linear) failed. v41 (Shotgun) failed in Mode 0.
-      // Map: [S1, S2, S3, 0, 0, S4, S5]
+        // 1. Set Brightness (Frequencies) - MOVED TO FIRST
+        // Using v37 Mapping [S1, S2, S3, 0, 0, S4, S5]
       List<int> brightnessValues = [0, 0, 0, 0, 0, 0, 0]; 
       
       // Extract values 
@@ -1062,9 +1042,29 @@ class AppState extends ChangeNotifier {
       brightnessValues[5] = p830; // Ch 4
       brightnessValues[6] = p850; // Ch 5
 
-      print("BLE: Sending Brightness (Restored v37): $brightnessValues");
+      print("BLE: Sending Brightness (Priority - v45): $brightnessValues");
       await _bleManager.write(BleProtocol.setBrightness(brightnessValues));
-      await Future.delayed(const Duration(milliseconds: 800));
+      await Future.delayed(const Duration(milliseconds: 1000)); // Increased delay
+
+        // 2. Set Countdown (Duration)
+        int duration = int.tryParse(t.duracion) ?? 10;
+        print("BLE: Sending Duration: $duration min");
+        await _bleManager.write(BleProtocol.setCountdown(duration));
+        await Future.delayed(const Duration(milliseconds: 800));
+        
+        // 3. Set Pulse (Hz) - MOVED TO LAST
+        int hz = 0;
+        bool isCW = t.hz.toUpperCase().contains("CW");
+        if (!isCW) {
+           RegExp reg = RegExp(r'(\d+)');
+           var match = reg.firstMatch(t.hz);
+           if (match != null) {
+             hz = int.parse(match.group(1)!);
+           }
+        }
+        print("BLE: Sending Pulse: $hz Hz");
+        await _bleManager.write(BleProtocol.setPulse(hz));
+        await Future.delayed(const Duration(milliseconds: 800));
   }
 
   /// Starts a manual treatment not in the catalog
