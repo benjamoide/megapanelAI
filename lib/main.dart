@@ -1014,11 +1014,13 @@ class AppState extends ChangeNotifier {
   /// New Order: Brightness (Priority) -> Time -> Pulse.
   Future<void> _sendParameters(Tratamiento t) async {
         // 1. Set Brightness (Frequencies) - MOVED TO FIRST
-        // Using SHOTGUN MAPPING v46 (Restored v34/v41):
-        // v45 (Holes) updated Ch4/Ch5 (Byte 5/6) but failed Ch1-3.
-        // v45 proved Sequence (Brightness First) works for packet acceptance.
-        // We restore Shotgun to ensure we hit Ch1-3 (Byte 0-2 or 3-4?).
-        // Map: [S1, S2, S3, S2, S3, S4, S5]
+        // OFFSET MAPPING v47:
+        // Analysis of v45/v46 logs shows a -2 Byte Shift.
+        // Sent[6]=99 -> Read[4]=Ch5.
+        // Sent[5]=45 -> Read[3]=Ch4.
+        // Sent[4]=0  -> Read[2]=Ch3 (became 0).
+        // Sent[0..1] -> Ignored.
+        // New Map: [Pad, Pad, S1, S2, S3, S4, S5]
       List<int> brightnessValues = [0, 0, 0, 0, 0, 0, 0]; 
       
       // Extract values 
@@ -1038,15 +1040,15 @@ class AppState extends ChangeNotifier {
         else if (nm == 850) p850 = p;
       }
 
-      brightnessValues[0] = p630; // Ch 1
-      brightnessValues[1] = p660; // Ch 2
-      brightnessValues[2] = p810; // Ch 3
-      brightnessValues[3] = p660; // Mirror Ch 2
-      brightnessValues[4] = p810; // Mirror Ch 3
-      brightnessValues[5] = p830; // Ch 4
-      brightnessValues[6] = p850; // Ch 5
+      brightnessValues[0] = 0;    // Pad
+      brightnessValues[1] = 0;    // Pad
+      brightnessValues[2] = p630; // Ch 1 -> Sent[2] -> Read[0]?
+      brightnessValues[3] = p660; // Ch 2 -> Sent[3] -> Read[1]?
+      brightnessValues[4] = p810; // Ch 3 -> Sent[4] -> Read[2] (Confirmed)
+      brightnessValues[5] = p830; // Ch 4 -> Sent[5] -> Read[3] (Confirmed)
+      brightnessValues[6] = p850; // Ch 5 -> Sent[6] -> Read[4] (Confirmed)
 
-      print("BLE: Sending Brightness (Shotgun v46): $brightnessValues");
+      print("BLE: Sending Brightness (Offset v47): $brightnessValues");
       await _bleManager.write(BleProtocol.setBrightness(brightnessValues));
       await Future.delayed(const Duration(milliseconds: 1000));
 
