@@ -1031,11 +1031,10 @@ class AppState extends ChangeNotifier {
         await Future.delayed(const Duration(milliseconds: 800));
 
         // 3. Set Brightness (Frequencies)
-      // SHOTGUN MAPPING v41 (Restored v34):
-      // The "Clean" mapping (v40) failed to update registers.
-      // v34 was PROVEN to work. We combine it with v40 Sanitization.
-      // Map: [S1, S2, S3, S2, S3, S4, S5]
-      // This ensures we hit the registers regardless of where the indices land.
+      // LINEAR MAPPING v42:
+      // The "Shotgun" (v41) failed in Mode 0.
+      // Readback logs show [Ch1, Ch2, Ch3, Ch4, Ch5, 0, 11].
+      // This implies a Linear Map: [S1, S2, S3, S4, S5, 0, 0].
       List<int> brightnessValues = [0, 0, 0, 0, 0, 0, 0]; 
       
       // Extract values 
@@ -1055,15 +1054,15 @@ class AppState extends ChangeNotifier {
         else if (nm == 850) p850 = p;
       }
 
-      brightnessValues[0] = p630; // Ch 1 -> Byte 0
-      brightnessValues[1] = p660; // Ch 2 -> Byte 1 (or 3)
-      brightnessValues[2] = p810; // Ch 3 -> Byte 2 (or 4)
-      brightnessValues[3] = p660; // Mirror Ch 2
-      brightnessValues[4] = p810; // Mirror Ch 3
-      brightnessValues[5] = p830; // Ch 4 -> Byte 5
-      brightnessValues[6] = p850; // Ch 5 -> Byte 6
+      brightnessValues[0] = p630; // Ch 1
+      brightnessValues[1] = p660; // Ch 2
+      brightnessValues[2] = p810; // Ch 3
+      brightnessValues[3] = p830; // Ch 4
+      brightnessValues[4] = p850; // Ch 5
+      brightnessValues[5] = 0;    // Padding
+      brightnessValues[6] = 0;    // Padding
 
-      print("BLE: Sending Brightness (Shotgun v41): $brightnessValues");
+      print("BLE: Sending Brightness (Linear v42): $brightnessValues");
       await _bleManager.write(BleProtocol.setBrightness(brightnessValues));
       await Future.delayed(const Duration(milliseconds: 800));
   }
