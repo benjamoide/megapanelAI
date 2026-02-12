@@ -86,11 +86,9 @@ class BleProtocol {
 
   /// Helper to Set Pulse (0x42)
   /// [hz] Frequency in Hz.
+  /// Update v38: Always send 2 bytes (Big Endian) to prevent 9999 error.
   static List<int> setPulse(int hz) {
-    if (hz > 255) {
-        return buildPacket(CMD_SET_PULSE, [(hz >> 8) & 0xFF, hz & 0xFF]);
-    }
-    return buildPacket(CMD_SET_PULSE, [hz]); 
+    return buildPacket(CMD_SET_PULSE, [(hz >> 8) & 0xFF, hz & 0xFF]);
   }
 
   /// Helper to Set Countdown (0x31)
