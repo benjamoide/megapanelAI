@@ -1014,13 +1014,10 @@ class AppState extends ChangeNotifier {
   /// New Order: Brightness (Priority) -> Time -> Pulse.
   Future<void> _sendParameters(Tratamiento t) async {
         // 1. Set Brightness (Frequencies) - MOVED TO FIRST
-        // OFFSET MAPPING v47:
-        // Analysis of v45/v46 logs shows a -2 Byte Shift.
-        // Sent[6]=99 -> Read[4]=Ch5.
-        // Sent[5]=45 -> Read[3]=Ch4.
-        // Sent[4]=0  -> Read[2]=Ch3 (became 0).
-        // Sent[0..1] -> Ignored.
-        // New Map: [Pad, Pad, S1, S2, S3, S4, S5]
+        // LINEAR MAPPING v48 (Restored v42):
+        // v47 (Offset) failed. The "Shift" was likely misleading.
+        // We revert to the most logical map: [S1, S2, S3, S4, S5, 0, 0].
+        // AND we change the Start Command to QuickStart (0x21) to latch it.
       List<int> brightnessValues = [0, 0, 0, 0, 0, 0, 0]; 
       
       // Extract values 
@@ -1040,15 +1037,15 @@ class AppState extends ChangeNotifier {
         else if (nm == 850) p850 = p;
       }
 
-      brightnessValues[0] = 0;    // Pad
-      brightnessValues[1] = 0;    // Pad
-      brightnessValues[2] = p630; // Ch 1 -> Sent[2] -> Read[0]?
-      brightnessValues[3] = p660; // Ch 2 -> Sent[3] -> Read[1]?
-      brightnessValues[4] = p810; // Ch 3 -> Sent[4] -> Read[2] (Confirmed)
-      brightnessValues[5] = p830; // Ch 4 -> Sent[5] -> Read[3] (Confirmed)
-      brightnessValues[6] = p850; // Ch 5 -> Sent[6] -> Read[4] (Confirmed)
+      brightnessValues[0] = p630; // Ch 1
+      brightnessValues[1] = p660; // Ch 2
+      brightnessValues[2] = p810; // Ch 3
+      brightnessValues[3] = p830; // Ch 4
+      brightnessValues[4] = p850; // Ch 5
+      brightnessValues[5] = 0;    // Pad
+      brightnessValues[6] = 0;    // Pad
 
-      print("BLE: Sending Brightness (Offset v47): $brightnessValues");
+      print("BLE: Sending Brightness (Linear v48): $brightnessValues");
       await _bleManager.write(BleProtocol.setBrightness(brightnessValues));
       await Future.delayed(const Duration(milliseconds: 1000));
 
