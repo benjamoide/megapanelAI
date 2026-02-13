@@ -1041,15 +1041,15 @@ class AppState extends ChangeNotifier {
         else if (nm == 850) p850 = p;
       }
 
-      brightnessValues[0] = p630; // Ch 1
-      brightnessValues[1] = p660; // Ch 2
-      brightnessValues[2] = p810; // Ch 3
-      brightnessValues[3] = p630; // Copy Ch 1 (Try Byte 3)
-      brightnessValues[4] = p660; // Copy Ch 2 (Try Byte 4)
-      brightnessValues[5] = p830; // Ch 4 (Confirmed Byte 5)
-      brightnessValues[6] = p850; // Ch 5 (Confirmed Byte 6)
+      brightnessValues[0] = 0; // Padding
+      brightnessValues[1] = 0; // Padding
+      brightnessValues[2] = p630; // Ch 1 (630nm)
+      brightnessValues[3] = p660; // Ch 2 (660nm)
+      brightnessValues[4] = p810; // Ch 3 (810nm)
+      brightnessValues[5] = p830; // Ch 4 (830nm)
+      brightnessValues[6] = p850; // Ch 5 (850nm)
 
-      print("BLE: Sending Brightness (Univ Shotgun v49): $brightnessValues");
+      print("BLE: Sending Brightness (v50 Fix): $brightnessValues");
       await _bleManager.write(BleProtocol.setBrightness(brightnessValues));
       await Future.delayed(const Duration(milliseconds: 1000));
 
