@@ -1041,15 +1041,15 @@ class AppState extends ChangeNotifier {
         else if (nm == 850) p850 = p;
       }
 
-      brightnessValues[0] = 0; // Padding
-      brightnessValues[1] = 0; // Padding
+      brightnessValues[0] = 1; // Padding (v51: Changed 0->1)
+      brightnessValues[1] = 1; // Padding (v51: Changed 0->1)
       brightnessValues[2] = p630; // Ch 1 (630nm)
       brightnessValues[3] = p660; // Ch 2 (660nm)
       brightnessValues[4] = p810; // Ch 3 (810nm)
       brightnessValues[5] = p830; // Ch 4 (830nm)
       brightnessValues[6] = p850; // Ch 5 (850nm)
 
-      print("BLE: Sending Brightness (v50 Fix): $brightnessValues");
+      print("BLE: Sending Brightness (v51 Fix): $brightnessValues");
       await _bleManager.write(BleProtocol.setBrightness(brightnessValues));
       await Future.delayed(const Duration(milliseconds: 1000));
 
@@ -1125,7 +1125,7 @@ class AppState extends ChangeNotifier {
         // v37 (Standard) worked. Code reverted.
         if (sequenceMode == 0) {
             // Standard: Stop -> Params -> Start
-            await stop();
+            // await stop(); // v51: Removed to prevent "Black Screen" death
             await sendParams();
             await start();
         } else if (sequenceMode == 1) {
