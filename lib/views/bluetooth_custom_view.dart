@@ -193,9 +193,10 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
               value: _sequenceMode,
               isExpanded: true,
               items: const [
-                DropdownMenuItem(value: 0, child: Text("Seq: Standard (Reset -> Params -> Start)")),
+                DropdownMenuItem(value: 0, child: Text("Seq: Standard (Params -> Start)")),
                 DropdownMenuItem(value: 1, child: Text("Seq: Live (Params Only)")),
                 DropdownMenuItem(value: 2, child: Text("Seq: Inverse (Start -> Params)")),
+                DropdownMenuItem(value: 3, child: Text("Seq: Hard Reset (Stop -> Params -> Start)")),
               ], 
               onChanged: (v) => setState(() => _sequenceMode = v!)
             ),

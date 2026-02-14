@@ -1124,8 +1124,8 @@ class AppState extends ChangeNotifier {
         // v43 (Inverse) failed to update Brightness.
         // v37 (Standard) worked. Code reverted.
         if (sequenceMode == 0) {
-            // Standard: Stop -> Params -> Start
-            await stop(); // v51: Restored Reset
+            // Standard Safe: Params -> Start
+            // Removed stop() to prevent "Black Screen" death
             await sendParams();
             await start();
         } else if (sequenceMode == 1) {
@@ -1135,6 +1135,13 @@ class AppState extends ChangeNotifier {
             // Inverse: Start -> Params (If device needs to be ON to accept params)
             await start();
             await sendParams();
+        } else if (sequenceMode == 3) {
+            // Hard Reset: Stop -> Params -> Start
+            await stop(); 
+            // Increased delay to allow device to recover from OFF state
+            await Future.delayed(const Duration(milliseconds: 2000));
+            await sendParams();
+            await start();
         }
         
        } catch (e) {
