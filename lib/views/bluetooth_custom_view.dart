@@ -134,17 +134,42 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
             ),
 
             const SizedBox(height: 30),
-            
-            SizedBox(
-              height: 50,
-              child: FilledButton.icon(
-                icon: const Icon(Icons.play_arrow),
-                label: const Text("INICIAR TRATAMIENTO (RUN)"),
-                onPressed: isConnected ? () {
-                  _runManualTreatment(context);
-                } : null,
+                        SizedBox(
+                height: 50,
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.build),
+                  label: const Text("CARGAR TEST v51"),
+                  onPressed: () {
+                    setState(() {
+                      _red630 = 10;
+                      _red660 = 25;
+                      _nir810 = 50;
+                      _nir830 = 75;
+                      _nir850 = 100;
+                      _pulseEnabled = true;
+                      _pulseHz = 0; // CW
+                      _duration = 10;
+                      _startCommand = 0x21; // Quick Start
+                      _sequenceMode = 0; // Standard
+                      _workMode = 0; // Mode 0
+                    });
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Configuración v51 cargada"))
+                    );
+                  },
+                ),
               ),
-            ),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 50,
+                child: FilledButton.icon(
+                  icon: const Icon(Icons.play_arrow),
+                  label: const Text("INICIAR TRATAMIENTO (RUN)"),
+                  onPressed: isConnected ? () {
+                    _runManualTreatment(context);
+                  } : null,
+                ),
+              ),
 
 
 

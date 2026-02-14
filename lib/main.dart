@@ -1125,7 +1125,7 @@ class AppState extends ChangeNotifier {
         // v37 (Standard) worked. Code reverted.
         if (sequenceMode == 0) {
             // Standard: Stop -> Params -> Start
-            // await stop(); // v51: Removed to prevent "Black Screen" death
+            await stop(); // v51: Restored Reset
             await sendParams();
             await start();
         } else if (sequenceMode == 1) {
