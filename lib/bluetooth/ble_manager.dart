@@ -13,15 +13,19 @@ class BleManager {
   BluetoothDevice? _connectedDevice;
   BluetoothCharacteristic? _writeCharacteristic;
   BluetoothCharacteristic? _notifyCharacteristic;
+  final List<BluetoothCharacteristic> _writeCandidates = [];
+  final List<BluetoothCharacteristic> _notifyCandidates = [];
   
   StreamSubscription<BluetoothConnectionState>? _connectionSubscription;
-  StreamSubscription<List<int>>? _notifySubscription;
+  final List<StreamSubscription<List<int>>> _notifySubscriptions = [];
   Future<void> _pendingWrite = Future.value();
+  DateTime _lastRxAt = DateTime.fromMillisecondsSinceEpoch(0);
 
   static const int _maxChunkSize = 20;
   static const int _maxWriteAttempts = 3;
   static const Duration _chunkGap = Duration(milliseconds: 80);
   static const Duration _retryDelay = Duration(milliseconds: 120);
+  static const List<int> _statusProbePacket = [0x3A, 0x01, 0x10, 0x00, 0x00, 0x11, 0x0A];
 
   // Persistent stream controller for connection state
   final _connectionStateController = StreamController<BluetoothConnectionState>.broadcast();
@@ -117,22 +121,18 @@ class BleManager {
         return false;
       }
 
-      await _notifySubscription?.cancel();
-      if (_notifyCharacteristic != null) {
-        await _notifyCharacteristic!.setNotifyValue(true);
-        _notifySubscription = _notifyCharacteristic!.lastValueStream.listen((value) {
-          log("BLE RX: ${_hex(value)}");
-        }, onError: (error) {
-          log("Notify stream error: $error");
-        });
-      } else {
+      await _startNotifyListeners();
+      if (_notifySubscriptions.isEmpty) {
         log("No notify characteristic found (writes only).");
       }
+
+      await _autoDetectWriteCharacteristic();
 
       log(
         "BleManager: Connected and ready. "
         "Write=${_writeCharacteristic?.uuid.str}, "
-        "Notify=${_notifyCharacteristic?.uuid.str ?? 'none'}",
+        "Notify=${_notifyCharacteristic?.uuid.str ?? 'none'} "
+        "(writeCandidates=${_writeCandidates.length}, notifyCandidates=${_notifyCandidates.length})",
       );
       return true;
     } catch (e) {
@@ -172,6 +172,8 @@ class BleManager {
   }
 
   void _selectCharacteristics(List<BluetoothService> services) {
+    _writeCandidates.clear();
+    _notifyCandidates.clear();
     BluetoothCharacteristic? fallbackWrite;
     BluetoothCharacteristic? fallbackNotify;
 
@@ -196,10 +198,12 @@ class BleManager {
         if (canWrite) {
           serviceWrite ??= characteristic;
           fallbackWrite ??= characteristic;
+          _writeCandidates.add(characteristic);
         }
         if (canNotify) {
           serviceNotify ??= characteristic;
           fallbackNotify ??= characteristic;
+          _notifyCandidates.add(characteristic);
         }
       }
 
@@ -225,6 +229,79 @@ class BleManager {
     );
   }
 
+  Future<void> _startNotifyListeners() async {
+    for (final sub in _notifySubscriptions) {
+      await sub.cancel();
+    }
+    _notifySubscriptions.clear();
+
+    final targets = _notifyCandidates.isNotEmpty
+        ? _notifyCandidates
+        : (_notifyCharacteristic == null ? <BluetoothCharacteristic>[] : <BluetoothCharacteristic>[_notifyCharacteristic!]);
+
+    for (final characteristic in targets) {
+      try {
+        final forceIndications =
+            characteristic.properties.indicate && !characteristic.properties.notify;
+        await characteristic.setNotifyValue(true, forceIndications: forceIndications);
+        log(
+          "Notify enabled on ${characteristic.uuid.str} "
+          "(forceIndications=$forceIndications)",
+        );
+
+        final sub = characteristic.onValueReceived.listen((value) {
+          _lastRxAt = DateTime.now();
+          log("BLE RX [${characteristic.uuid.str}]: ${_hex(value)}");
+        }, onError: (error) {
+          log("Notify stream error on ${characteristic.uuid.str}: $error");
+        });
+        _notifySubscriptions.add(sub);
+      } catch (e) {
+        log("Notify enable failed on ${characteristic.uuid.str}: $e");
+      }
+    }
+  }
+
+  Future<void> _autoDetectWriteCharacteristic() async {
+    if (_writeCandidates.length <= 1) return;
+
+    log("BleManager: Probing ${_writeCandidates.length} write candidates...");
+    for (final candidate in _writeCandidates) {
+      final marker = DateTime.now();
+      try {
+        log("BLE PROBE WRITE: ${candidate.uuid.str} ${_hex(_statusProbePacket)}");
+        await candidate.write(
+          _statusProbePacket,
+          withoutResponse: _shouldUseWithoutResponse(candidate),
+        );
+      } catch (e) {
+        log("BLE PROBE failed on ${candidate.uuid.str}: $e");
+        continue;
+      }
+
+      final gotRx = await _waitForRxAfter(marker, const Duration(milliseconds: 450));
+      if (gotRx) {
+        _writeCharacteristic = candidate;
+        log("BleManager: Auto-selected write characteristic ${candidate.uuid.str} after probe RX.");
+        return;
+      }
+      await Future.delayed(const Duration(milliseconds: 120));
+    }
+
+    log("BleManager: No RX during probe; keeping write=${_writeCharacteristic?.uuid.str ?? 'none'}");
+  }
+
+  Future<bool> _waitForRxAfter(DateTime marker, Duration timeout) async {
+    final deadline = DateTime.now().add(timeout);
+    while (DateTime.now().isBefore(deadline)) {
+      if (_lastRxAt.isAfter(marker)) {
+        return true;
+      }
+      await Future.delayed(const Duration(milliseconds: 40));
+    }
+    return _lastRxAt.isAfter(marker);
+  }
+
   Future<void> disconnect() async {
     await _connectedDevice?.disconnect();
     _cleanup();
@@ -233,11 +310,17 @@ class BleManager {
   void _cleanup() {
     log("BleManager: Cleaning up resources");
     _connectionSubscription?.cancel();
-    _notifySubscription?.cancel();
+    for (final sub in _notifySubscriptions) {
+      sub.cancel();
+    }
+    _notifySubscriptions.clear();
     _connectedDevice = null;
     _writeCharacteristic = null;
     _notifyCharacteristic = null;
+    _writeCandidates.clear();
+    _notifyCandidates.clear();
     _pendingWrite = Future.value();
+    _lastRxAt = DateTime.fromMillisecondsSinceEpoch(0);
     _connectionStateController.add(BluetoothConnectionState.disconnected);
   }
 
