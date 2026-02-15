@@ -170,6 +170,22 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
                   } : null,
                 ),
               ),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 50,
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.stop, color: Colors.red),
+                  label: const Text("DETENER (STOP)",
+                      style: TextStyle(color: Colors.red)),
+                  style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Colors.red)),
+                  onPressed: isConnected
+                      ? () {
+                          _stopManualTreatment(context);
+                        }
+                      : null,
+                ),
+              ),
 
 
 
@@ -316,6 +332,17 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Enviando configuración al dispositivo..."))
+    );
+  }
+
+  Future<void> _stopManualTreatment(BuildContext context) async {
+    await BleManager().write(BleProtocol.setPower(false));
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("Comando STOP enviado al dispositivo"),
+        backgroundColor: Colors.red,
+      ),
     );
   }
 }

@@ -947,6 +947,7 @@ class AppState extends ChangeNotifier {
       try {
         final t = catalogo.firstWhere((e) => e.id == id);
         print("BLE: Starting Treatment '${t.nombre}'");
+        print("BLE: Params -> duracion=${t.duracion} min, hz='${t.hz}', frecuencias=${t.frecuencias}");
 
         await _sendParameters(t, workMode: 0);
         await _bleManager.write(BleProtocol.quickStart(mode: 0));
@@ -2154,6 +2155,27 @@ class _PanelSemanalViewState extends State<PanelSemanalView>
                         t: t,
                         isPlanned: true,
                         plannedMoment: e.value,
+                        onStart: () async {
+                          if (!state.isConnected) {
+                            await showDialog(
+                                context: context,
+                                builder: (_) => const BluetoothScanDialog());
+                          }
+                          if (state.isConnected) {
+                            await state.iniciarCiclo(t.id);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                  content: Text("Iniciando ${t.nombre}..."),
+                                  backgroundColor: Colors.green));
+                            }
+                          } else {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                                  content: Text("No conectado. Intente de nuevo."),
+                                  backgroundColor: Colors.orange));
+                            }
+                          }
+                        },
                         onDeletePlan: () =>
                             state.desplanificarTratamiento(fStr, t.id));
                   })
@@ -2246,7 +2268,27 @@ class ClinicaView extends StatelessWidget {
           style: TextStyle(fontWeight: FontWeight.bold)),
       _BuscadorManual(
         catalogo: state.catalogo,
-        onAdd: (t, _) => state.iniciarCiclo(t.id),
+        onAdd: (t, _) async {
+          if (!state.isConnected) {
+            await showDialog(
+                context: context,
+                builder: (_) => const BluetoothScanDialog());
+          }
+          if (state.isConnected) {
+            await state.iniciarCiclo(t.id);
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text("Iniciando ${t.nombre}..."),
+                  backgroundColor: Colors.green));
+            }
+          } else {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                  content: Text("No conectado. Intente de nuevo."),
+                  backgroundColor: Colors.orange));
+            }
+          }
+        },
         askTime: false,
       )
     ]);
