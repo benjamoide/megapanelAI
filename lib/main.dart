@@ -942,214 +942,142 @@ class AppState extends ChangeNotifier {
       'activo': true,
       'inicio': DateFormat('HH:mm:ss').format(DateTime.now())
     };
-    
-    // BLE Command
+
     if (isConnected) {
       try {
-        var t = catalogo.firstWhere((e) => e.id == id);
-        
+        final t = catalogo.firstWhere((e) => e.id == id);
         print("BLE: Starting Treatment '${t.nombre}'");
 
-        // 0. STOP First (Reset state)
-        print("BLE: Sending Power OFF (Reset)");
-        await _bleManager.write(BleProtocol.setPower(false));
-        await Future.delayed(const Duration(milliseconds: 500));
-        
-        // 1. Set Countdown (Duration)
-        int duration = int.tryParse(t.duracion) ?? 10;
-        print("BLE: Sending Duration: $duration min");
-        await _bleManager.write(BleProtocol.setCountdown(duration));
-        await Future.delayed(const Duration(milliseconds: 300));
-        
-        // 2. Set Pulse (Hz) - Send 0 for CW
-        int hz = 0;
-        bool isCW = t.hz.toUpperCase().contains("CW");
-        if (!isCW) {
-           RegExp reg = RegExp(r'(\d+)');
-           var match = reg.firstMatch(t.hz);
-           if (match != null) {
-             hz = int.parse(match.group(1)!);
-           }
-        }
-        print("BLE: Sending Pulse: $hz Hz (Mode: ${hz == 0 ? 'CW' : 'Pulse'})");
-        await _bleManager.write(BleProtocol.setPulse(hz));
-        await Future.delayed(const Duration(milliseconds: 300));
-
-        // 3. Set Brightness (Frequencies)
-        List<int> brightnessValues = [0, 0, 0, 0, 0];
-        for (var f in t.frecuencias) {
-          int nm = f['nm'];
-          int p = (f['p'] as num).toInt();
-          if (nm == 630) brightnessValues[0] = p;
-          else if (nm == 660) brightnessValues[1] = p;
-          else if (nm == 810) brightnessValues[2] = p;
-          else if (nm == 830) brightnessValues[3] = p;
-          else if (nm == 850) brightnessValues[4] = p;
-          else if (nm < 700) brightnessValues[1] = p; 
-          else brightnessValues[4] = p; 
-        }
-        print("BLE: Sending Brightness: $brightnessValues");
-        await _bleManager.write(BleProtocol.setBrightness(brightnessValues));
-        await Future.delayed(const Duration(milliseconds: 300));
-        
-        // 4. Quick Start (Use CMD_QUICK_START 0x21 instead of Power On 0x20)
-        print("BLE: Sending Quick Start (0x21)");
-        await _bleManager.write(BleProtocol.quickStart());
-        
+        await _sendParameters(t, workMode: 0);
+        await _bleManager.write(BleProtocol.quickStart(mode: 0));
+        await Future.delayed(const Duration(milliseconds: 150));
         print("BLE: Configuration sent.");
-        
       } catch (e) {
         print("BLE Error: $e");
-        // Optional: Notify UI of error
       }
     }
-    
-    notifyListeners();
+
     notifyListeners();
   }
 
-  /// Helper to just send parameters
-  /// Update v45: Reordered Commands.
-  /// Hypothesis: The 2-byte Pulse command (v38) might be stalling the device, causing the subsequent Brightness command to be ignored.
-  /// New Order: Brightness (Priority) -> Time -> Pulse.
-  Future<void> _sendParameters(Tratamiento t) async {
-        // 1. Set Brightness (Frequencies) - MOVED TO FIRST
-        // UNIVERSAL SHOTGUN v49:
-        // v45 confirmed Byte 5->Ch4, Byte 6->Ch5.
-        // v45 failed Ch1-3 (Sent at 0,1,2).
-        // v45 sent 0s at 3,4 and Ch1-3 did NOT change to 0 (so 3,4 are likely NOT Ch1-3, or 0 is ignored).
-        // BUT v46 (Shotgun) failed too (using PowerON 0x20).
-        // v49 combines: SHOTGUN + BRIGHTNESS FIRST + QUICK START (0x21).
-        // Map: [S1, S2, S3, S1, S2, S4, S5]
-        // If Ch1-3 are at Byte 3-4, we hit them. If at 0-2, we hit them.
-      List<int> brightnessValues = [0, 0, 0, 0, 0, 0, 0]; 
-      
-      // Extract values 
-      int p630 = 0;
-      int p660 = 0;
-      int p810 = 0;
-      int p830 = 0;
-      int p850 = 0;
-
-      for (var f in t.frecuencias) {
-        int nm = f['nm'];
-        int p = (f['p'] as num).toInt();
-        if (nm == 630) p630 = p;
-        else if (nm == 660) p660 = p;
-        else if (nm == 810) p810 = p;
-        else if (nm == 830) p830 = p;
-        else if (nm == 850) p850 = p;
+  Map<int, int> _brightnessByChannel(Tratamiento t) {
+    final values = <int, int>{0: 0, 1: 0, 2: 0, 3: 0, 4: 0};
+    for (final f in t.frecuencias) {
+      final nm = (f['nm'] as num).toInt();
+      final rawP = (f['p'] as num).toInt();
+      final p = rawP < 0 ? 0 : (rawP > 100 ? 100 : rawP);
+      if (nm == 630) {
+        values[0] = p;
+      } else if (nm == 660) {
+        values[1] = p;
+      } else if (nm == 810) {
+        values[2] = p;
+      } else if (nm == 830) {
+        values[3] = p;
+      } else if (nm == 850) {
+        values[4] = p;
+      } else if (nm < 700) {
+        values[1] = p;
+      } else {
+        values[4] = p;
       }
+    }
+    return values;
+  }
 
-      brightnessValues[0] = 1; // Padding (v51: Changed 0->1)
-      brightnessValues[1] = 1; // Padding (v51: Changed 0->1)
-      brightnessValues[2] = p630; // Ch 1 (630nm)
-      brightnessValues[3] = p660; // Ch 2 (660nm)
-      brightnessValues[4] = p810; // Ch 3 (810nm)
-      brightnessValues[5] = p830; // Ch 4 (830nm)
-      brightnessValues[6] = p850; // Ch 5 (850nm)
+  int _pulseFromTratamiento(Tratamiento t) {
+    final isCW = t.hz.toUpperCase().contains("CW");
+    if (isCW) return 0;
+    final match = RegExp(r'(\d+)').firstMatch(t.hz);
+    return match != null ? int.parse(match.group(1)!) : 0;
+  }
 
-      print("BLE: Sending Brightness (v51 Fix): $brightnessValues");
-      await _bleManager.write(BleProtocol.setBrightness(brightnessValues));
-      await Future.delayed(const Duration(milliseconds: 1000));
+  Future<void> _sendParameters(Tratamiento t, {int workMode = 0}) async {
+    const modeDelay = Duration(milliseconds: 200);
+    const dimmingDelay = Duration(milliseconds: 120);
+    const commandDelay = Duration(milliseconds: 200);
 
-        // 2. Set Countdown (Duration)
-        int duration = int.tryParse(t.duracion) ?? 10;
-        print("BLE: Sending Duration: $duration min");
-        await _bleManager.write(BleProtocol.setCountdown(duration));
-        await Future.delayed(const Duration(milliseconds: 800));
-        
-        // 3. Set Pulse (Hz) - MOVED TO LAST
-        int hz = 0;
-        bool isCW = t.hz.toUpperCase().contains("CW");
-        if (!isCW) {
-           RegExp reg = RegExp(r'(\d+)');
-           var match = reg.firstMatch(t.hz);
-           if (match != null) {
-             hz = int.parse(match.group(1)!);
-           }
-        }
-        print("BLE: Sending Pulse: $hz Hz");
-        await _bleManager.write(BleProtocol.setPulse(hz));
-        await Future.delayed(const Duration(milliseconds: 800));
+    final brightness = _brightnessByChannel(t);
+    final durationMinutes = int.tryParse(t.duracion) ?? 10;
+    final pulseHz = _pulseFromTratamiento(t);
+
+    print("BLE: Sending Work Mode: $workMode");
+    await _bleManager.write(BleProtocol.setWorkMode(workMode));
+    await Future.delayed(modeDelay);
+
+    for (final channel in [0, 1, 2, 3, 4]) {
+      final value = brightness[channel] ?? 0;
+      print("BLE: Dimming Ch$channel -> $value%");
+      await _bleManager.write(BleProtocol.setBrightnessChannel(channel, value));
+      await Future.delayed(dimmingDelay);
+    }
+
+    print("BLE: Sending Duration: $durationMinutes min");
+    await _bleManager.write(BleProtocol.setCountdown(durationMinutes));
+    await Future.delayed(commandDelay);
+
+    print("BLE: Sending Pulse: $pulseHz Hz");
+    await _bleManager.write(BleProtocol.setPulse(pulseHz));
+    await Future.delayed(commandDelay);
   }
 
   /// Starts a manual treatment not in the catalog
-  /// [sequenceMode]: 0=Standard (Stop->Params->Start), 1=Live (Params Only), 2=Inverse (Start->Params)
+  /// [sequenceMode]: 0=Params->Start, 1=Params only, 2=Start->Params, 3=Stop->Params->Start
   Future<void> iniciarCicloManual(Tratamiento t, {int startCommand = 0x21, int sequenceMode = 0, int workMode = 0}) async {
-     String tempId = t.id;
-     
-     ciclosActivos[tempId] = {
-       'activo': true,
-       'inicio': DateFormat('HH:mm:ss').format(DateTime.now())
-     };
-     
-     // BLE Command
-     if (isConnected) {
-       try {
-         print("BLE: Starting Manual Treatment (Seq: $sequenceMode, Cmd: $startCommand, Mode: $workMode)");
+    final tempId = t.id;
 
-        // DEFINE HELPERS
+    ciclosActivos[tempId] = {
+      'activo': true,
+      'inicio': DateFormat('HH:mm:ss').format(DateTime.now())
+    };
+
+    if (isConnected) {
+      try {
+        print("BLE: Starting Manual Treatment (Seq: $sequenceMode, Cmd: $startCommand, Mode: $workMode)");
+
         Future<void> stop() async {
-            print("BLE: Sending Power OFF (Reset)");
-            await _bleManager.write(BleProtocol.setPower(false));
-            await Future.delayed(const Duration(milliseconds: 500));
+          print("BLE: Sending Power OFF (Reset)");
+          await _bleManager.write(BleProtocol.setPower(false));
+          await Future.delayed(const Duration(milliseconds: 500));
         }
 
         Future<void> start() async {
-            if (startCommand == 0x21) {
-               print("BLE: Sending Quick Start (0x21) with Mode: $workMode");
-               await _bleManager.write(BleProtocol.quickStart(mode: workMode));
-            } else if (startCommand == 0x20) {
-               print("BLE: Sending Power ON (0x20)");
-               await _bleManager.write(BleProtocol.setPower(true));
-            } else {
-               print("BLE: Skipping Start Command");
-            }
-            await Future.delayed(const Duration(milliseconds: 300));
+          if (startCommand == 0x21) {
+            print("BLE: Sending Quick Start (0x21) with Mode: $workMode");
+            await _bleManager.write(BleProtocol.quickStart(mode: workMode));
+          } else if (startCommand == 0x20) {
+            print("BLE: Sending Power ON (0x20)");
+            await _bleManager.write(BleProtocol.setPower(true));
+          } else {
+            print("BLE: Skipping Start Command");
+          }
+          await Future.delayed(const Duration(milliseconds: 200));
         }
-        
-        // Helper to just send parameters
+
         Future<void> sendParams() async {
-             // 0.5 Set Work Mode
-            print("BLE: Sending Work Mode: $workMode");
-            await _bleManager.write(BleProtocol.setWorkMode(workMode));
-            await Future.delayed(const Duration(milliseconds: 800));
-
-            await _sendParameters(t); // Note: _sendParameters inside also sets workMode=0 hardcoded, we need to fix that
+          await _sendParameters(t, workMode: workMode);
         }
 
-        // EXECUTE SEQUENCE
-        // Update v44: Restore STANDARD (Stop -> Params -> Start).
-        // v43 (Inverse) failed to update Brightness.
-        // v37 (Standard) worked. Code reverted.
         if (sequenceMode == 0) {
-            // Standard Safe: Params -> Start
-            // Removed stop() to prevent "Black Screen" death
-            await sendParams();
-            await start();
+          await sendParams();
+          await start();
         } else if (sequenceMode == 1) {
-            // Live: Params Only (Good if already running)
-            await sendParams();
+          await sendParams();
         } else if (sequenceMode == 2) {
-            // Inverse: Start -> Params (If device needs to be ON to accept params)
-            await start();
-            await sendParams();
+          await start();
+          await sendParams();
         } else if (sequenceMode == 3) {
-            // Hard Reset: Stop -> Params -> Start
-            await stop(); 
-            // Increased delay to allow device to recover from OFF state
-            await Future.delayed(const Duration(milliseconds: 2000));
-            await sendParams();
-            await start();
+          await stop();
+          await Future.delayed(const Duration(milliseconds: 1000));
+          await sendParams();
+          await start();
         }
-        
-       } catch (e) {
-         print("BLE Manual Error: $e");
-         ciclosActivos.remove(tempId);
-       }
-     }
-     notifyListeners();
+      } catch (e) {
+        print("BLE Manual Error: $e");
+        ciclosActivos.remove(tempId);
+      }
+    }
+    notifyListeners();
   }
 
   Future<void> detenerCiclo(String id) async {

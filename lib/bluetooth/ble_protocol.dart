@@ -1,6 +1,3 @@
-
-import 'dart:typed_data';
-
 class BleProtocol {
   // --- COMMAND CONSTANTS ---
   static const int CMD_VERIFY = 0x00;
@@ -30,98 +27,49 @@ class BleProtocol {
   // Footer: 0x0A (\n)
 
   /// Constructs a packet for the given command and payload.
-  /// Update v40: "The Floor is Lava".
-  /// Forbidden bytes: 0x0A (10), 0x3A (58), 0x3B (59).
-  /// These act as framing/delimiters and must NOT appear in Payload OR Checksum.
+  /// Mirrors the APK `doCmd` framing:
+  /// `3A 01 CMD LEN_H LEN_L ...PAYLOAD CHECK 0A`.
   static List<int> buildPacket(int command, List<int> payload) {
-    List<int> packet = [];
-    
-    // Header & Address
-    packet.add(0x3A); // ':'
-    packet.add(0x01); // Address
-    
-    // Command
-    packet.add(command);
-    
-    // 1. Initial Sanitize of Payload
-    List<int> safePayload = payload.map((b) => _sanitizeByte(b)).toList();
-    
-    // 2. Calculate Checksum & Ensure Checksum itself is safe
-    // If checksum matches a forbidden byte, we must tweak the payload to change the sum.
-    int checksum = _calculateChecksum(packet, safePayload);
-    
-    // Retry loop: If checksum is forbidden, tweak the last byte of payload
-    int attempts = 0;
-    while (_isForbidden(checksum) && attempts < 5 && safePayload.isNotEmpty) {
-      // Modify last byte by +1 (wrapping at 100 for brightness, or 255 generic)
-      // For general safety, just +1. 
-      int last = safePayload.last;
-      safePayload[safePayload.length - 1] = _sanitizeByte(last + 1);
-      
-      // Recalculate
-      checksum = _calculateChecksum(packet, safePayload);
-      attempts++;
+    final normalizedPayload =
+        payload.map((byte) => byte & 0xFF).toList(growable: false);
+    final length = normalizedPayload.length;
+    final lengthHigh = (length >> 8) & 0xFF;
+    final lengthLow = length & 0xFF;
+
+    int checksum = 0;
+    checksum += 0x01; // Address
+    checksum += command & 0xFF;
+    checksum += lengthHigh;
+    checksum += lengthLow;
+    for (final byte in normalizedPayload) {
+      checksum += byte;
     }
+    checksum &= 0xFF;
 
-    // Length (Big Endian)
-    int len = safePayload.length;
-    packet.add((len >> 8) & 0xFF); // High byte
-    packet.add(len & 0xFF);        // Low byte
-    
-    // Payload
-    packet.addAll(safePayload);
-    
-    // Checksum
-    packet.add(checksum);
-    
-    // Footer
-    packet.add(0x0A); // '\n'
-    
-    return packet;
-  }
-
-  static bool _isForbidden(int b) {
-    return b == 0x0A || b == 0x3A || b == 0x3B;
-  }
-
-  static int _sanitizeByte(int b) {
-    // Wrap around 255
-    b = b & 0xFF; 
-    if (b == 0x0A) return 0x0B; // 10 -> 11
-    if (b == 0x3A) return 0x3C; // 58 -> 60 (Skip 59)
-    if (b == 0x3B) return 0x3C; // 59 -> 60
-    return b;
-  }
-
-  static int _calculateChecksum(List<int> header, List<int> payload) {
-     int sum = 0;
-     // Sum Header (skipping index 0 which is 0x3A)
-     // Header currently: [3A, 01, Cmd]
-     // We sum from Index 1? 
-     // Code review: Original loop `for (int i = 1; i < packet.length; i++)`
-     // Previous `packet` contained: [3A, 01, Cmd, LenH, LenL, Payload...]
-     // Re-simulating the exact structure for sum:
-     
-     // 1. Address
-     sum += header[1];
-     // 2. Command
-     sum += header[2];
-     // 3. Length (Calculated from current payload)
-     int len = payload.length;
-     sum += (len >> 8) & 0xFF;
-     sum += len & 0xFF;
-     // 4. Payload
-     for (int b in payload) sum += b;
-
-     return sum % 256;
+    return <int>[
+      0x3A,
+      0x01,
+      command & 0xFF,
+      lengthHigh,
+      lengthLow,
+      ...normalizedPayload,
+      checksum,
+      0x0A,
+    ];
   }
 
   /// Helper to create a SET BRIGHTNESS command
-  /// [values] List of brightness values for each channel (0-100).
+  /// [values] Raw brightness payload. Kept for compatibility with older calls.
   static List<int> setBrightness(List<int> values) {
-    // Clamp all values to 0-100
-    List<int> payload = values.map((v) => v.clamp(0, 100).toInt()).toList();
+    final payload = values.map((v) => v & 0xFF).toList(growable: false);
     return buildPacket(CMD_SET_BRIGHTNESS, payload);
+  }
+
+  /// Helper to set a single brightness channel: `[channelIndex, value]`.
+  static List<int> setBrightnessChannel(int channelIndex, int value) {
+    final channel = channelIndex.clamp(0, 255).toInt();
+    final brightness = value.clamp(0, 100).toInt();
+    return buildPacket(CMD_SET_BRIGHTNESS, [channel, brightness]);
   }
 
   /// Helper to Turn On/Off (using Control command 0x20?)

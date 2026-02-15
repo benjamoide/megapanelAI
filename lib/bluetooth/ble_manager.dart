@@ -1,5 +1,5 @@
-
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:intl/intl.dart';
@@ -16,6 +16,12 @@ class BleManager {
   
   StreamSubscription<BluetoothConnectionState>? _connectionSubscription;
   StreamSubscription<List<int>>? _notifySubscription;
+  Future<void> _pendingWrite = Future.value();
+
+  static const int _maxChunkSize = 20;
+  static const int _maxWriteAttempts = 3;
+  static const Duration _chunkGap = Duration(milliseconds: 80);
+  static const Duration _retryDelay = Duration(milliseconds: 120);
 
   // Persistent stream controller for connection state
   final _connectionStateController = StreamController<BluetoothConnectionState>.broadcast();
@@ -74,16 +80,17 @@ class BleManager {
 
   Future<bool> connect(BluetoothDevice device) async {
     try {
-        // Stop scanning before connecting
+      // Stop scanning before connecting
       await stopScan();
-      
+
       await device.connect(timeout: const Duration(seconds: 15));
       _connectedDevice = device;
-      
+
       // Update local stream
       _connectionStateController.add(BluetoothConnectionState.connected);
 
       // Listen to connection state
+      await _connectionSubscription?.cancel();
       _connectionSubscription = device.connectionState.listen((state) {
         _connectionStateController.add(state);
         if (state == BluetoothConnectionState.disconnected) {
@@ -97,40 +104,75 @@ class BleManager {
 
       // Discover services
       log("BleManager: Discovering Services...");
-      List<BluetoothService> services = await device.discoverServices();
-      
-      // Find write characteristic
-      _writeCharacteristic = null;
-      _notifyCharacteristic = null;
+      final services = await device.discoverServices();
 
-      for (var service in services) {
-        for (var characteristic in service.characteristics) {
-          if (characteristic.properties.write || characteristic.properties.writeWithoutResponse) {
-            _writeCharacteristic = characteristic;
-          }
-          if (characteristic.properties.notify) {
-            _notifyCharacteristic = characteristic;
-             await _notifyCharacteristic?.setNotifyValue(true);
-             _notifySubscription = _notifyCharacteristic?.lastValueStream.listen((value) {
-               log("Received data: $value");
-             });
-          }
-        }
-      }
-      
+      _selectCharacteristics(services);
       if (_writeCharacteristic == null) {
         log("No write characteristic found!");
         await disconnect();
         return false;
       }
-      
-      log("BleManager: Connected and ready.");
+
+      await _notifySubscription?.cancel();
+      if (_notifyCharacteristic != null) {
+        await _notifyCharacteristic!.setNotifyValue(true);
+        _notifySubscription = _notifyCharacteristic!.lastValueStream.listen((value) {
+          log("BLE RX: ${_hex(value)}");
+        }, onError: (error) {
+          log("Notify stream error: $error");
+        });
+      } else {
+        log("No notify characteristic found (writes only).");
+      }
+
+      log(
+        "BleManager: Connected and ready. "
+        "Write=${_writeCharacteristic?.uuid.str}, "
+        "Notify=${_notifyCharacteristic?.uuid.str ?? 'none'}",
+      );
       return true;
     } catch (e) {
       log("Connection failed: $e");
       await disconnect();
       return false;
     }
+  }
+
+  void _selectCharacteristics(List<BluetoothService> services) {
+    BluetoothCharacteristic? fallbackWrite;
+    BluetoothCharacteristic? fallbackNotify;
+
+    _writeCharacteristic = null;
+    _notifyCharacteristic = null;
+
+    for (final service in services) {
+      BluetoothCharacteristic? serviceWrite;
+      BluetoothCharacteristic? serviceNotify;
+      for (final characteristic in service.characteristics) {
+        final canWrite =
+            characteristic.properties.write || characteristic.properties.writeWithoutResponse;
+        final canNotify = characteristic.properties.notify || characteristic.properties.indicate;
+
+        if (canWrite) {
+          serviceWrite ??= characteristic;
+          fallbackWrite ??= characteristic;
+        }
+        if (canNotify) {
+          serviceNotify ??= characteristic;
+          fallbackNotify ??= characteristic;
+        }
+      }
+
+      // Mirror APK behavior: prefer a service that contains both write + notify.
+      if (serviceWrite != null && serviceNotify != null) {
+        _writeCharacteristic = serviceWrite;
+        _notifyCharacteristic = serviceNotify;
+        return;
+      }
+    }
+
+    _writeCharacteristic = fallbackWrite;
+    _notifyCharacteristic = fallbackNotify;
   }
 
   Future<void> disconnect() async {
@@ -145,24 +187,69 @@ class BleManager {
     _connectedDevice = null;
     _writeCharacteristic = null;
     _notifyCharacteristic = null;
+    _pendingWrite = Future.value();
     _connectionStateController.add(BluetoothConnectionState.disconnected);
   }
 
   Future<void> write(List<int> data) async {
-    if (_writeCharacteristic != null) {
-      String hexData = data.map((e) => e.toRadixString(16).padLeft(2, '0')).join(' ');
-      log("BLE WRITE: $hexData");
-      try {
-        if (_writeCharacteristic!.properties.writeWithoutResponse) {
-           await _writeCharacteristic!.write(data, withoutResponse: true);
-        } else {
-           await _writeCharacteristic!.write(data, withoutResponse: false);
-        }
-      } catch (e) {
-        log("Write Error: $e");
-      }
-    } else {
+    if (_writeCharacteristic == null) {
       log("Not connected or no write characteristic");
+      return;
+    }
+
+    final normalized = data.map((byte) => byte & 0xFF).toList(growable: false);
+    _pendingWrite = _pendingWrite.then((_) => _writeInternal(normalized)).catchError((error) {
+      log("Write queue error: $error");
+    });
+    return _pendingWrite;
+  }
+
+  Future<void> _writeInternal(List<int> data) async {
+    if (data.isEmpty) return;
+    final totalChunks = (data.length / _maxChunkSize).ceil();
+
+    for (int i = 0; i < totalChunks; i++) {
+      final start = i * _maxChunkSize;
+      final end = math.min(start + _maxChunkSize, data.length);
+      final chunk = data.sublist(start, end);
+      await _writeChunkWithRetry(chunk, index: i + 1, total: totalChunks);
+      if (i < totalChunks - 1) {
+        await Future.delayed(_chunkGap);
+      }
     }
   }
+
+  Future<void> _writeChunkWithRetry(
+    List<int> chunk, {
+    required int index,
+    required int total,
+  }) async {
+    for (int attempt = 1; attempt <= _maxWriteAttempts; attempt++) {
+      final characteristic = _writeCharacteristic;
+      if (characteristic == null) {
+        throw StateError("Write characteristic is no longer available");
+      }
+
+      try {
+        log("BLE WRITE [$index/$total] try $attempt: ${_hex(chunk)}");
+        await characteristic.write(chunk, withoutResponse: _shouldUseWithoutResponse(characteristic));
+        return;
+      } catch (e) {
+        if (attempt >= _maxWriteAttempts) {
+          rethrow;
+        }
+        log("BLE write retry needed [$index/$total]: $e");
+        await Future.delayed(_retryDelay);
+      }
+    }
+  }
+
+  bool _shouldUseWithoutResponse(BluetoothCharacteristic characteristic) {
+    // Prefer write-with-response when available, matching APK behavior.
+    if (characteristic.properties.write) return false;
+    return characteristic.properties.writeWithoutResponse;
+  }
+
+  String _hex(List<int> data) =>
+      data.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join(' ');
 }
