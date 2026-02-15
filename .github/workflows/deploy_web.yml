@@ -1,9 +1,16 @@
 name: Deploy Web & Android
+run-name: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_name || 'Deploy Web & Android' }}
 
 on:
   push:
     branches:
       - main  # O 'master', asegúrate de que coincida con tu rama principal
+  workflow_dispatch:
+    inputs:
+      run_name:
+        description: "Custom name for manual runs"
+        required: true
+        default: "Megapanel_manual"
 
 # Permisos para que el robot pueda escribir en GitHub Pages
 permissions:
