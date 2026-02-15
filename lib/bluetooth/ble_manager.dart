@@ -172,8 +172,6 @@ class BleManager {
   }
 
   void _selectCharacteristics(List<BluetoothService> services) {
-    BluetoothCharacteristic? pairedWrite;
-    BluetoothCharacteristic? pairedNotify;
     BluetoothCharacteristic? fallbackWrite;
     BluetoothCharacteristic? fallbackNotify;
 
@@ -196,24 +194,30 @@ class BleManager {
         );
 
         if (canWrite) {
-          serviceWrite = characteristic;
-          fallbackWrite = characteristic;
+          serviceWrite ??= characteristic;
+          fallbackWrite ??= characteristic;
         }
         if (canNotify) {
-          serviceNotify = characteristic;
-          fallbackNotify = characteristic;
+          serviceNotify ??= characteristic;
+          fallbackNotify ??= characteristic;
         }
       }
 
-      // Mirrors the APK behavior: keep the latest service that has both.
+      // Prefer the first service that has both write + notify/indicate.
       if (serviceWrite != null && serviceNotify != null) {
-        pairedWrite = serviceWrite;
-        pairedNotify = serviceNotify;
+        _writeCharacteristic = serviceWrite;
+        _notifyCharacteristic = serviceNotify;
+        log(
+          "BleManager: Characteristic selection "
+          "write=${_writeCharacteristic?.uuid.str ?? 'none'} "
+          "notify=${_notifyCharacteristic?.uuid.str ?? 'none'}",
+        );
+        return;
       }
     }
 
-    _writeCharacteristic = pairedWrite ?? fallbackWrite;
-    _notifyCharacteristic = pairedNotify ?? fallbackNotify;
+    _writeCharacteristic = fallbackWrite;
+    _notifyCharacteristic = fallbackNotify;
     log(
       "BleManager: Characteristic selection "
       "write=${_writeCharacteristic?.uuid.str ?? 'none'} "
