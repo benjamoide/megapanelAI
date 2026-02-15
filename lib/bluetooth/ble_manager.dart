@@ -83,7 +83,11 @@ class BleManager {
       // Stop scanning before connecting
       await stopScan();
 
-      await device.connect(timeout: const Duration(seconds: 15));
+      if (_connectedDevice != null && _connectedDevice!.remoteId != device.remoteId) {
+        await _connectedDevice?.disconnect();
+      }
+
+      await _connectWithRetry(device);
       _connectedDevice = device;
 
       // Update local stream
@@ -138,7 +142,38 @@ class BleManager {
     }
   }
 
+  Future<void> _connectWithRetry(BluetoothDevice device) async {
+    if (device.isConnected) return;
+
+    try {
+      await device.connect(timeout: const Duration(seconds: 15));
+      return;
+    } catch (e) {
+      if (device.isConnected || _isAlreadyConnectedError(e)) {
+        log("BleManager: Device already connected, continuing discovery.");
+        return;
+      }
+      log("BleManager: First connect attempt failed, retrying once: $e");
+    }
+
+    try {
+      await device.disconnect();
+    } catch (_) {
+      // Ignore cleanup errors before retry.
+    }
+    await Future.delayed(const Duration(milliseconds: 350));
+    await device.connect(timeout: const Duration(seconds: 15));
+  }
+
+  bool _isAlreadyConnectedError(Object error) {
+    final message = error.toString().toLowerCase();
+    return message.contains("already connected") ||
+        message.contains("connection is already");
+  }
+
   void _selectCharacteristics(List<BluetoothService> services) {
+    BluetoothCharacteristic? pairedWrite;
+    BluetoothCharacteristic? pairedNotify;
     BluetoothCharacteristic? fallbackWrite;
     BluetoothCharacteristic? fallbackNotify;
 
@@ -146,33 +181,44 @@ class BleManager {
     _notifyCharacteristic = null;
 
     for (final service in services) {
+      log("BleManager: Service ${service.uuid.str}");
       BluetoothCharacteristic? serviceWrite;
       BluetoothCharacteristic? serviceNotify;
       for (final characteristic in service.characteristics) {
         final canWrite =
             characteristic.properties.write || characteristic.properties.writeWithoutResponse;
         final canNotify = characteristic.properties.notify || characteristic.properties.indicate;
+        final props = characteristic.properties;
+        log(
+          "  Char ${characteristic.uuid.str} "
+          "[write=${props.write}, wnr=${props.writeWithoutResponse}, "
+          "notify=${props.notify}, indicate=${props.indicate}]",
+        );
 
         if (canWrite) {
-          serviceWrite ??= characteristic;
-          fallbackWrite ??= characteristic;
+          serviceWrite = characteristic;
+          fallbackWrite = characteristic;
         }
         if (canNotify) {
-          serviceNotify ??= characteristic;
-          fallbackNotify ??= characteristic;
+          serviceNotify = characteristic;
+          fallbackNotify = characteristic;
         }
       }
 
-      // Mirror APK behavior: prefer a service that contains both write + notify.
+      // Mirrors the APK behavior: keep the latest service that has both.
       if (serviceWrite != null && serviceNotify != null) {
-        _writeCharacteristic = serviceWrite;
-        _notifyCharacteristic = serviceNotify;
-        return;
+        pairedWrite = serviceWrite;
+        pairedNotify = serviceNotify;
       }
     }
 
-    _writeCharacteristic = fallbackWrite;
-    _notifyCharacteristic = fallbackNotify;
+    _writeCharacteristic = pairedWrite ?? fallbackWrite;
+    _notifyCharacteristic = pairedNotify ?? fallbackNotify;
+    log(
+      "BleManager: Characteristic selection "
+      "write=${_writeCharacteristic?.uuid.str ?? 'none'} "
+      "notify=${_notifyCharacteristic?.uuid.str ?? 'none'}",
+    );
   }
 
   Future<void> disconnect() async {
