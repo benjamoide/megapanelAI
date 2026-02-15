@@ -923,6 +923,22 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void desregistrarTratamiento(String fecha, String id) {
+    if (!historial.containsKey(fecha)) return;
+    final registros = historial[fecha]!;
+    for (int i = registros.length - 1; i >= 0; i--) {
+      if (registros[i]['id'] == id) {
+        registros.removeAt(i);
+        break;
+      }
+    }
+    if (registros.isEmpty) {
+      historial.remove(fecha);
+    }
+    _guardarTodo();
+    notifyListeners();
+  }
+
   void planificarTratamiento(String fecha, String id, String momento) {
     if (!planificados.containsKey(fecha)) planificados[fecha] = {};
     planificados[fecha]![id] = momento;
@@ -934,6 +950,7 @@ class AppState extends ChangeNotifier {
     if (planificados.containsKey(fecha)) {
       planificados[fecha]!.remove(id);
     }
+    _guardarTodo();
     notifyListeners();
   }
 
@@ -1190,9 +1207,31 @@ class AppState extends ChangeNotifier {
         try {
           final model = GenerativeModel(model: m, apiKey: _apiKey);
           final prompt = '''
-            Actúa como experto en Fotobiomodulación (Red Light Therapy). Usuario: "$dolencia".
-            Responde SOLO con un ARRAY JSON válido.
-            Esquema: [{"nombre": "...", "zona": "...", "descripcion": "...", "sintomas": "...", "posicion": "...", "hz": "CW/10Hz/50Hz", "duracion": "10", "frecuencias": [{"nm": 660, "p": 100}, {"nm": 850, "p": 50}], "tipsAntes": ["..."], "tipsDespues": ["..."], "prohibidos": ["..."]}]
+            Actua como experto en fotobiomodulacion (red light therapy). Usuario: "$dolencia".
+            Prioriza evidencia clinica humana y revisiones sistematicas en este orden:
+            1) PubMed/MEDLINE
+            2) ClinicalTrials.gov
+            3) Cochrane Library / CENTRAL
+            4) Europe PMC
+            5) EMBASE
+            6) CINAHL
+            7) Scopus
+            8) ScienceDirect
+            9) Revistas especializadas (Photomedicine and Laser Surgery, Lasers in Medical Science, Journal of Biophotonics, Journal of Photochemistry and Photobiology, Lasers in Surgery and Medicine)
+            10) Google Scholar solo como apoyo secundario
+
+            Reglas:
+            - No inventes evidencia ni afirmaciones.
+            - Si la evidencia es debil o contradictoria, se conservador y anadelo en "prohibidos".
+            - Devuelve 1 a 3 protocolos seguros.
+            - Usa solo estas longitudes: 630, 660, 810, 830, 850.
+            - Porcentajes entre 0 y 100.
+            - hz permitido: CW, 10Hz, 40Hz, 50Hz.
+            - duracion entre 5 y 20 minutos.
+            - Incluye en tipsDespues una linea de evidencia breve tipo: "Fuente: PubMed PMID:xxxxx" o "ClinicalTrials.gov: NCTxxxx".
+
+            Responde SOLO con un ARRAY JSON valido.
+            Esquema: [{"nombre":"...","zona":"...","descripcion":"...","sintomas":"...","posicion":"...","hz":"CW/10Hz/40Hz/50Hz","duracion":"10","frecuencias":[{"nm":660,"p":100},{"nm":850,"p":50}],"tipsAntes":["..."],"tipsDespues":["..."],"prohibidos":["..."]}]
           ''';
           final response = await model.generateContent([Content.text(prompt)]);
           String text = response.text ?? "[]";
@@ -1808,7 +1847,37 @@ class PanelDiarioView extends StatelessWidget {
       ...completados.map((t) => ListTile(
           leading: const Icon(Icons.check_box, color: Colors.green),
           title: Text(t.nombre),
-          subtitle: Text(planificadosMap[t.id] ?? "Clínica"))),
+          subtitle: Text(planificadosMap[t.id] ?? "Clinica"),
+          trailing: IconButton(
+            icon: const Icon(Icons.undo, color: Colors.orange),
+            tooltip: "Deshacer registro",
+            onPressed: () async {
+              final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (_) => AlertDialog(
+                      title: const Text("Deshacer registro"),
+                      content: Text(
+                          "Se quitara '${t.nombre}' de completados. Continuar?"),
+                      actions: [
+                        TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text("Cancelar")),
+                        FilledButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            child: const Text("Deshacer")),
+                      ],
+                    ),
+                  ) ??
+                  false;
+              if (!confirm) return;
+              state.desregistrarTratamiento(hoy, t.id);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text("Registro eliminado: ${t.nombre}")),
+                );
+              }
+            },
+          ))),
       const SizedBox(height: 20),
       const Text("📋 Pendientes",
           style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
@@ -1818,7 +1887,26 @@ class PanelDiarioView extends StatelessWidget {
           t: t,
           isPlanned: true,
           plannedMoment: planificadosMap[t.id],
-          onDeletePlan: () => state.desplanificarTratamiento(hoy, t.id),
+          onDeletePlan: () async {
+            final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    title: const Text("Quitar planificado"),
+                    content: Text("Quitar '${t.nombre}' de pendientes?"),
+                    actions: [
+                      TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text("Cancelar")),
+                      FilledButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          child: const Text("Quitar")),
+                    ],
+                  ),
+                ) ??
+                false;
+            if (!confirm) return;
+            state.desplanificarTratamiento(hoy, t.id);
+          },
           onStart: () async {
             if (!state.isConnected) {
               await showDialog(
@@ -1840,8 +1928,27 @@ class PanelDiarioView extends StatelessWidget {
               }
             }
           },
-          onRegister: () =>
-              state.registrarTratamiento(hoy, t.id, planificadosMap[t.id]!))),
+          onRegister: () async {
+            final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    title: const Text("Confirmar realizado"),
+                    content:
+                        Text("Confirmas que realizaste '${t.nombre}'?"),
+                    actions: [
+                      TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text("Cancelar")),
+                      FilledButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          child: const Text("Confirmar")),
+                    ],
+                  ),
+                ) ??
+                false;
+            if (!confirm) return;
+            state.registrarTratamiento(hoy, t.id, planificadosMap[t.id]!);
+          })),
     ]);
   }
 }
@@ -2211,8 +2318,29 @@ class _PanelSemanalViewState extends State<PanelSemanalView>
                             }
                           }
                         },
-                        onDeletePlan: () =>
-                            state.desplanificarTratamiento(fStr, t.id));
+                        onDeletePlan: () async {
+                          final confirm = await showDialog<bool>(
+                                context: context,
+                                builder: (_) => AlertDialog(
+                                  title: const Text("Quitar planificado"),
+                                  content:
+                                      Text("Quitar '${t.nombre}' de este dia?"),
+                                  actions: [
+                                    TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(context, false),
+                                        child: const Text("Cancelar")),
+                                    FilledButton(
+                                        onPressed: () =>
+                                            Navigator.pop(context, true),
+                                        child: const Text("Quitar")),
+                                  ],
+                                ),
+                              ) ??
+                              false;
+                          if (!confirm) return;
+                          state.desplanificarTratamiento(fStr, t.id);
+                        });
                   })
                 ]);
               }).toList()))
@@ -2852,3 +2980,4 @@ class _BluetoothScanDialogState extends State<BluetoothScanDialog> {
     );
   }
 }
+
