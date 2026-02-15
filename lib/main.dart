@@ -951,7 +951,9 @@ class AppState extends ChangeNotifier {
 
         await _sendParameters(t, workMode: 0);
         await _bleManager.write(BleProtocol.quickStart(mode: 0));
-        await Future.delayed(const Duration(milliseconds: 150));
+        await Future.delayed(const Duration(milliseconds: 260));
+        await _sendTimeAndPulse(t, phase: "post-start");
+        await _readBackRunState(reason: "after iniciarCiclo");
         print("BLE: Configuration sent.");
       } catch (e) {
         print("BLE Error: $e");
@@ -993,14 +995,44 @@ class AppState extends ChangeNotifier {
     return match != null ? int.parse(match.group(1)!) : 0;
   }
 
+  int _durationMinutesFromTratamiento(Tratamiento t) {
+    final raw = int.tryParse(t.duracion) ?? 10;
+    if (raw < 1) return 1;
+    if (raw > 60) return 60;
+    return raw;
+  }
+
+  Future<void> _sendTimeAndPulse(Tratamiento t, {String phase = ""}) async {
+    const commandDelay = Duration(milliseconds: 220);
+    final durationMinutes = _durationMinutesFromTratamiento(t);
+    final pulseHz = _pulseFromTratamiento(t);
+    final phaseLabel = phase.isEmpty ? "" : "[$phase] ";
+
+    print("BLE: ${phaseLabel}Sending Duration: $durationMinutes min");
+    await _bleManager.write(BleProtocol.setCountdown(durationMinutes));
+    await Future.delayed(commandDelay);
+
+    print("BLE: ${phaseLabel}Sending Pulse: $pulseHz Hz");
+    await _bleManager.write(BleProtocol.setPulse(pulseHz));
+    await Future.delayed(commandDelay);
+  }
+
+  Future<void> _readBackRunState({String reason = ""}) async {
+    const readDelay = Duration(milliseconds: 180);
+    final suffix = reason.isEmpty ? "" : " ($reason)";
+    print("BLE: Reading state$suffix...");
+    await _bleManager.write(BleProtocol.getStatus());
+    await Future.delayed(readDelay);
+    await _bleManager.write(BleProtocol.getCountdown());
+    await Future.delayed(readDelay);
+    await _bleManager.write(BleProtocol.getBrightness());
+  }
+
   Future<void> _sendParameters(Tratamiento t, {int workMode = 0}) async {
     const modeDelay = Duration(milliseconds: 200);
     const dimmingDelay = Duration(milliseconds: 120);
-    const commandDelay = Duration(milliseconds: 200);
 
     final brightness = _brightnessByChannel(t);
-    final durationMinutes = int.tryParse(t.duracion) ?? 10;
-    final pulseHz = _pulseFromTratamiento(t);
 
     print("BLE: Sending Work Mode: $workMode");
     await _bleManager.write(BleProtocol.setWorkMode(workMode));
@@ -1013,13 +1045,7 @@ class AppState extends ChangeNotifier {
       await Future.delayed(dimmingDelay);
     }
 
-    print("BLE: Sending Duration: $durationMinutes min");
-    await _bleManager.write(BleProtocol.setCountdown(durationMinutes));
-    await Future.delayed(commandDelay);
-
-    print("BLE: Sending Pulse: $pulseHz Hz");
-    await _bleManager.write(BleProtocol.setPulse(pulseHz));
-    await Future.delayed(commandDelay);
+    await _sendTimeAndPulse(t, phase: "pre-start");
   }
 
   /// Starts a manual treatment not in the catalog
@@ -1035,6 +1061,7 @@ class AppState extends ChangeNotifier {
     if (isConnected) {
       try {
         print("BLE: Starting Manual Treatment (Seq: $sequenceMode, Cmd: $startCommand, Mode: $workMode)");
+        bool started = false;
 
         Future<void> stop() async {
           print("BLE: Sending Power OFF (Reset)");
@@ -1046,9 +1073,11 @@ class AppState extends ChangeNotifier {
           if (startCommand == 0x21) {
             print("BLE: Sending Quick Start (0x21) with Mode: $workMode");
             await _bleManager.write(BleProtocol.quickStart(mode: workMode));
+            started = true;
           } else if (startCommand == 0x20) {
             print("BLE: Sending Power ON (0x20)");
             await _bleManager.write(BleProtocol.setPower(true));
+            started = true;
           } else {
             print("BLE: Skipping Start Command");
           }
@@ -1072,6 +1101,12 @@ class AppState extends ChangeNotifier {
           await Future.delayed(const Duration(milliseconds: 1000));
           await sendParams();
           await start();
+        }
+
+        if (started) {
+          await Future.delayed(const Duration(milliseconds: 260));
+          await _sendTimeAndPulse(t, phase: "post-start");
+          await _readBackRunState(reason: "after iniciarCicloManual");
         }
       } catch (e) {
         print("BLE Manual Error: $e");
