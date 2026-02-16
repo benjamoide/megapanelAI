@@ -42,29 +42,31 @@ class BleManager {
   BluetoothDevice? get connectedDevice => _connectedDevice;
 
   Future<void> init() async {
-    // Check permissions
-    if (await Permission.bluetoothScan.request().isGranted &&
-        await Permission.bluetoothConnect.request().isGranted &&
-        await Permission.location.request().isGranted) {
-      // Permissions granted
-    }
+    // Request core BLE permissions early; location is optional on newer Android.
+    await Permission.bluetoothScan.request();
+    await Permission.bluetoothConnect.request();
     // Emit initial disconnected state
     _connectionStateController.add(BluetoothConnectionState.disconnected);
   }
 
   Future<void> startScan() async {
-    // Ensure permissions are granted before scanning
-    if (await Permission.bluetoothScan.request().isGranted &&
-        await Permission.bluetoothConnect.request().isGranted &&
-        (await Permission.location.request().isGranted || await Permission.locationWhenInUse.request().isGranted)) {
-      try {
-        await FlutterBluePlus.startScan(
-            timeout: const Duration(seconds: 10), androidUsesFineLocation: true);
-      } catch (e) {
-          log("Error starting scan: $e");
-      }
-    } else {
+    final scanGranted = await Permission.bluetoothScan.request().isGranted;
+    final connectGranted = await Permission.bluetoothConnect.request().isGranted;
+    final locationGranted = await Permission.location.isGranted ||
+        await Permission.locationWhenInUse.isGranted;
+
+    if (!scanGranted || !connectGranted) {
       log("Permissions not granted for scanning");
+      return;
+    }
+
+    try {
+      await FlutterBluePlus.startScan(
+        // Keep scanning until user closes the dialog.
+        androidUsesFineLocation: locationGranted,
+      );
+    } catch (e) {
+      log("Error starting scan: $e");
     }
   }
 

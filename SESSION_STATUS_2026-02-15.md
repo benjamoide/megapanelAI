@@ -82,3 +82,78 @@ Replicate BlueLight APK BLE behavior in Flutter app (`mega_panel_ai`) to reliabl
    - pulse apply behavior
    - run/stop behavior
 3. If needed, tune per-command delays and `0x20` payload semantics on-device.
+
+## Continuation update (end of day)
+- Current local/app state:
+  - `HEAD`: `1d00336`
+  - Latest successful build run: `22043106224`
+  - Run URL: `https://github.com/benjamoide/megapanelAI/actions/runs/22043106224`
+- User-confirmed behavior:
+  - BLE protocol TX/RX path was working with correct responses on `fff1`.
+  - Treatment/manual time now converges to configured value after initial transient display.
+  - In the latest app version, Bluetooth scan/discovery is currently failing to find the device.
+- Features added in latest commit:
+  - Confirmation dialogs for plan removal and treatment registration.
+  - Undo for accidental completed registration.
+  - IA prompt updated to prioritize scientific sources (PubMed, ClinicalTrials, Cochrane, etc.).
+
+## Priority for tomorrow (must follow this order)
+1. Fix Bluetooth discovery first (blocker):
+   - Reproduce "device not found" in scan dialog.
+   - Verify scan filters and BLE permissions at runtime.
+   - Compare discovery path against last known working behavior and patch with minimal scope.
+   - Ship a test APK and confirm device appears and connects.
+2. After BLE scan is stable, run scientific audit of current treatment database:
+   - Treatment-by-treatment review using requested evidence sources.
+   - For each treatment define: wavelength percentages per available channel, pulse/CW and frequency, duration, distance, indications, and contraindications.
+   - Mark confidence/evidence strength and identify items requiring conservative defaults.
+
+## Continuation update (2026-02-16)
+- Priority 1 progress (BLE discovery blocker):
+  - Implemented a minimal scan-path patch focused only on discovery reliability.
+  - Updated `lib/bluetooth/ble_manager.dart`:
+    - `init()` now requests core BLE permissions (`bluetoothScan`, `bluetoothConnect`) without gating on location.
+    - `startScan()` now:
+      - requires only BLE scan/connect permissions to proceed;
+      - treats location as optional and passes `androidUsesFineLocation` dynamically;
+      - starts scanning without a fixed timeout (dialog lifecycle still stops scan on close).
+  - Updated `lib/main.dart` (`BluetoothScanDialog`):
+    - Removed hard exclusion of scan results with empty `device.platformName`.
+    - Added display-name fallback order: `advertisementData.advName` -> `device.platformName` -> `"Dispositivo sin nombre"`.
+    - Kept strict default filter (`block/panel/mega`) but now evaluated on fallback display name.
+    - Connected-device title now falls back to `remoteId` if name is empty.
+    - Connection success snackbar now uses the same fallback display name.
+
+## Immediate validation required on hardware
+1. Open scan dialog and confirm device appears within 5-20s without enabling debug list.
+2. If not visible, tap "Mostrar todos (Debug)" and verify whether unnamed devices now appear.
+3. Connect and verify BLE command path still works (RUN/STOP and at least one dimming update).
+4. Capture logs from manual debug view and compare with prior known-good TX/RX behavior.
+
+## If scan still fails after this patch
+1. Capture runtime permission statuses and location service state on the test phone.
+2. Add temporary scan telemetry logs per result (`remoteId`, `advName`, `platformName`, `rssi`).
+3. Compare Android SDK/device model behavior against last known working APK build.
+
+## Continuation update (2026-02-16 - scientific audit)
+- Created full treatment-by-treatment scientific audit:
+  - File: `AUDITORIA_CIENTIFICA_TRATAMIENTOS_2026-02-16.md`
+  - Coverage: 29/29 base treatments from `DB_DEFINICIONES`.
+  - Includes for each treatment:
+    - percentage per available wavelength (630/660/810/830/850),
+    - pulse/CW mode and frequency recommendation,
+    - duration and distance,
+    - indications and contraindications,
+    - evidence/confidence level.
+- Sources prioritized:
+  - PubMed systematic reviews/meta-analyses and RCTs,
+  - WALT dosage recommendation page for PBM dosing reference.
+
+## Continuation update (2026-02-16 - audit applied to app values)
+- Applied scientific audit to `DB_DEFINICIONES` in `lib/main.dart`:
+  - Standardized each treatment to 5-channel percentages (`630/660/810/830/850`).
+  - Updated mode/frequency to conservative `CW` baseline for all catalog entries.
+  - Updated default duration and distance-oriented positioning text per treatment.
+  - Added/updated contraindication notes in `prohibidos` for each treatment.
+- Status:
+  - Catalog values are now aligned with the evidence-based matrix from `AUDITORIA_CIENTIFICA_TRATAMIENTOS_2026-02-16.md`.

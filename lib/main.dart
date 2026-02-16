@@ -271,431 +271,529 @@ final List<Tratamiento> DB_DEFINICIONES = [
       id: "codo_epi",
       nombre: "Epicondilitis (Tenista)",
       zona: "Codo",
-      descripcion: "Reduce inflamación en tendón extensor.",
-      sintomas: "Dolor cara externa codo al agarrar o girar.",
-      posicion: "Brazo en mesa, panel lateral externo.",
+      descripcion: "Dolor lateral de codo por sobreuso tendinoso.",
+      sintomas: "Dolor al agarrar o girar.",
+      posicion: "5-15cm lateral sobre epicondilo.",
       frecuencias: [
-        {'nm': 660, 'p': 50},
-        {'nm': 850, 'p': 100}
+        {'nm': 630, 'p': 0},
+        {'nm': 660, 'p': 25},
+        {'nm': 810, 'p': 20},
+        {'nm': 830, 'p': 20},
+        {'nm': 850, 'p': 35}
       ],
-      hz: "50Hz (Dolor)",
-      duracion: "10",
-      tipsAntes: ["Piel limpia y seca"],
-      tipsDespues: ["No pinza con dedos", "Hielo si dolor"]),
+      hz: "CW",
+      duracion: "12",
+      prohibidos: ["No usar sobre tumor local o infeccion activa."]),
   Tratamiento(
       id: "codo_golf",
       nombre: "Epitrocleitis (Golfista)",
       zona: "Codo",
-      descripcion: "Regeneración para la cara interna.",
-      sintomas: "Dolor interno al flexionar muñeca.",
-      posicion: "Brazo mesa, palma arriba, cara interna.",
+      descripcion: "Tendinopatia medial de codo.",
+      sintomas: "Dolor en cara interna del codo.",
+      posicion: "5-15cm medial sobre epitroclea.",
       frecuencias: [
-        {'nm': 660, 'p': 50},
-        {'nm': 850, 'p': 100}
+        {'nm': 630, 'p': 0},
+        {'nm': 660, 'p': 25},
+        {'nm': 810, 'p': 20},
+        {'nm': 830, 'p': 20},
+        {'nm': 850, 'p': 35}
       ],
-      hz: "50Hz (Dolor)",
-      duracion: "10",
-      tipsDespues: ["Estirar flexores"]),
+      hz: "CW",
+      duracion: "12",
+      prohibidos: ["No usar sobre tumor local o infeccion activa."]),
   Tratamiento(
       id: "codo_calc",
-      nombre: "Calcificación",
+      nombre: "Calcificacion",
       zona: "Codo",
-      descripcion: "Infrarrojo profundo reabsorción.",
-      sintomas: "Dolor punzante y tope óseo.",
-      posicion: "Contacto directo con zona dura.",
+      descripcion: "Coadyuvante en tendinopatia calcifica dolorosa.",
+      sintomas: "Dolor punzante y sensibilidad osea.",
+      posicion: "5-10cm sobre zona calcificada.",
       frecuencias: [
-        {'nm': 660, 'p': 0},
-        {'nm': 850, 'p': 100}
+        {'nm': 630, 'p': 0},
+        {'nm': 660, 'p': 20},
+        {'nm': 810, 'p': 25},
+        {'nm': 830, 'p': 20},
+        {'nm': 850, 'p': 35}
       ],
-      hz: "50Hz (Analgesia)",
-      duracion: "12",
-      tipsAntes: ["Calor previo"]),
+      hz: "CW",
+      duracion: "13",
+      prohibidos: ["Suspender si hay sospecha de rotura completa."]),
   Tratamiento(
       id: "codo_bur",
       nombre: "Bursitis (Apoyo)",
       zona: "Codo",
-      descripcion: "Baja inflamación bursa sin contacto.",
-      sintomas: "Hinchazón (bulto) en la punta del codo.",
-      posicion: "A 5cm del bulto. NO TOCAR.",
+      descripcion: "Bursitis no septica en fase no aguda.",
+      sintomas: "Bulto y dolor a la presion.",
+      posicion: "10-20cm sin contacto sobre bursa.",
       frecuencias: [
-        {'nm': 660, 'p': 50},
-        {'nm': 850, 'p': 100}
+        {'nm': 630, 'p': 10},
+        {'nm': 660, 'p': 30},
+        {'nm': 810, 'p': 20},
+        {'nm': 830, 'p': 20},
+        {'nm': 850, 'p': 20}
       ],
-      hz: "10Hz (Anti-inf)",
+      hz: "CW",
       duracion: "10",
-      tipsDespues: ["No apoyar codo"]),
+      prohibidos: ["No usar si hay fiebre o bursitis septica sospechada."]),
+
   // ESPALDA
   Tratamiento(
       id: "esp_cerv",
       nombre: "Cervicalgia (Cuello)",
       zona: "Espalda",
-      descripcion: "Relaja tensión cervical y mejora riego sanguíneo.",
-      sintomas: "Rigidez cuello y trapecios.",
-      posicion: "Sentado, panel detrás del cuello.",
+      descripcion: "Dolor cervical mecanico.",
+      sintomas: "Rigidez en cuello y trapecios.",
+      posicion: "5-15cm posterior cervical.",
       frecuencias: [
-        {'nm': 660, 'p': 50},
-        {'nm': 850, 'p': 100}
+        {'nm': 630, 'p': 10},
+        {'nm': 660, 'p': 25},
+        {'nm': 810, 'p': 20},
+        {'nm': 830, 'p': 20},
+        {'nm': 850, 'p': 25}
       ],
-      hz: "50Hz (Dolor)",
-      duracion: "15",
-      tipsAntes: ["Sin collar"],
-      tipsDespues: ["Movilidad suave"]),
+      hz: "CW",
+      duracion: "13",
+      prohibidos: ["Consultar si hay radiculopatia progresiva."]),
   Tratamiento(
       id: "esp_dors",
       nombre: "Dorsalgia (Alta)",
       zona: "Espalda",
-      descripcion: "Para zona media-alta de la espalda y postura.",
-      sintomas: "Dolor entre omóplatos.",
-      posicion: "Sentado al revés en silla o tumbado.",
+      descripcion: "Dolor dorsal miofascial.",
+      sintomas: "Molestia entre escapulas.",
+      posicion: "5-15cm dorsal alta paravertebral.",
       frecuencias: [
-        {'nm': 660, 'p': 50},
-        {'nm': 850, 'p': 100}
+        {'nm': 630, 'p': 10},
+        {'nm': 660, 'p': 25},
+        {'nm': 810, 'p': 20},
+        {'nm': 830, 'p': 20},
+        {'nm': 850, 'p': 25}
       ],
-      hz: "50Hz (Dolor)",
-      duracion: "15",
-      tipsAntes: ["Postura recta"],
-      tipsDespues: ["Estirar pecho"]),
+      hz: "CW",
+      duracion: "13",
+      prohibidos: ["No usar ante dolor toracico de causa no aclarada."]),
   Tratamiento(
       id: "esp_lumb",
       nombre: "Lumbalgia (Baja)",
       zona: "Espalda",
-      descripcion: "Penetración profunda lumbar para desinflamar discos.",
-      sintomas: "Dolor en zona baja, dificultad al enderezarse.",
-      posicion: "Tumbado boca abajo o sentado en taburete.",
+      descripcion: "Lumbalgia inespecifica cronica o subaguda.",
+      sintomas: "Dolor lumbar con rigidez.",
+      posicion: "5-15cm lumbar paravertebral.",
       frecuencias: [
-        {'nm': 660, 'p': 50},
-        {'nm': 850, 'p': 100}
+        {'nm': 630, 'p': 10},
+        {'nm': 660, 'p': 25},
+        {'nm': 810, 'p': 20},
+        {'nm': 830, 'p': 20},
+        {'nm': 850, 'p': 25}
       ],
-      hz: "50Hz (Dolor)",
-      duracion: "20",
-      tipsAntes: ["Calor previo"],
-      tipsDespues: ["No cargar peso"]),
+      hz: "CW",
+      duracion: "18",
+      prohibidos: ["Urgencias si hay deficit neurologico o sintomas de cauda equina."]),
+
   // ANTEBRAZO
   Tratamiento(
       id: "ant_sobre",
       nombre: "Sobrecarga",
       zona: "Antebrazo",
-      descripcion: "Relajación muscular general del antebrazo.",
-      sintomas: "Sensación de fatiga, antebrazos duros.",
-      posicion: "Antebrazo apoyado en mesa. Panel desde arriba.",
+      descripcion: "Sobrecarga muscular por esfuerzo repetido.",
+      sintomas: "Fatiga y dureza muscular.",
+      posicion: "10-20cm sobre masa muscular.",
       frecuencias: [
-        {'nm': 660, 'p': 80},
-        {'nm': 850, 'p': 80}
+        {'nm': 630, 'p': 0},
+        {'nm': 660, 'p': 20},
+        {'nm': 810, 'p': 25},
+        {'nm': 830, 'p': 25},
+        {'nm': 850, 'p': 30}
       ],
-      hz: "10Hz (Relajación)",
+      hz: "CW",
       duracion: "12",
-      tipsDespues: ["Estirar"]),
+      prohibidos: ["No usar en lesion aguda grave no evaluada."]),
   Tratamiento(
       id: "ant_tend",
       nombre: "Tendinitis",
       zona: "Antebrazo",
-      descripcion: "Tratamiento anti-inflamatorio localizado.",
-      sintomas: "Dolor puntual en trayecto del tendón.",
-      posicion: "Panel apuntando directamente al punto de dolor.",
+      descripcion: "Tendinopatia localizada de antebrazo.",
+      sintomas: "Dolor puntual en trayecto tendinoso.",
+      posicion: "5-15cm en tendon doloroso.",
       frecuencias: [
-        {'nm': 660, 'p': 50},
-        {'nm': 850, 'p': 100}
+        {'nm': 630, 'p': 0},
+        {'nm': 660, 'p': 25},
+        {'nm': 810, 'p': 20},
+        {'nm': 830, 'p': 20},
+        {'nm': 850, 'p': 35}
       ],
-      hz: "50Hz (Dolor)",
-      duracion: "10",
-      tipsDespues: ["Reposo"]),
-  // MUÑECA
+      hz: "CW",
+      duracion: "11",
+      prohibidos: ["No usar sobre infeccion local activa."]),
+
+  // MUNECA
   Tratamiento(
       id: "mun_tunel",
-      nombre: "Túnel Carpiano",
-      zona: "Muñeca",
-      descripcion: "Enfocado en regeneración nerviosa y desinflamación.",
-      sintomas: "Hormigueo en dedos, dolor nocturno.",
-      posicion: "Palma arriba. Panel en base de muñeca.",
+      nombre: "Tunel Carpiano",
+      zona: "Muneca",
+      descripcion: "Sintomas leves-moderados de tunel carpiano.",
+      sintomas: "Hormigueo y dolor nocturno.",
+      posicion: "5-10cm sobre tunel carpiano, palma arriba.",
       frecuencias: [
-        {'nm': 660, 'p': 50},
-        {'nm': 850, 'p': 100}
+        {'nm': 630, 'p': 0},
+        {'nm': 660, 'p': 20},
+        {'nm': 810, 'p': 30},
+        {'nm': 830, 'p': 20},
+        {'nm': 850, 'p': 30}
       ],
-      hz: "10Hz (Nervio)",
-      duracion: "10",
-      tipsAntes: ["Palma abierta"],
-      tipsDespues: ["Movilidad"]),
+      hz: "CW",
+      duracion: "11",
+      prohibidos: ["Derivar si hay atrofia tenar o debilidad progresiva."]),
   Tratamiento(
       id: "mun_art",
       nombre: "Articular (General)",
-      zona: "Muñeca",
-      descripcion: "Para dolor articular general y rigidez.",
-      sintomas: "Dolor difuso al mover la muñeca.",
-      posicion: "Rotar muñeca frente al panel.",
+      zona: "Muneca",
+      descripcion: "Dolor articular inespecifico de muneca.",
+      sintomas: "Dolor al movimiento.",
+      posicion: "5-15cm alrededor de muneca.",
       frecuencias: [
-        {'nm': 660, 'p': 50},
-        {'nm': 850, 'p': 100}
+        {'nm': 630, 'p': 10},
+        {'nm': 660, 'p': 25},
+        {'nm': 810, 'p': 20},
+        {'nm': 830, 'p': 20},
+        {'nm': 850, 'p': 25}
       ],
-      hz: "50Hz (Dolor)",
-      duracion: "10",
-      tipsDespues: ["Hielo"]),
+      hz: "CW",
+      duracion: "11",
+      prohibidos: ["No usar si hay sospecha de fractura aguda."]),
+
   // PIERNA
   Tratamiento(
       id: "pierna_itb",
       nombre: "Cintilla Iliotibial",
       zona: "Pierna",
-      descripcion: "Reduce fricción e inflamación en fascia lata.",
-      sintomas: "Dolor lateral externo rodilla/muslo.",
-      posicion: "Tumbado de lado, panel en cara externa muslo.",
+      descripcion: "Dolor lateral por sobreuso de cintilla.",
+      sintomas: "Dolor lateral externo en muslo o rodilla.",
+      posicion: "5-15cm en banda iliotibial lateral.",
       frecuencias: [
-        {'nm': 660, 'p': 50},
-        {'nm': 850, 'p': 100}
+        {'nm': 630, 'p': 0},
+        {'nm': 660, 'p': 25},
+        {'nm': 810, 'p': 20},
+        {'nm': 830, 'p': 20},
+        {'nm': 850, 'p': 35}
       ],
-      hz: "50Hz (Dolor)",
-      duracion: "12",
-      tipsDespues: ["Estirar TFL"]),
+      hz: "CW",
+      duracion: "13",
+      prohibidos: ["No usar si hay edema importante o desgarro mayor sospechado."]),
   Tratamiento(
       id: "pierna_fem",
       nombre: "Sobrecarga Femoral",
       zona: "Pierna",
-      descripcion: "Acelera barrido de lactato y recuperación.",
-      sintomas: "Fatiga, pesadez muscular isquios.",
-      posicion: "Panel cubriendo el grupo muscular afectado.",
+      descripcion: "Recuperacion muscular post esfuerzo.",
+      sintomas: "Pesadez y fatiga en muslo.",
+      posicion: "10-20cm en musculo sobrecargado.",
       frecuencias: [
-        {'nm': 660, 'p': 80},
-        {'nm': 850, 'p': 100}
+        {'nm': 630, 'p': 0},
+        {'nm': 660, 'p': 20},
+        {'nm': 810, 'p': 25},
+        {'nm': 830, 'p': 25},
+        {'nm': 850, 'p': 30}
       ],
-      hz: "10Hz (Recup)",
-      duracion: "15",
-      tipsDespues: ["Estirar"]),
+      hz: "CW",
+      duracion: "13",
+      prohibidos: ["No usar en desgarro muscular agudo severo."]),
+
   // PIE
   Tratamiento(
       id: "pie_fasc",
       nombre: "Fascitis Plantar",
       zona: "Pie",
-      descripcion: "Desinflamación del arco plantar.",
-      sintomas: "Dolor agudo en talón al pisar.",
-      posicion: "Sentado, panel apuntando a planta del pie.",
+      descripcion: "Fascitis plantar cronica/subaguda.",
+      sintomas: "Dolor en talon al apoyar.",
+      posicion: "5-15cm en fascia plantar y talon.",
       frecuencias: [
-        {'nm': 660, 'p': 50},
-        {'nm': 850, 'p': 100}
+        {'nm': 630, 'p': 0},
+        {'nm': 660, 'p': 25},
+        {'nm': 810, 'p': 20},
+        {'nm': 830, 'p': 20},
+        {'nm': 850, 'p': 35}
       ],
-      hz: "50Hz",
-      duracion: "10",
-      tipsAntes: ["Sin calcetín"],
-      tipsDespues: ["Rodar pelota"]),
+      hz: "CW",
+      duracion: "12",
+      prohibidos: ["No usar si hay rotura fascial o infeccion local."]),
   Tratamiento(
       id: "pie_esg",
       nombre: "Esguince (Dorsal)",
       zona: "Pie",
-      descripcion: "Regeneración de ligamentos tras torcedura.",
-      sintomas: "Dolor e hinchazón tobillo/empeine.",
-      posicion: "Panel enfocado a zona hinchada.",
+      descripcion: "Esguince leve/moderado en recuperacion.",
+      sintomas: "Dolor e hinchazon en tobillo o empeine.",
+      posicion: "10-20cm en zona de esguince.",
       frecuencias: [
-        {'nm': 660, 'p': 50},
-        {'nm': 850, 'p': 100}
+        {'nm': 630, 'p': 10},
+        {'nm': 660, 'p': 25},
+        {'nm': 810, 'p': 20},
+        {'nm': 830, 'p': 20},
+        {'nm': 850, 'p': 25}
       ],
-      hz: "10Hz (Regen)",
-      duracion: "10"),
+      hz: "CW",
+      duracion: "11",
+      prohibidos: ["No usar con sospecha de fractura o inestabilidad severa."]),
   Tratamiento(
       id: "pie_lat",
-      nombre: "Lateral (5º Metatarso)",
+      nombre: "Lateral (5o Metatarso)",
       zona: "Pie",
-      descripcion: "Alivio dolor borde externo.",
-      sintomas: "Dolor bajo dedo pequeño, juanete de sastre.",
-      posicion: "De lado en suelo apuntando al lateral.",
+      descripcion: "Dolor lateral por sobrecarga local.",
+      sintomas: "Molestia en borde externo del pie.",
+      posicion: "10-20cm en borde lateral del pie.",
       frecuencias: [
-        {'nm': 660, 'p': 100},
-        {'nm': 850, 'p': 100},
-        {'nm': 810, 'p': 100},
-        {'nm': 830, 'p': 100},
-        {'nm': 630, 'p': 100}
+        {'nm': 630, 'p': 10},
+        {'nm': 660, 'p': 20},
+        {'nm': 810, 'p': 20},
+        {'nm': 830, 'p': 20},
+        {'nm': 850, 'p': 30}
       ],
-      hz: "50Hz",
-      duracion: "12"),
+      hz: "CW",
+      duracion: "11",
+      prohibidos: ["Descartar fractura por estres antes de usar."]),
+
   // HOMBRO
   Tratamiento(
       id: "homb_tend",
       nombre: "Tendinitis",
       zona: "Hombro",
-      descripcion: "Para manguito rotador inflamado.",
-      sintomas: "Dolor al levantar el brazo lateralmente.",
-      posicion: "Sentado, panel lateral apuntando al deltoides.",
+      descripcion: "Tendinopatia del manguito rotador.",
+      sintomas: "Dolor al elevar el brazo.",
+      posicion: "5-15cm sobre manguito rotador y deltoides.",
       frecuencias: [
-        {'nm': 660, 'p': 50},
-        {'nm': 850, 'p': 100}
+        {'nm': 630, 'p': 0},
+        {'nm': 660, 'p': 25},
+        {'nm': 810, 'p': 20},
+        {'nm': 830, 'p': 20},
+        {'nm': 850, 'p': 35}
       ],
-      hz: "40Hz",
-      duracion: "10",
-      tipsDespues: ["Péndulos"]),
+      hz: "CW",
+      duracion: "12",
+      prohibidos: ["No usar si hay sospecha de rotura completa del manguito."]),
+
   // RODILLA
   Tratamiento(
       id: "rod_gen",
       nombre: "General/Menisco",
       zona: "Rodilla",
-      descripcion: "Mantenimiento articular y meniscos.",
-      sintomas: "Molestia profunda o chasquidos.",
-      posicion: "Pierna estirada, panel frontal o lateral.",
+      descripcion: "Dolor de rodilla degenerativo.",
+      sintomas: "Molestia articular y rigidez.",
+      posicion: "5-15cm periarticular de rodilla.",
       frecuencias: [
-        {'nm': 660, 'p': 50},
-        {'nm': 850, 'p': 100}
+        {'nm': 630, 'p': 0},
+        {'nm': 660, 'p': 20},
+        {'nm': 810, 'p': 20},
+        {'nm': 830, 'p': 20},
+        {'nm': 850, 'p': 40}
       ],
-      hz: "10Hz",
-      duracion: "10",
-      tipsAntes: ["No hielo antes"]),
+      hz: "CW",
+      duracion: "12",
+      prohibidos: ["No usar con bloqueo mecanico severo agudo."]),
+
   // PIEL
   Tratamiento(
       id: "piel_cicat",
       nombre: "Cicatrices",
       zona: "Piel",
-      descripcion: "Mejora textura y color de cicatrices.",
-      sintomas: "Tejido cicatricial reciente o antiguo.",
-      posicion: "Panel directo a la cicatriz.",
+      descripcion: "Coadyuvante en cicatriz cerrada.",
+      sintomas: "Textura o color irregular de cicatriz.",
+      posicion: "15-25cm sobre cicatriz cerrada.",
       frecuencias: [
-        {'nm': 660, 'p': 100},
+        {'nm': 630, 'p': 30},
+        {'nm': 660, 'p': 50},
+        {'nm': 810, 'p': 0},
+        {'nm': 830, 'p': 0},
         {'nm': 850, 'p': 20}
       ],
       hz: "CW",
       duracion: "10",
-      tipsDespues: ["Rosa Mosqueta"]),
+      prohibidos: ["No usar en cicatriz con infeccion activa."]),
   Tratamiento(
       id: "piel_acne",
-      nombre: "Acné",
+      nombre: "Acne",
       zona: "Piel",
-      descripcion: "Reduce inflamación bacteriana y rojez.",
-      sintomas: "Brotes activos, rojez facial.",
-      posicion: "Frente al rostro (gafas puestas).",
+      descripcion: "Acne inflamatorio leve-moderado (coadyuvante).",
+      sintomas: "Brotes inflamatorios y rojez.",
+      posicion: "15-25cm frente al rostro con gafas.",
       frecuencias: [
+        {'nm': 630, 'p': 20},
         {'nm': 660, 'p': 80},
+        {'nm': 810, 'p': 0},
+        {'nm': 830, 'p': 0},
         {'nm': 850, 'p': 0}
       ],
       hz: "CW",
-      duracion: "8"),
+      duracion: "10",
+      prohibidos: ["No usar como monoterapia en acne noduloquistico severo."]),
   Tratamiento(
       id: "piel_quem",
       nombre: "Quemaduras",
       zona: "Piel",
-      descripcion: "Regeneración epidérmica sin calor.",
-      sintomas: "Piel roja, sensible o dañada por el sol.",
-      posicion: "Mayor distancia (20-30cm).",
+      descripcion: "Quemadura superficial no complicada.",
+      sintomas: "Piel enrojecida y sensible.",
+      posicion: "20-30cm sin calor sobre quemadura superficial.",
       frecuencias: [
-        {'nm': 660, 'p': 50},
-        {'nm': 850, 'p': 0}
+        {'nm': 630, 'p': 30},
+        {'nm': 660, 'p': 40},
+        {'nm': 810, 'p': 0},
+        {'nm': 830, 'p': 10},
+        {'nm': 850, 'p': 20}
       ],
       hz: "CW",
-      duracion: "5",
-      tipsAntes: ["Sin cremas"],
-      tipsDespues: ["Aloe Vera"]),
+      duracion: "6",
+      prohibidos: ["No usar en quemadura profunda o necrosis."]),
+
   // ESTETICA
   Tratamiento(
       id: "fat_front",
       nombre: "Grasa Abdomen Frontal",
       zona: "Abdomen",
-      descripcion: "Lipólisis térmica máxima.",
-      sintomas: "Grasa resistente en zona central.",
-      posicion: "Directo piel desnuda.",
+      descripcion: "Protocolo estetico corporal coadyuvante.",
+      sintomas: "Adiposidad abdominal localizada.",
+      posicion: "5-15cm sobre abdomen frontal.",
       frecuencias: [
-        {'nm': 660, 'p': 100},
-        {'nm': 850, 'p': 100},
-        {'nm': 810, 'p': 100},
-        {'nm': 830, 'p': 100},
-        {'nm': 630, 'p': 100}
+        {'nm': 630, 'p': 70},
+        {'nm': 660, 'p': 30},
+        {'nm': 810, 'p': 0},
+        {'nm': 830, 'p': 0},
+        {'nm': 850, 'p': 0}
       ],
       hz: "CW",
-      duracion: "15",
-      prohibidos: ["No hacer de Noche (Activa)"],
-      tipsDespues: ["Realizar 30min de Cardio Inmediatamente"]),
+      duracion: "18",
+      prohibidos: [
+        "No usar en embarazo o hernia abdominal.",
+        "No usar sobre cancer activo local."
+      ]),
   Tratamiento(
       id: "face_rejuv",
       nombre: "Facial Rejuvenecimiento",
       zona: "Cara",
-      descripcion: "Estimulación de colágeno superficial.",
-      sintomas: "Arrugas finas, piel apagada.",
-      posicion: "Frente al rostro 30cm. GAFAS PUESTAS.",
+      descripcion: "Fotoenvejecimiento y arruga fina.",
+      sintomas: "Piel apagada o lineas finas.",
+      posicion: "20-30cm frente al rostro con gafas.",
       frecuencias: [
-        {'nm': 630, 'p': 100},
-        {'nm': 660, 'p': 50}
+        {'nm': 630, 'p': 40},
+        {'nm': 660, 'p': 50},
+        {'nm': 810, 'p': 0},
+        {'nm': 830, 'p': 0},
+        {'nm': 850, 'p': 10}
       ],
       hz: "CW",
       duracion: "10",
-      tipsAntes: ["Cara lavada"],
-      tipsDespues: ["Serum de Vitamina C"]),
+      prohibidos: ["No usar con dermatitis activa o fotosensibilidad marcada."]),
+
   // SISTEMICO
   Tratamiento(
       id: "testo",
       nombre: "Testosterona",
       zona: "Cuerpo",
-      descripcion: "Estimulación mitocondrial hormonal.",
-      sintomas: "Optimización hormonal.",
-      posicion: "Directo a zona testicular (breve).",
+      descripcion: "Uso experimental, evidencia baja.",
+      sintomas: "Objetivo hormonal experimental.",
+      posicion: "20-30cm, protocolo experimental.",
       frecuencias: [
-        {'nm': 660, 'p': 100},
-        {'nm': 850, 'p': 100}
+        {'nm': 630, 'p': 0},
+        {'nm': 660, 'p': 10},
+        {'nm': 810, 'p': 45},
+        {'nm': 830, 'p': 15},
+        {'nm': 850, 'p': 30}
       ],
       hz: "CW",
-      duracion: "5",
-      prohibidos: ["No hacer de Noche"],
-      tipsDespues: ["Ducha fría"]),
+      duracion: "4",
+      prohibidos: [
+        "No usar en cancer testicular o prostatico.",
+        "No recomendado sin seguimiento medico."
+      ]),
   Tratamiento(
       id: "sueno",
-      nombre: "Sueño / Melatonina",
+      nombre: "Sueno / Melatonina",
       zona: "Cuerpo",
-      descripcion: "Luz ambiente tenue para melatonina.",
-      sintomas: "Insomnio, dificultad para desconectar.",
-      posicion: "Panel lejos, luz indirecta contra pared.",
+      descripcion: "Higiene de sueno y relajacion nocturna.",
+      sintomas: "Dificultad para desconectar al final del dia.",
+      posicion: "30-50cm luz indirecta por la noche.",
       frecuencias: [
-        {'nm': 630, 'p': 30},
-        {'nm': 660, 'p': 30},
+        {'nm': 630, 'p': 60},
+        {'nm': 660, 'p': 40},
+        {'nm': 810, 'p': 0},
+        {'nm': 830, 'p': 0},
         {'nm': 850, 'p': 0}
       ],
       hz: "CW",
-      duracion: "20",
-      prohibidos: ["No hacer por la Mañana"]),
+      duracion: "18",
+      prohibidos: [
+        "No usar por la manana.",
+        "Precaucion en trastorno bipolar no controlado."
+      ]),
   Tratamiento(
       id: "sis_energ",
-      nombre: "Energía Sistémica",
+      nombre: "Energia Sistemica",
       zona: "Cuerpo",
-      descripcion: "Boost mitocondrial.",
-      sintomas: "Fatiga general, falta de energía.",
-      posicion: "Panel frente al torso/pecho.",
+      descripcion: "Coadyuvante para fatiga inespecifica.",
+      sintomas: "Sensacion de baja energia.",
+      posicion: "15-30cm sobre torso o grupos musculares grandes.",
       frecuencias: [
-        {'nm': 660, 'p': 100},
-        {'nm': 850, 'p': 100}
+        {'nm': 630, 'p': 10},
+        {'nm': 660, 'p': 30},
+        {'nm': 810, 'p': 20},
+        {'nm': 830, 'p': 20},
+        {'nm': 850, 'p': 20}
       ],
       hz: "CW",
-      duracion: "10"),
+      duracion: "12",
+      prohibidos: ["No sustituye estudio medico de fatiga persistente."]),
   Tratamiento(
       id: "sis_circ",
-      nombre: "Circulación",
+      nombre: "Circulacion",
       zona: "Cuerpo",
-      descripcion: "Vasodilatación general.",
-      sintomas: "Piernas cansadas, frío en extremidades.",
-      posicion: "Panel cubriendo grandes grupos musculares.",
+      descripcion: "Coadyuvante en sensacion de mala perfusion.",
+      sintomas: "Piernas cansadas o frias.",
+      posicion: "15-30cm en grupos musculares grandes.",
       frecuencias: [
-        {'nm': 660, 'p': 100},
-        {'nm': 850, 'p': 100}
+        {'nm': 630, 'p': 10},
+        {'nm': 660, 'p': 30},
+        {'nm': 810, 'p': 20},
+        {'nm': 830, 'p': 20},
+        {'nm': 850, 'p': 20}
       ],
       hz: "CW",
-      duracion: "20"),
+      duracion: "18",
+      prohibidos: ["No usar si hay sospecha de TVP o isquemia critica."]),
+
   // CABEZA
   Tratamiento(
       id: "cab_migr",
-      nombre: "Migraña",
+      nombre: "Migrana",
       zona: "Cabeza",
-      descripcion: "Relajación occipital.",
-      sintomas: "Dolor pulsátil, tensión en nuca.",
-      posicion: "Panel en la nuca (NO ojos).",
+      descripcion: "Coadyuvante en migrana/tensional.",
+      sintomas: "Dolor de cabeza recurrente.",
+      posicion: "15-25cm en nuca o frontal, evitando ojos.",
       frecuencias: [
-        {'nm': 660, 'p': 0},
-        {'nm': 850, 'p': 50}
+        {'nm': 630, 'p': 0},
+        {'nm': 660, 'p': 20},
+        {'nm': 810, 'p': 30},
+        {'nm': 830, 'p': 20},
+        {'nm': 850, 'p': 30}
       ],
-      hz: "10Hz (Alfa)",
+      hz: "CW",
       duracion: "10",
-      tipsAntes: ["Oscuridad"]),
+      prohibidos: [
+        "No usar en epilepsia fotosensible.",
+        "Evaluar aura atipica de nueva aparicion."
+      ]),
   Tratamiento(
       id: "cab_brain",
       nombre: "Salud Cerebral",
       zona: "Cabeza",
-      descripcion: "Neuroprotección y cognitiva.",
-      sintomas: "Niebla mental, prevención.",
-      posicion: "Panel a la frente/cabeza. GAFAS OBLIGATORIAS.",
+      descripcion: "Uso experimental para cognicion/sueno.",
+      sintomas: "Niebla mental o objetivo cognitivo.",
+      posicion: "20-30cm frontal, siempre con gafas.",
       frecuencias: [
-        {'nm': 810, 'p': 100}
+        {'nm': 630, 'p': 0},
+        {'nm': 660, 'p': 0},
+        {'nm': 810, 'p': 60},
+        {'nm': 830, 'p': 20},
+        {'nm': 850, 'p': 20}
       ],
-      hz: "40Hz (Gamma)",
+      hz: "CW",
       duracion: "10",
-      tipsAntes: ["Gafas Obligatorias"],
-      prohibidos: ["Epilepsia"]),
+      prohibidos: ["No usar en epilepsia fotosensible.", "Uso experimental en cognicion."]),
 ];
 
 // ==============================================================================
@@ -2844,7 +2942,22 @@ class BluetoothScanDialog extends StatefulWidget {
 class _BluetoothScanDialogState extends State<BluetoothScanDialog> {
   final BleManager _ble = BleManager();
   bool showAll = false;
-  
+
+  String _displayName(ScanResult result) {
+    final advName = result.advertisementData.advName.trim();
+    final platformName = result.device.platformName.trim();
+    if (advName.isNotEmpty) return advName;
+    if (platformName.isNotEmpty) return platformName;
+    return "Dispositivo sin nombre";
+  }
+
+  bool _matchesDefaultFilter(ScanResult result) {
+    final name = _displayName(result).toLowerCase();
+    return name.contains("block") ||
+        name.contains("panel") ||
+        name.contains("mega");
+  }
+
   @override
   void initState() {
     super.initState();
@@ -2860,7 +2973,13 @@ class _BluetoothScanDialogState extends State<BluetoothScanDialog> {
   @override
   Widget build(BuildContext context) {
     var state = context.watch<AppState>();
-    
+    final connectedDevice = state._bleManager.connectedDevice;
+    final connectedName = (() {
+      final name = connectedDevice?.platformName.trim() ?? "";
+      if (name.isNotEmpty) return name;
+      return connectedDevice?.remoteId.str ?? "Desconocido";
+    })();
+
     return AlertDialog(
       title: const Text("Dispositivos Bluetooth"),
       content: SizedBox(
@@ -2868,9 +2987,9 @@ class _BluetoothScanDialogState extends State<BluetoothScanDialog> {
         height: 400,
         child: Column(
           children: [
-             if (state.isConnected)
+            if (state.isConnected)
               ListTile(
-                title: Text(state._bleManager.connectedDevice?.platformName ?? "Desconocido"),
+                title: Text(connectedName),
                 subtitle: const Text("Conectado"),
                 trailing: IconButton(
                   icon: const Icon(Icons.close),
@@ -2888,40 +3007,38 @@ class _BluetoothScanDialogState extends State<BluetoothScanDialog> {
                 builder: (c, snapshot) {
                   var results = snapshot.data ?? [];
                   // Filter and Sort
-                  var filtered = results.where((r) => r.device.platformName.isNotEmpty).toList();
-                  
+                  var filtered = List<ScanResult>.from(results);
+
                   // Strict Filter by default
                   if (!showAll) {
-                    filtered = filtered.where((r) {
-                      String name = r.device.platformName.toLowerCase();
-                      return name.contains("block") || name.contains("panel") || name.contains("mega");
-                    }).toList();
+                    filtered =
+                        filtered.where((r) => _matchesDefaultFilter(r)).toList();
                   }
 
                   filtered.sort((a, b) {
-                    var nameA = a.device.platformName.toLowerCase();
-                    var nameB = b.device.platformName.toLowerCase();
+                    var nameA = _displayName(a).toLowerCase();
+                    var nameB = _displayName(b).toLowerCase();
                     bool aIsBlock = nameA.contains("block");
                     bool bIsBlock = nameB.contains("block");
-                    
+
                     if (aIsBlock && !bIsBlock) return -1;
                     if (!aIsBlock && bIsBlock) return 1;
-                    
+
                     return b.rssi.compareTo(a.rssi);
                   });
 
                   if (filtered.isEmpty) {
-                     return Center(child: Column(
-                       mainAxisAlignment: MainAxisAlignment.center,
-                       children: [
-                         const Text("Buscando dispositivos..."),
-                         if (!showAll)
-                           TextButton(
-                             onPressed: () => setState(() => showAll = true),
-                             child: const Text("Mostrar todos (Debug)")
-                           )
-                       ],
-                     ));
+                    return Center(
+                        child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text("Buscando dispositivos..."),
+                        if (!showAll)
+                          TextButton(
+                              onPressed: () => setState(() => showAll = true),
+                              child: const Text("Mostrar todos (Debug)"))
+                      ],
+                    ));
                   }
 
                   return ListView.builder(
@@ -2936,7 +3053,9 @@ class _BluetoothScanDialogState extends State<BluetoothScanDialog> {
                       var d = filtered[i].device;
                       return ListTile(
                         leading: const Icon(Icons.bluetooth),
-                        title: Text(d.platformName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        title: Text(_displayName(filtered[i]),
+                            style:
+                                const TextStyle(fontWeight: FontWeight.bold)),
                         subtitle: Text("${d.remoteId} (${filtered[i].rssi} dBm)"),
                         onTap: () async {
                            // Show loading indicator
@@ -2953,7 +3072,7 @@ class _BluetoothScanDialogState extends State<BluetoothScanDialog> {
                              if (success) {
                                Navigator.pop(context); // Dismiss scan dialog
                                ScaffoldMessenger.of(context).showSnackBar(
-                                 SnackBar(content: Text("Conectado a ${d.platformName}"), backgroundColor: Colors.green)
+                                 SnackBar(content: Text("Conectado a ${_displayName(filtered[i])}"), backgroundColor: Colors.green)
                                );
                              } else {
                                ScaffoldMessenger.of(context).showSnackBar(
