@@ -157,3 +157,38 @@ Replicate BlueLight APK BLE behavior in Flutter app (`mega_panel_ai`) to reliabl
   - Added/updated contraindication notes in `prohibidos` for each treatment.
 - Status:
   - Catalog values are now aligned with the evidence-based matrix from `AUDITORIA_CIENTIFICA_TRATAMIENTOS_2026-02-16.md`.
+
+## Continuation update (2026-02-16 - workflow + github sync)
+- Current local/app state:
+  - Branch: `main`
+  - `HEAD`: `a53e9ef`
+  - Last functional changes commit: `eee3ff0` (`Apply scientific audit values and stabilize BLE discovery`)
+  - CI workflow commit: `a53e9ef` (`Add Flutter CI workflow`)
+- GitHub sync:
+  - Pushed to `origin/main` successfully (`1d00336..a53e9ef`).
+- Workflows status after push:
+  - `Deploy Web & Android`: `success`
+    - Run: `22076676283`
+    - URL: `https://github.com/benjamoide/megapanelAI/actions/runs/22076676283`
+  - `Flutter CI`: `failure` in `Analyze`
+    - Run: `22076676254`
+    - URL: `https://github.com/benjamoide/megapanelAI/actions/runs/22076676254`
+    - Cause: `flutter analyze` returns non-zero due lints/info/warnings (29 issues), so `Test` and `Build APK` were skipped in that workflow.
+
+## Exact resume point for tomorrow
+1. Open failing CI run `22076676254` and confirm analyzer output is unchanged.
+2. Decide CI policy (pick one and implement):
+   - A) Keep strict analyze and fix lints in code.
+   - B) Keep current code and relax CI analyze gate (e.g., warnings-only strategy).
+3. If choosing A (recommended for long-term quality):
+   - Start with low-risk issues first:
+     - remove unused import in `lib/views/bluetooth_custom_view.dart`,
+     - add braces for single-line `if` blocks flagged in `lib/main.dart`,
+     - address easy `const` suggestions.
+   - Re-run workflow via push (or local analyze if environment allows).
+4. Re-verify BLE on hardware after CI pass:
+   - scan visibility,
+   - connect,
+   - run/stop and dimming update path.
+5. If BLE behavior is stable, move to phase 2:
+   - fine-tune treatment wording/contraindications in UI text and publish v52 build.
