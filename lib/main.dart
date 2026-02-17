@@ -2959,7 +2959,20 @@ class _BluetoothScanDialogState extends State<BluetoothScanDialog> {
   bool _matchesDefaultFilter(ScanResult result) {
     final normalized =
         _displayName(result).toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
-    return normalized.contains("blockbluelight");
+
+    final matchesName = normalized.contains("blockbluelight") ||
+        normalized.contains("bluelight") ||
+        normalized.contains("blockblue") ||
+        (normalized.contains("block") && normalized.contains("light"));
+    if (matchesName) return true;
+
+    // Some firmwares advertise with empty/non-standard names.
+    // Keep list restricted to likely target devices by BLE service fingerprint.
+    final serviceMatches = result.advertisementData.serviceUuids.any((uuid) {
+      final s = uuid.str.toLowerCase();
+      return s.contains("fff0") || s.contains("fff1") || s.contains("fff2");
+    });
+    return serviceMatches;
   }
 
   @override
