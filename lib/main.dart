@@ -2947,7 +2947,7 @@ class BluetoothScanDialog extends StatefulWidget {
 
 class _BluetoothScanDialogState extends State<BluetoothScanDialog> {
   final BleManager _ble = BleManager();
-  bool showAll = false;
+  bool showAll = true;
 
   String _displayName(ScanResult result) {
     final advName = result.advertisementData.advName.trim();
@@ -2993,6 +2993,20 @@ class _BluetoothScanDialogState extends State<BluetoothScanDialog> {
         height: 400,
         child: Column(
           children: [
+            Align(
+              alignment: Alignment.centerRight,
+              child: IconButton(
+                tooltip: "Re-escanear",
+                icon: const Icon(Icons.refresh),
+                onPressed: () async {
+                  await _ble.stopScan();
+                  await _ble.startScan();
+                  if (mounted) {
+                    setState(() {});
+                  }
+                },
+              ),
+            ),
             if (state.isConnected)
               ListTile(
                 title: Text(connectedName),
@@ -3049,11 +3063,25 @@ class _BluetoothScanDialogState extends State<BluetoothScanDialog> {
                         child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
+                        const Icon(Icons.bluetooth_searching, size: 28),
+                        const SizedBox(height: 8),
                         const Text("Buscando dispositivos..."),
+                        const SizedBox(height: 8),
+                        TextButton.icon(
+                          onPressed: () async {
+                            await _ble.stopScan();
+                            await _ble.startScan();
+                            if (mounted) {
+                              setState(() {});
+                            }
+                          },
+                          icon: const Icon(Icons.refresh),
+                          label: const Text("Reintentar escaneo"),
+                        ),
                         if (!showAll)
                           TextButton(
                               onPressed: () => setState(() => showAll = true),
-                              child: const Text("Mostrar todos (Debug)"))
+                              child: const Text("Mostrar todos (Debug)")),
                       ],
                     ));
                   }

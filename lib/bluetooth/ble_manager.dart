@@ -53,6 +53,12 @@ class BleManager {
   }
 
   Future<void> startScan() async {
+    final adapterState = await FlutterBluePlus.adapterState.first;
+    if (adapterState != BluetoothAdapterState.on) {
+      log("Bluetooth adapter is not ON: $adapterState");
+      return;
+    }
+
     final scanGranted = await Permission.bluetoothScan.request().isGranted;
     final connectGranted = await Permission.bluetoothConnect.request().isGranted;
     final locationGranted = await Permission.location.request().isGranted ||
@@ -69,15 +75,23 @@ class BleManager {
 
     try {
       await FlutterBluePlus.startScan(
-        timeout: const Duration(seconds: 12),
+        continuousUpdates: true,
+        removeIfGone: const Duration(seconds: 8),
+        androidScanMode: AndroidScanMode.lowLatency,
         androidUsesFineLocation: locationGranted,
+        // Some phones incorrectly report location-services state and block scans.
+        androidCheckLocationServices: false,
       );
+      log("Scan started.");
     } catch (e) {
       log("Error starting scan (primary mode): $e");
       try {
         await FlutterBluePlus.startScan(
-          timeout: const Duration(seconds: 12),
+          continuousUpdates: true,
+          removeIfGone: const Duration(seconds: 8),
+          androidScanMode: AndroidScanMode.lowLatency,
           androidUsesFineLocation: false,
+          androidCheckLocationServices: false,
         );
         log("Scan started in compatibility fallback mode.");
       } catch (fallbackError) {
