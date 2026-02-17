@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 import 'dart:math' as math;
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -32,7 +33,7 @@ class BleManager {
   Stream<String> get logs => _logController.stream;
 
   void log(String msg) {
-    print(msg); // Keep console print
+    developer.log(msg, name: 'BleManager');
     _logController.add("${DateFormat('HH:mm:ss').format(DateTime.now())}: $msg");
   }
 

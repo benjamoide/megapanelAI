@@ -213,6 +213,7 @@ class CardioSession {
     if (type == "Protocolo Noruego") {
       details = "Noruego (4x4) - $machine. ";
       if (machine == "Cinta") details += "Vel: $speed, Inc: $incline";
+      // ignore: curly_braces_in_flow_control_structures
       if (machine == "Elíptica")
         details += "Res: ${resistance.toInt()}, W: ${watts.toInt()}";
       if (machine == "Remo") details += "Res: ${resistance.toInt()}";
@@ -1262,10 +1263,11 @@ class AppState extends ChangeNotifier {
   void agregarTratamientoCatalogo(Tratamiento t) {
     int index =
         catalogo.indexWhere((e) => e.id == t.id || e.nombre == t.nombre);
-    if (index != -1)
+    if (index != -1) {
       catalogo[index] = t;
-    else
+    } else {
       catalogo.add(t);
+    }
     _guardarTodo();
     notifyListeners();
   }
@@ -1273,10 +1275,11 @@ class AppState extends ChangeNotifier {
   void ocultarTratamiento(String id) {
     int index = catalogo.indexWhere((e) => e.id == id);
     if (index != -1) {
-      if (catalogo[index].esCustom)
+      if (catalogo[index].esCustom) {
         catalogo.removeAt(index);
-      else
+      } else {
         catalogo[index].oculto = true;
+      }
       _guardarTodo();
     }
     notifyListeners();
@@ -1454,10 +1457,11 @@ class _LoginScreenState extends State<LoginScreen> {
         await context.read<AppState>().login(_userCtrl.text, _passCtrl.text);
     setState(() => _loading = false);
     if (!ok) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text("Usuario o contraseña incorrectos"),
             backgroundColor: Colors.red));
+      }
     }
   }
 
@@ -1770,7 +1774,7 @@ class _MobileLayout extends StatelessWidget {
       const ClinicaView(),
       const BuscadorIAView(),
       const GestionView(),
-      BluetoothCustomView()
+      const BluetoothCustomView()
     ];
     return Scaffold(
       appBar: AppBar(
@@ -1801,7 +1805,7 @@ class _DesktopLayout extends StatelessWidget {
       const ClinicaView(),
       const BuscadorIAView(),
       const GestionView(),
-      BluetoothCustomView()
+      const BluetoothCustomView()
     ];
     return Scaffold(
       body: Row(
@@ -1934,8 +1938,9 @@ class PanelDiarioView extends StatelessWidget {
             label: const Text("Registrar Todo"),
             onPressed: () {
               for (var t in listaMostrar) {
-                if (!hechos.any((h) => h['id'] == t.id))
+                if (!hechos.any((h) => h['id'] == t.id)) {
                   state.registrarTratamiento(hoy, t.id, "Batch");
+                }
               }
             }),
       const SizedBox(height: 20),
@@ -2087,8 +2092,9 @@ class _EditRoutineDialogState extends State<EditRoutineDialog> {
   void _addSession() {
     CardioSession newSession = CardioSession(
         type: selectedType, duration: int.tryParse(durationCtrl.text) ?? 0);
-    if (selectedType == "Andar")
+    if (selectedType == "Andar") {
       newSession.steps = steps;
+    }
     else if (selectedType == "Elíptica") {
       newSession.resistance = resistance;
       newSession.watts = watts;
@@ -2828,11 +2834,10 @@ class _TreatmentCardState extends State<TreatmentCard> {
                       ]),
                       Column(children: [
                         const Icon(Icons.light_mode, size: 20),
-                        ...widget.t.frecuencias
-                            .map((f) => Text("${f['nm']}nm: ${f['p']}%",
-                                style: const TextStyle(
-                                    fontSize: 12, fontWeight: FontWeight.bold)))
-                            .toList()
+                        ...widget.t.frecuencias.map((f) => Text(
+                            "${f['nm']}nm: ${f['p']}%",
+                            style: const TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.bold)))
                       ]),
                     ],
                   ),
