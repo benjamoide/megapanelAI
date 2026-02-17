@@ -3014,11 +3014,22 @@ class _BluetoothScanDialogState extends State<BluetoothScanDialog> {
                   var results = snapshot.data ?? [];
                   // Filter and Sort
                   var filtered = List<ScanResult>.from(results);
+                  bool fallbackToAll = false;
 
                   // Strict Filter by default
                   if (!showAll) {
-                    filtered =
+                    final strictFiltered =
                         filtered.where((r) => _matchesDefaultFilter(r)).toList();
+                    if (strictFiltered.isNotEmpty) {
+                      filtered = strictFiltered;
+                    } else if (results.isNotEmpty) {
+                      // If nothing matches the name filter, show all discovered devices.
+                      // This avoids hiding valid devices with empty/non-standard names.
+                      fallbackToAll = true;
+                      filtered = List<ScanResult>.from(results);
+                    } else {
+                      filtered = strictFiltered;
+                    }
                   }
 
                   filtered.sort((a, b) {
@@ -3047,7 +3058,25 @@ class _BluetoothScanDialogState extends State<BluetoothScanDialog> {
                     ));
                   }
 
-                  return ListView.builder(
+                  return Column(
+                    children: [
+                      if (fallbackToAll)
+                        Container(
+                          width: double.infinity,
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Text(
+                            "Sin coincidencias por nombre. Mostrando todos los dispositivos detectados.",
+                            style: TextStyle(fontSize: 12),
+                          ),
+                        ),
+                      Expanded(
+                        child: ListView.builder(
                     itemCount: filtered.length + (showAll ? 0 : 1), // +1 for the toggle button at bottom
                     itemBuilder: (ctx, i) {
                       if (i == filtered.length) {
@@ -3089,6 +3118,9 @@ class _BluetoothScanDialogState extends State<BluetoothScanDialog> {
                         },
                       );
                     },
+                        ),
+                      ),
+                    ],
                   );
                 },
               ),

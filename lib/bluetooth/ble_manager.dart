@@ -43,9 +43,11 @@ class BleManager {
   BluetoothDevice? get connectedDevice => _connectedDevice;
 
   Future<void> init() async {
-    // Request core BLE permissions early; location is optional on newer Android.
+    // Request core BLE permissions early.
     await Permission.bluetoothScan.request();
     await Permission.bluetoothConnect.request();
+    // Some Android devices still need location permission for reliable BLE discovery.
+    await Permission.locationWhenInUse.request();
     // Emit initial disconnected state
     _connectionStateController.add(BluetoothConnectionState.disconnected);
   }
@@ -53,21 +55,34 @@ class BleManager {
   Future<void> startScan() async {
     final scanGranted = await Permission.bluetoothScan.request().isGranted;
     final connectGranted = await Permission.bluetoothConnect.request().isGranted;
-    final locationGranted = await Permission.location.isGranted ||
-        await Permission.locationWhenInUse.isGranted;
+    final locationGranted = await Permission.location.request().isGranted ||
+        await Permission.locationWhenInUse.request().isGranted;
 
     if (!scanGranted || !connectGranted) {
       log("Permissions not granted for scanning");
       return;
     }
 
+    if (!locationGranted) {
+      log("Location permission denied; some devices may not appear in scan.");
+    }
+
     try {
       await FlutterBluePlus.startScan(
-        // Keep scanning until user closes the dialog.
+        timeout: const Duration(seconds: 12),
         androidUsesFineLocation: locationGranted,
       );
     } catch (e) {
-      log("Error starting scan: $e");
+      log("Error starting scan (primary mode): $e");
+      try {
+        await FlutterBluePlus.startScan(
+          timeout: const Duration(seconds: 12),
+          androidUsesFineLocation: false,
+        );
+        log("Scan started in compatibility fallback mode.");
+      } catch (fallbackError) {
+        log("Error starting scan (fallback mode): $fallbackError");
+      }
     }
   }
 
