@@ -213,9 +213,10 @@ class CardioSession {
     if (type == "Protocolo Noruego") {
       details = "Noruego (4x4) - $machine. ";
       if (machine == "Cinta") details += "Vel: $speed, Inc: $incline";
-      // ignore: curly_braces_in_flow_control_structures
       if (machine == "Elíptica")
+      {
         details += "Res: ${resistance.toInt()}, W: ${watts.toInt()}";
+      }
       if (machine == "Remo") details += "Res: ${resistance.toInt()}";
     } else if (type == "Elíptica") {
       details = "Elíptica ($duration min). Res: ${resistance.toInt()}";
