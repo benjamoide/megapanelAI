@@ -2947,7 +2947,6 @@ class BluetoothScanDialog extends StatefulWidget {
 
 class _BluetoothScanDialogState extends State<BluetoothScanDialog> {
   final BleManager _ble = BleManager();
-  bool showAll = true;
 
   String _displayName(ScanResult result) {
     final advName = result.advertisementData.advName.trim();
@@ -2958,10 +2957,9 @@ class _BluetoothScanDialogState extends State<BluetoothScanDialog> {
   }
 
   bool _matchesDefaultFilter(ScanResult result) {
-    final name = _displayName(result).toLowerCase();
-    return name.contains("block") ||
-        name.contains("panel") ||
-        name.contains("mega");
+    final normalized =
+        _displayName(result).toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+    return normalized.contains("blockbluelight");
   }
 
   @override
@@ -3026,25 +3024,8 @@ class _BluetoothScanDialogState extends State<BluetoothScanDialog> {
                 initialData: const [],
                 builder: (c, snapshot) {
                   var results = snapshot.data ?? [];
-                  // Filter and Sort
-                  var filtered = List<ScanResult>.from(results);
-                  bool fallbackToAll = false;
-
-                  // Strict Filter by default
-                  if (!showAll) {
-                    final strictFiltered =
-                        filtered.where((r) => _matchesDefaultFilter(r)).toList();
-                    if (strictFiltered.isNotEmpty) {
-                      filtered = strictFiltered;
-                    } else if (results.isNotEmpty) {
-                      // If nothing matches the name filter, show all discovered devices.
-                      // This avoids hiding valid devices with empty/non-standard names.
-                      fallbackToAll = true;
-                      filtered = List<ScanResult>.from(results);
-                    } else {
-                      filtered = strictFiltered;
-                    }
-                  }
+                  var filtered =
+                      List<ScanResult>.from(results).where(_matchesDefaultFilter).toList();
 
                   filtered.sort((a, b) {
                     var nameA = _displayName(a).toLowerCase();
@@ -3078,41 +3059,13 @@ class _BluetoothScanDialogState extends State<BluetoothScanDialog> {
                           icon: const Icon(Icons.refresh),
                           label: const Text("Reintentar escaneo"),
                         ),
-                        if (!showAll)
-                          TextButton(
-                              onPressed: () => setState(() => showAll = true),
-                              child: const Text("Mostrar todos (Debug)")),
                       ],
                     ));
                   }
 
-                  return Column(
-                    children: [
-                      if (fallbackToAll)
-                        Container(
-                          width: double.infinity,
-                          margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: Colors.orange.shade50,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Text(
-                            "Sin coincidencias por nombre. Mostrando todos los dispositivos detectados.",
-                            style: TextStyle(fontSize: 12),
-                          ),
-                        ),
-                      Expanded(
-                        child: ListView.builder(
-                    itemCount: filtered.length + (showAll ? 0 : 1), // +1 for the toggle button at bottom
+                  return ListView.builder(
+                    itemCount: filtered.length,
                     itemBuilder: (ctx, i) {
-                      if (i == filtered.length) {
-                        return Center(child: TextButton(
-                             onPressed: () => setState(() => showAll = true),
-                             child: const Text("Mostrar todos los dispositivos")
-                           ));
-                      }
                       var d = filtered[i].device;
                       return ListTile(
                         leading: const Icon(Icons.bluetooth),
@@ -3146,9 +3099,6 @@ class _BluetoothScanDialogState extends State<BluetoothScanDialog> {
                         },
                       );
                     },
-                        ),
-                      ),
-                    ],
                   );
                 },
               ),
