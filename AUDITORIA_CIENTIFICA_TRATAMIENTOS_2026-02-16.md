@@ -88,5 +88,32 @@
 - tPBM dose-dependent tolerability RCT (2025): https://pubmed.ncbi.nlm.nih.gov/40437278/
 
 ## Estado de esta auditoria
-- Completa para 29/29 tratamientos del catalogo actual.
-- Lista para fase 2: traducir esta tabla a datos de app (`frecuencias`, `hz`, `duracion`, `posicion`, `prohibidos`) con versionado y changelog.
+- Completa para 29/29 tratamientos del catalogo base original (corte 2026-02-16).
+- Actualizada a 34/34 tras agregar 5 protocolos nuevos en 2026-02-18.
+
+## Actualizacion aplicada en app - 2026-02-18
+- Se aplico una capa de actualizacion cientifica en `lib/main.dart` sobre TODO el catalogo:
+  - Rebalanceo de mezcla espectral en dolor musculoesqueletico profundo para priorizar NIR (810/830/850).
+  - Pulso `10Hz` en protocolos de dolor seleccionados (p. ej., epicondilo, esguince, migrana, ATM, Aquiles).
+  - `40Hz` en `cab_brain` como modo experimental.
+  - Notas de dosimetria (`J/cm2`, `mW/cm2`) + cita bibliografica por tratamiento en `tipsAntes/tipsDespues`.
+  - Contraindicaciones globales reforzadas (ojos, evidencia limitada, seguimiento clinico en mucosa/herida).
+
+### Tratamientos nuevos agregados
+| ID | Tratamiento | Estado evidencia | Fuente clave |
+|---|---|---|---|
+| rod_pfps | Dolor Patelofemoral | Moderada-baja | ScienceDirect doi:10.1016/j.ptsp.2025.11.009 |
+| tob_aquiles | Tendinopatia de Aquiles | Moderada | PMID:36171024 + WALT |
+| cara_atm | Dolor Temporomandibular (ATM) | Moderada | PMID:39225295 + WALT |
+| pie_ulc | Ulcera Pie Diabetico (Apoyo) | Baja-moderada | PMID:39172550 |
+| boca_mucos | Mucositis Oral (Oncologia, Apoyo) | Moderada | PMID:34742930 |
+
+### Cobertura de fuentes consultadas en esta ronda
+- PubMed/NCBI: revisiones sistematicas, metanalisis y RCT (PMID citados arriba).
+- Cochrane Library/CENTRAL: CTS (`PMID:35611937`).
+- ClinicalTrials.gov: `NCT06757374` (tPBM en deterioro cognitivo).
+- ScienceDirect/Scopus-indexed: dolor patelofemoral (doi:10.1016/j.ptsp.2025.11.009).
+- WALT PBM recommendations: tablas de dosis por indicacion (dosimetria clinica).
+
+### Nota metodologica de esta ronda
+- No todas las bases (EMBASE/CINAHL) exponen resultados completos en acceso abierto directo; se priorizaron revisiones y metanalisis recientes que reportan busqueda en multiples bases (incluyendo EMBASE/CINAHL/Scopus/Cochrane) para maximizar validez externa.

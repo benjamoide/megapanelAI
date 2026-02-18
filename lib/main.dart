@@ -589,6 +589,63 @@ final List<Tratamiento> DB_DEFINICIONES = [
       hz: "CW",
       duracion: "12",
       prohibidos: ["No usar con bloqueo mecanico severo agudo."]),
+  Tratamiento(
+      id: "rod_pfps",
+      nombre: "Dolor Patelofemoral",
+      zona: "Rodilla",
+      descripcion: "Dolor anterior de rodilla por sobreuso.",
+      sintomas: "Dolor al subir/bajar escaleras o sentadillas.",
+      posicion: "5-15cm periarticular anterior de rodilla.",
+      frecuencias: [
+        {'nm': 630, 'p': 0},
+        {'nm': 660, 'p': 20},
+        {'nm': 810, 'p': 20},
+        {'nm': 830, 'p': 20},
+        {'nm': 850, 'p': 40}
+      ],
+      hz: "CW",
+      duracion: "12",
+      prohibidos: [
+        "No usar con derrame agudo severo o bloqueo articular.",
+        "No sustituye rehabilitacion de fuerza de cadera/cuadriceps."
+      ]),
+  Tratamiento(
+      id: "tob_aquiles",
+      nombre: "Tendinopatia de Aquiles",
+      zona: "Tobillo",
+      descripcion: "Tendinopatia aquilea cronica o subaguda.",
+      sintomas: "Dolor y rigidez matinal en tendon de Aquiles.",
+      posicion: "5-15cm sobre tendon aquileo, evitando calor.",
+      frecuencias: [
+        {'nm': 630, 'p': 0},
+        {'nm': 660, 'p': 20},
+        {'nm': 810, 'p': 25},
+        {'nm': 830, 'p': 20},
+        {'nm': 850, 'p': 35}
+      ],
+      hz: "CW",
+      duracion: "12",
+      prohibidos: ["No usar si hay sospecha de rotura del tendon de Aquiles."]),
+  Tratamiento(
+      id: "cara_atm",
+      nombre: "Dolor Temporomandibular (ATM)",
+      zona: "Cara",
+      descripcion: "Dolor miofascial/ATM de causa mecanica.",
+      sintomas: "Dolor al masticar, rigidez mandibular o clic doloroso.",
+      posicion: "5-10cm sobre ATM y masetero, evitando ojos.",
+      frecuencias: [
+        {'nm': 630, 'p': 10},
+        {'nm': 660, 'p': 30},
+        {'nm': 810, 'p': 25},
+        {'nm': 830, 'p': 20},
+        {'nm': 850, 'p': 15}
+      ],
+      hz: "CW",
+      duracion: "10",
+      prohibidos: [
+        "No usar sobre glandula tiroidea.",
+        "Derivar si hay trismus severo o bloqueo mandibular agudo."
+      ]),
 
   // PIEL
   Tratamiento(
@@ -642,6 +699,46 @@ final List<Tratamiento> DB_DEFINICIONES = [
       hz: "CW",
       duracion: "6",
       prohibidos: ["No usar en quemadura profunda o necrosis."]),
+  Tratamiento(
+      id: "pie_ulc",
+      nombre: "Ulcera Pie Diabetico (Apoyo)",
+      zona: "Pie",
+      descripcion: "Ulcera superficial no complicada (coadyuvante).",
+      sintomas: "Lesion cronica superficial en pie diabetico.",
+      posicion: "20-30cm sin contacto sobre borde perilesional.",
+      frecuencias: [
+        {'nm': 630, 'p': 30},
+        {'nm': 660, 'p': 30},
+        {'nm': 810, 'p': 15},
+        {'nm': 830, 'p': 10},
+        {'nm': 850, 'p': 15}
+      ],
+      hz: "CW",
+      duracion: "8",
+      prohibidos: [
+        "No sustituye desbridamiento o antibiotico indicado.",
+        "No usar ante isquemia critica u osteomielitis no controlada."
+      ]),
+  Tratamiento(
+      id: "boca_mucos",
+      nombre: "Mucositis Oral (Oncologia, Apoyo)",
+      zona: "Boca",
+      descripcion: "Mucositis por quimio/radioterapia como coadyuvante.",
+      sintomas: "Dolor oral, ulceras y sensibilidad al comer.",
+      posicion: "15-25cm extraoral (labios/mejillas), sin calor.",
+      frecuencias: [
+        {'nm': 630, 'p': 40},
+        {'nm': 660, 'p': 40},
+        {'nm': 810, 'p': 10},
+        {'nm': 830, 'p': 10},
+        {'nm': 850, 'p': 0}
+      ],
+      hz: "CW",
+      duracion: "8",
+      prohibidos: [
+        "Uso solo como apoyo al protocolo oncologico.",
+        "No aplicar sobre sangrado activo no controlado."
+      ]),
 
   // ESTETICA
   Tratamiento(
@@ -797,6 +894,304 @@ final List<Tratamiento> DB_DEFINICIONES = [
       duracion: "10",
       prohibidos: ["No usar en epilepsia fotosensible.", "Uso experimental en cognicion."]),
 ];
+
+const Set<String> _idsTendinopatia = {
+  "codo_epi",
+  "codo_golf",
+  "codo_calc",
+  "ant_tend",
+  "pierna_itb",
+  "pie_fasc",
+  "homb_tend",
+  "tob_aquiles",
+};
+
+const Set<String> _idsDolorMuscular = {
+  "codo_bur",
+  "esp_cerv",
+  "esp_dors",
+  "esp_lumb",
+  "ant_sobre",
+  "pierna_fem",
+  "pie_esg",
+  "pie_lat",
+  "sis_energ",
+  "sis_circ",
+};
+
+const Set<String> _idsRodilla = {"rod_gen", "rod_pfps"};
+const Set<String> _idsCefalea = {"cab_migr"};
+const Set<String> _idsNeuroExperimental = {"cab_brain"};
+const Set<String> _idsPielRegenerativa = {"piel_cicat", "piel_quem", "pie_ulc"};
+const Set<String> _idsPielEstetica = {"face_rejuv", "piel_acne"};
+const Set<String> _idsPulso10 = {
+  "codo_epi",
+  "codo_golf",
+  "codo_bur",
+  "pie_esg",
+  "cab_migr",
+  "cara_atm",
+  "tob_aquiles",
+};
+
+const List<Map<String, int>> _mixDeepTendon = [
+  {'nm': 630, 'p': 0},
+  {'nm': 660, 'p': 15},
+  {'nm': 810, 'p': 35},
+  {'nm': 830, 'p': 25},
+  {'nm': 850, 'p': 25},
+];
+
+const List<Map<String, int>> _mixDolorMuscular = [
+  {'nm': 630, 'p': 5},
+  {'nm': 660, 'p': 15},
+  {'nm': 810, 'p': 30},
+  {'nm': 830, 'p': 25},
+  {'nm': 850, 'p': 25},
+];
+
+const List<Map<String, int>> _mixRodilla = [
+  {'nm': 630, 'p': 0},
+  {'nm': 660, 'p': 15},
+  {'nm': 810, 'p': 35},
+  {'nm': 830, 'p': 20},
+  {'nm': 850, 'p': 30},
+];
+
+const List<Map<String, int>> _mixTunelCarpiano = [
+  {'nm': 630, 'p': 0},
+  {'nm': 660, 'p': 10},
+  {'nm': 810, 'p': 40},
+  {'nm': 830, 'p': 20},
+  {'nm': 850, 'p': 30},
+];
+
+const List<Map<String, int>> _mixCefalea = [
+  {'nm': 630, 'p': 0},
+  {'nm': 660, 'p': 15},
+  {'nm': 810, 'p': 40},
+  {'nm': 830, 'p': 20},
+  {'nm': 850, 'p': 25},
+];
+
+const List<Map<String, int>> _mixNeuroExperimental = [
+  {'nm': 630, 'p': 0},
+  {'nm': 660, 'p': 0},
+  {'nm': 810, 'p': 70},
+  {'nm': 830, 'p': 20},
+  {'nm': 850, 'p': 10},
+];
+
+const List<Map<String, int>> _mixSueno = [
+  {'nm': 630, 'p': 60},
+  {'nm': 660, 'p': 40},
+  {'nm': 810, 'p': 0},
+  {'nm': 830, 'p': 0},
+  {'nm': 850, 'p': 0},
+];
+
+const List<Map<String, int>> _mixPielRegenerativa = [
+  {'nm': 630, 'p': 35},
+  {'nm': 660, 'p': 35},
+  {'nm': 810, 'p': 10},
+  {'nm': 830, 'p': 10},
+  {'nm': 850, 'p': 10},
+];
+
+List<Map<String, dynamic>> _copyFrecuencias(List<Map<String, int>> source) {
+  return source.map((f) => {'nm': f['nm'], 'p': f['p']}).toList();
+}
+
+List<String> _mergeUniqueStrings(List<String> base, List<String> extra) {
+  final out = List<String>.from(base);
+  for (final e in extra) {
+    if (e.trim().isEmpty) continue;
+    if (!out.contains(e)) out.add(e);
+  }
+  return out;
+}
+
+List<String> _tipsAntesCientificosPorId(String id) {
+  if (_idsTendinopatia.contains(id)) {
+    return [
+      "Dosimetria objetivo: 4-8 J por punto doloroso (20-100 mW/cm2), priorizando 810/830/850nm."
+    ];
+  }
+  if (_idsDolorMuscular.contains(id) || _idsRodilla.contains(id)) {
+    return ["Dosimetria objetivo: 6-12 J por zona (20-100 mW/cm2), progresar segun tolerancia."];
+  }
+  if (id == "mun_tunel") {
+    return ["Dosimetria objetivo: 4-8 J por punto sobre tunel carpiano, protocolo conservador."];
+  }
+  if (_idsPielRegenerativa.contains(id) || id == "boca_mucos") {
+    return ["Dosimetria objetivo: 2-6 J/cm2 (irradiancia baja, sin calor en tejido lesionado)."];
+  }
+  if (_idsPielEstetica.contains(id)) {
+    return ["Dosimetria objetivo: 4-10 J/cm2 en piel superficial, 2-4 sesiones/semana."];
+  }
+  if (_idsNeuroExperimental.contains(id) || _idsCefalea.contains(id)) {
+    return ["Iniciar con dosis bajas (8-10 min) y aumentar solo si no hay cefalea o agitacion post-sesion."];
+  }
+  if (id == "sueno") {
+    return ["Aplicar por la noche (60-120 min antes de dormir), evitando luz azul intensa posterior."];
+  }
+  if (id == "fat_front") {
+    return ["Evidencia estetica: usar como coadyuvante junto a dieta/ejercicio; no reemplaza control calorico."];
+  }
+  return [];
+}
+
+List<String> _tipsDespuesCientificosPorId(String id) {
+  if (_idsTendinopatia.contains(id)) {
+    return [
+      "Fuente: PubMed PMID:36171024 (meta-analisis en tendinopatia de miembro inferior y fascitis plantar).",
+      "Fuente: WALT PBM Recommendations (tendinopathy dosimetry, 780-860nm).",
+    ];
+  }
+  if (id == "esp_cerv" || id == "esp_dors") {
+    return ["Fuente: PubMed PMID:19913903 (meta-analisis dolor cervical)."];
+  }
+  if (id == "esp_lumb") {
+    return ["Fuente: PubMed PMID:27207675 (meta-analisis lumbalgia cronica)."];
+  }
+  if (_idsDolorMuscular.contains(id) &&
+      id != "esp_cerv" &&
+      id != "esp_dors" &&
+      id != "esp_lumb" &&
+      id != "sis_energ" &&
+      id != "sis_circ") {
+    return [
+      "Fuente: WALT PBM Recommendations (dolor musculoesqueletico, dosimetria conservadora).",
+      "Fuente: PubMed PMID:27207675 (soporte indirecto de analgesia en dolor musculoesqueletico).",
+    ];
+  }
+  if (_idsRodilla.contains(id)) {
+    return [
+      "Fuente: PubMed PMID:38775202 (knee OA, metanalisis 2024).",
+      "Fuente: ScienceDirect doi:10.1016/j.ptsp.2025.11.009 (patellofemoral pain, metanalisis).",
+    ];
+  }
+  if (id == "mun_tunel") {
+    return ["Fuente: PubMed PMID:35611937 (Cochrane review sindrome tunel carpiano)."];
+  }
+  if (id == "mun_art") {
+    return ["Fuente: WALT PBM Recommendations (articulaciones perifericas, recomendacion por dosis)."];
+  }
+  if (id == "cara_atm") {
+    return [
+      "Fuente: PubMed PMID:39225295 (meta-analisis LLLT en trastorno temporomandibular).",
+      "Fuente: WALT PBM Recommendations (temporomandibular dosimetry).",
+    ];
+  }
+  if (id == "piel_cicat") {
+    return ["Fuente: PubMed PMID:36045183 (830nm para prevencion de cicatriz)."];
+  }
+  if (id == "piel_acne") {
+    return [
+      "Fuente: PubMed PMID:10809858 (RCT blue-red light en acne).",
+      "Fuente: PubMed PMID:34696155 (revision sistematica acne, luz visible).",
+    ];
+  }
+  if (id == "face_rejuv") {
+    return ["Fuente: PubMed PMID:36780572 (RCT rejuvenecimiento facial LED/PBM)."];
+  }
+  if (id == "piel_quem" || id == "pie_ulc") {
+    return ["Fuente: PubMed PMID:39172550 (revision/meta PBM en cicatrizacion de heridas y quemaduras)."];
+  }
+  if (id == "boca_mucos") {
+    return ["Fuente: PubMed PMID:34742930 (meta-analisis PBM para mucositis oral por cancer)."];
+  }
+  if (id == "fat_front") {
+    return [
+      "Fuente: PubMed PMID:20014253 (635nm body contouring trial).",
+      "Fuente: PubMed PMID:20393809 (spot fat reduction trial).",
+    ];
+  }
+  if (id == "sis_energ" || id == "sis_circ") {
+    return [
+      "Fuente: PubMed PMID:32064652 (microcirculacion, ensayo en humanos).",
+      "Fuente: PubMed PMID:37072603 (funcion endotelial, ensayo clinico).",
+    ];
+  }
+  if (id == "testo") {
+    return [
+      "Fuente: PubMed PMID:38028870 (fertilidad masculina/LLLT; evidencia indirecta para objetivo hormonal).",
+    ];
+  }
+  if (id == "sueno") {
+    return ["Fuente: PubMed PMID:41125953 (insomnio, RCT con PBM)."];
+  }
+  if (id == "cab_migr") {
+    return [
+      "Fuente: PubMed PMID:35054491 (revision sistematica cefalea primaria).",
+      "Fuente: PubMed PMID:39198866 (piloto RCT migrana cronica).",
+    ];
+  }
+  if (id == "cab_brain") {
+    return [
+      "Fuente: PubMed PMID:36371017 (revision sistematica tPBM cognicion).",
+      "Fuente: ClinicalTrials.gov NCT06757374 (tPBM en deterioro cognitivo, en curso).",
+    ];
+  }
+  return [];
+}
+
+List<String> _prohibidosExtraPorId(String id) {
+  final extra = <String>["No irradiar ojos directamente; usar gafas de proteccion."];
+  if (id == "testo" || id == "cab_brain" || id == "sueno") {
+    extra.add("Evidencia clinica aun limitada; usar solo como protocolo complementario.");
+  }
+  if (id == "pie_ulc" || id == "boca_mucos") {
+    extra.add("Usar con seguimiento clinico y control de infeccion.");
+  }
+  if (_idsCefalea.contains(id) || _idsNeuroExperimental.contains(id)) {
+    extra.add("Suspender si aumenta cefalea, fotofobia o insomnio.");
+  }
+  return extra;
+}
+
+Tratamiento _aplicarActualizacionCientifica(Tratamiento t) {
+  var hz = t.hz;
+  var duracion = t.duracion;
+  var frecuencias =
+      List<Map<String, dynamic>>.from(t.frecuencias.map((f) => {'nm': f['nm'], 'p': f['p']}));
+
+  if (_idsPulso10.contains(t.id)) hz = "10Hz";
+  if (t.id == "cab_brain") hz = "40Hz";
+
+  if (_idsTendinopatia.contains(t.id)) frecuencias = _copyFrecuencias(_mixDeepTendon);
+  if (_idsDolorMuscular.contains(t.id)) frecuencias = _copyFrecuencias(_mixDolorMuscular);
+  if (_idsRodilla.contains(t.id)) frecuencias = _copyFrecuencias(_mixRodilla);
+  if (t.id == "mun_tunel") frecuencias = _copyFrecuencias(_mixTunelCarpiano);
+  if (_idsCefalea.contains(t.id)) frecuencias = _copyFrecuencias(_mixCefalea);
+  if (t.id == "cab_brain") frecuencias = _copyFrecuencias(_mixNeuroExperimental);
+  if (t.id == "sueno") frecuencias = _copyFrecuencias(_mixSueno);
+  if (_idsPielRegenerativa.contains(t.id) || t.id == "boca_mucos") {
+    frecuencias = _copyFrecuencias(_mixPielRegenerativa);
+  }
+
+  if (_idsRodilla.contains(t.id)) duracion = "14";
+  if (t.id == "cab_brain" || t.id == "cab_migr") duracion = "10";
+  if (t.id == "boca_mucos") duracion = "8";
+  if (t.id == "pie_ulc") duracion = "10";
+
+  return Tratamiento(
+    id: t.id,
+    nombre: t.nombre,
+    zona: t.zona,
+    descripcion: t.descripcion,
+    sintomas: t.sintomas,
+    posicion: t.posicion,
+    hz: hz,
+    duracion: duracion,
+    frecuencias: frecuencias,
+    tipsAntes: _mergeUniqueStrings(t.tipsAntes, _tipsAntesCientificosPorId(t.id)),
+    tipsDespues: _mergeUniqueStrings(t.tipsDespues, _tipsDespuesCientificosPorId(t.id)),
+    prohibidos: _mergeUniqueStrings(t.prohibidos, _prohibidosExtraPorId(t.id)),
+    esCustom: t.esCustom,
+    oculto: t.oculto,
+  );
+}
 
 // ==============================================================================
 // 4. GESTOR DE ESTADO
@@ -984,7 +1379,8 @@ class AppState extends ChangeNotifier {
 
   List<Tratamiento> _generarCatalogoCompleto() {
     List<Tratamiento> lista = [];
-    for (var t in DB_DEFINICIONES) {
+    for (var base in DB_DEFINICIONES) {
+      final t = _aplicarActualizacionCientifica(base);
       if (ZONAS_SIMETRICAS.contains(t.zona)) {
         lista.add(t.copyWith(id: "${t.id}_d", nombre: "${t.nombre} (Dcho)"));
         lista.add(t.copyWith(id: "${t.id}_i", nombre: "${t.nombre} (Izq)"));
