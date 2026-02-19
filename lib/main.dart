@@ -1462,10 +1462,16 @@ class AppState extends ChangeNotifier {
         print("BLE: Starting Treatment '${t.nombre}'");
         print("BLE: Params -> duracion=${t.duracion} min, hz='${t.hz}', frecuencias=${t.frecuencias}");
 
+        // Force a clean baseline before applying parameters.
+        await _bleManager.write(BleProtocol.setPower(false));
+        await Future.delayed(const Duration(milliseconds: 500));
+
         await _sendParameters(t, workMode: 0);
         await _bleManager.write(BleProtocol.quickStart(mode: 0));
-        await Future.delayed(const Duration(milliseconds: 260));
-        await _sendTimeAndPulse(t, phase: "post-start");
+        await Future.delayed(const Duration(milliseconds: 360));
+
+        // Some firmwares ignore dimming updates until the run state is active.
+        await _sendParameters(t, workMode: 0);
         await _readBackRunState(reason: "after iniciarCiclo");
         print("BLE: Configuration sent.");
       } catch (e) {

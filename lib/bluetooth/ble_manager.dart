@@ -122,9 +122,6 @@ class BleManager {
       await _connectWithRetry(device);
       _connectedDevice = device;
 
-      // Update local stream
-      _connectionStateController.add(BluetoothConnectionState.connected);
-
       // Listen to connection state
       await _connectionSubscription?.cancel();
       _connectionSubscription = device.connectionState.listen((state) {
@@ -160,6 +157,9 @@ class BleManager {
       } else {
         log("No notify characteristic found (writes only).");
       }
+
+      // Publish connected only after service discovery/characteristic selection.
+      _connectionStateController.add(BluetoothConnectionState.connected);
 
       log(
         "BleManager: Connected and ready. "
