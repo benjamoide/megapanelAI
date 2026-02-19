@@ -18,6 +18,7 @@ class BleManager {
   StreamSubscription<BluetoothConnectionState>? _connectionSubscription;
   StreamSubscription<List<int>>? _notifySubscription;
   Future<void> _pendingWrite = Future.value();
+  bool _isReady = false;
 
   static const int _maxChunkSize = 20;
   static const int _maxWriteAttempts = 3;
@@ -38,7 +39,11 @@ class BleManager {
   }
 
   // Expose current state synchronously
-  bool get isConnected => _connectedDevice != null && _connectedDevice!.isConnected;
+  bool get isConnected =>
+      _connectedDevice != null &&
+      _connectedDevice!.isConnected &&
+      _isReady &&
+      _writeCharacteristic != null;
 
   BluetoothDevice? get connectedDevice => _connectedDevice;
 
@@ -121,15 +126,25 @@ class BleManager {
 
       await _connectWithRetry(device);
       _connectedDevice = device;
+      _isReady = false;
 
       // Listen to connection state
       await _connectionSubscription?.cancel();
       _connectionSubscription = device.connectionState.listen((state) {
-        _connectionStateController.add(state);
         if (state == BluetoothConnectionState.disconnected) {
+          _connectionStateController.add(state);
           log("BleManager: Device Disconnected");
           _cleanup();
+          return;
         }
+
+        // Avoid publishing "connected" before service discovery/characteristic setup.
+        if (state == BluetoothConnectionState.connected && !_isReady) {
+          log("BleManager: Connected event received before ready; waiting for discovery.");
+          return;
+        }
+
+        _connectionStateController.add(state);
       });
   
       // Stabilization delay
@@ -158,6 +173,7 @@ class BleManager {
         log("No notify characteristic found (writes only).");
       }
 
+      _isReady = true;
       // Publish connected only after service discovery/characteristic selection.
       _connectionStateController.add(BluetoothConnectionState.connected);
 
@@ -266,6 +282,7 @@ class BleManager {
     _writeCharacteristic = null;
     _notifyCharacteristic = null;
     _pendingWrite = Future.value();
+    _isReady = false;
     _connectionStateController.add(BluetoothConnectionState.disconnected);
   }
 

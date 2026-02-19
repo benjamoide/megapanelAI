@@ -1467,7 +1467,7 @@ class AppState extends ChangeNotifier {
         await Future.delayed(const Duration(milliseconds: 500));
 
         await _sendParameters(t, workMode: 0);
-        await _bleManager.write(BleProtocol.quickStart(mode: 0));
+        await _bleManager.write(BleProtocol.setPower(true));
         await Future.delayed(const Duration(milliseconds: 360));
 
         // Some firmwares ignore dimming updates until the run state is active.
