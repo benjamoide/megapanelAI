@@ -1364,25 +1364,25 @@ const Map<String, List<String>> _clasificacionTratamientos = {
     "Objetivo hormonal (experimental)"
   ],
 
-  // 3. Subdivision por tipo de sesion
+  // Sesion por tipo integrada en 2. Rendimiento deportivo
   "ses_pierna": [
-    "3 Subdivision por tipo de sesion",
-    "3.1 Dia pierna",
+    "2 Rendimiento deportivo (antes de entrenar)",
+    "2.1 Musculos motores principales (prime movers)",
     "Cuadriceps + gluteos"
   ],
   "ses_tiron": [
-    "3 Subdivision por tipo de sesion",
-    "3.2 Dia tiron",
+    "2 Rendimiento deportivo (antes de entrenar)",
+    "2.1 Musculos motores principales (prime movers)",
     "Dorsales + espalda media"
   ],
   "ses_empuje": [
-    "3 Subdivision por tipo de sesion",
-    "3.3 Dia empuje",
+    "2 Rendimiento deportivo (antes de entrenar)",
+    "2.1 Musculos motores principales (prime movers)",
     "Pecho + hombro"
   ],
   "ses_wod": [
-    "3 Subdivision por tipo de sesion",
-    "3.4 WOD crossfit",
+    "2 Rendimiento deportivo (antes de entrenar)",
+    "2.3 Zonas de transferencia de fuerza",
     "Cadera + dorsales"
   ],
 
@@ -1538,58 +1538,58 @@ const Map<String, List<String>> _clasificacionTratamientos = {
   // 6. Piel / antiaging / cicatrices
   "face_rejuv": [
     "6 Piel / antiaging / cicatrices",
-    "6.1.1 Antiaging / colageno",
-    "6.2.1 Cara"
+    "6.2.1 Cara",
+    "6.1.1 Antiaging / colageno"
   ],
   "anti_cuello": [
     "6 Piel / antiaging / cicatrices",
-    "6.1.1 Antiaging / colageno",
-    "6.2.2 Cuello"
+    "6.2.2 Cuello",
+    "6.1.1 Antiaging / colageno"
   ],
   "anti_manos": [
     "6 Piel / antiaging / cicatrices",
-    "6.1.1 Antiaging / colageno",
-    "6.2.3 Manos"
+    "6.2.3 Manos",
+    "6.1.1 Antiaging / colageno"
   ],
   "piel_acne": [
     "6 Piel / antiaging / cicatrices",
-    "6.1.4 Acne / inflamacion cutanea",
-    "6.2.1 Cara"
+    "6.2.1 Cara",
+    "6.1.4 Acne / inflamacion cutanea"
   ],
   "piel_cicat": [
     "6 Piel / antiaging / cicatrices",
-    "6.1.3 Cicatrices antiguas / fibrosis",
-    "6.2.4 Zona con cicatriz especifica"
+    "6.2.4 Zonas con cicatriz especifica",
+    "6.1.3 Cicatrices antiguas / fibrosis"
   ],
   "piel_cicat_rec": [
     "6 Piel / antiaging / cicatrices",
-    "6.1.2 Cicatrices recientes",
-    "6.2.4 Zona con cicatriz especifica"
+    "6.2.4 Zonas con cicatriz especifica",
+    "6.1.2 Cicatrices recientes"
   ],
   "piel_fibrosis": [
     "6 Piel / antiaging / cicatrices",
-    "6.1.3 Cicatrices antiguas / fibrosis",
-    "6.2.4 Zona con cicatriz especifica"
+    "6.2.4 Zonas con cicatriz especifica",
+    "6.1.3 Cicatrices antiguas / fibrosis"
   ],
   "piel_estrias": [
     "6 Piel / antiaging / cicatrices",
-    "6.1.5 Estrias",
-    "6.2.4 Zona con cicatriz especifica"
+    "6.2.4 Zonas con cicatriz especifica",
+    "6.1.5 Estrias"
   ],
   "piel_quem": [
     "6 Piel / antiaging / cicatrices",
-    "6.1.2 Cicatrices recientes",
-    "6.2.4 Zona con cicatriz especifica"
+    "6.2.4 Zonas con cicatriz especifica",
+    "6.1.2 Cicatrices recientes"
   ],
   "pie_ulc": [
     "6 Piel / antiaging / cicatrices",
-    "6.1.2 Cicatrices recientes",
-    "6.2.4 Zona con cicatriz especifica"
+    "6.2.4 Zonas con cicatriz especifica",
+    "6.1.2 Cicatrices recientes"
   ],
   "boca_mucos": [
     "6 Piel / antiaging / cicatrices",
-    "6.1.4 Acne / inflamacion cutanea",
-    "6.2.4 Zona con cicatriz especifica"
+    "6.2.4 Zonas con cicatriz especifica",
+    "6.1.4 Acne / inflamacion cutanea"
   ],
 };
 
@@ -3900,6 +3900,246 @@ class _BuscadorManual extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final useHierarchicalSelector = DateTime.now().microsecondsSinceEpoch >= 0;
+    if (useHierarchicalSelector) {
+      String? nivel1;
+      String? nivel2;
+      String? nivel3;
+
+      List<String> niveles(Tratamiento t) {
+        final parts = t.zona
+            .split(">")
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toList();
+        while (parts.length < 3) {
+          parts.add("");
+        }
+        return [parts[0], parts[1], parts[2]];
+      }
+
+      List<String> opcionesNivel1() {
+        final set = <String>{};
+        for (final t in catalogo) {
+          final n1 = niveles(t)[0];
+          if (n1.isNotEmpty) set.add(n1);
+        }
+        final out = set.toList()..sort();
+        return out;
+      }
+
+      List<String> opcionesNivel2(String n1) {
+        final set = <String>{};
+        for (final t in catalogo) {
+          final n = niveles(t);
+          if (n[0] == n1 && n[1].isNotEmpty) set.add(n[1]);
+        }
+        final out = set.toList()..sort();
+        return out;
+      }
+
+      List<String> opcionesNivel3(String n1, String n2) {
+        final set = <String>{};
+        for (final t in catalogo) {
+          final n = niveles(t);
+          if (n[0] == n1 && n[1] == n2 && n[2].isNotEmpty) set.add(n[2]);
+        }
+        final out = set.toList()..sort();
+        return out;
+      }
+
+      List<Tratamiento> tratamientosFiltrados() {
+        if (nivel1 == null || nivel2 == null) return [];
+        var out = catalogo.where((t) {
+          final n = niveles(t);
+          return n[0] == nivel1 && n[1] == nivel2;
+        }).toList();
+        final n3Options = opcionesNivel3(nivel1!, nivel2!);
+        if (n3Options.isNotEmpty) {
+          if (nivel3 == null) return [];
+          out = out.where((t) => niveles(t)[2] == nivel3).toList();
+        }
+        out.sort((a, b) => a.nombre.compareTo(b.nombre));
+        return out;
+      }
+
+      return StatefulBuilder(builder: (context, setInnerState) {
+        final n1Options = opcionesNivel1();
+        if (nivel1 != null && !n1Options.contains(nivel1)) {
+          nivel1 = null;
+          nivel2 = null;
+          nivel3 = null;
+        }
+        final n2Options = nivel1 == null ? <String>[] : opcionesNivel2(nivel1!);
+        if (nivel2 != null && !n2Options.contains(nivel2)) {
+          nivel2 = null;
+          nivel3 = null;
+        }
+        final n3Options =
+            (nivel1 == null || nivel2 == null) ? <String>[] : opcionesNivel3(nivel1!, nivel2!);
+        if (nivel3 != null && !n3Options.contains(nivel3)) {
+          nivel3 = null;
+        }
+        final tratamientos = tratamientosFiltrados();
+
+        return ExpansionTile(
+          title: const Text("Anadir Tratamiento Manual"),
+          collapsedShape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+              side: BorderSide(color: Colors.grey.shade300)),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+              side: BorderSide(color: Colors.grey.shade300)),
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                children: [
+                  DropdownButtonFormField<String>(
+                    initialValue: nivel1,
+                    decoration: const InputDecoration(
+                      labelText: "Nivel 1",
+                      border: OutlineInputBorder(),
+                    ),
+                    hint: const Text("Selecciona grupo principal"),
+                    items: n1Options
+                        .map((v) => DropdownMenuItem(value: v, child: Text(v)))
+                        .toList(),
+                    onChanged: (v) {
+                      setInnerState(() {
+                        nivel1 = v;
+                        nivel2 = null;
+                        nivel3 = null;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  if (nivel1 != null)
+                    DropdownButtonFormField<String>(
+                      initialValue: nivel2,
+                      decoration: const InputDecoration(
+                        labelText: "Nivel 2",
+                        border: OutlineInputBorder(),
+                      ),
+                      hint: const Text("Selecciona subgrupo"),
+                      items: n2Options
+                          .map((v) => DropdownMenuItem(value: v, child: Text(v)))
+                          .toList(),
+                      onChanged: (v) {
+                        setInnerState(() {
+                          nivel2 = v;
+                          nivel3 = null;
+                        });
+                      },
+                    ),
+                  if (nivel1 != null) const SizedBox(height: 10),
+                  if (nivel2 != null && n3Options.isNotEmpty)
+                    DropdownButtonFormField<String>(
+                      initialValue: nivel3,
+                      decoration: const InputDecoration(
+                        labelText: "Nivel 3",
+                        border: OutlineInputBorder(),
+                      ),
+                      hint: const Text("Selecciona parte/zona"),
+                      items: n3Options
+                          .map((v) => DropdownMenuItem(value: v, child: Text(v)))
+                          .toList(),
+                      onChanged: (v) {
+                        setInnerState(() {
+                          nivel3 = v;
+                        });
+                      },
+                    ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 300,
+                    child: tratamientos.isEmpty
+                        ? Center(
+                            child: Text(
+                              nivel1 == null
+                                  ? "Selecciona Nivel 1 para continuar."
+                                  : (nivel2 == null
+                                      ? "Selecciona Nivel 2 para ver tratamientos."
+                                      : (n3Options.isNotEmpty && nivel3 == null)
+                                          ? "Selecciona Nivel 3 para ver tratamientos."
+                                          : "No hay tratamientos para esta ruta."),
+                              style: const TextStyle(color: Colors.grey),
+                              textAlign: TextAlign.center,
+                            ),
+                          )
+                        : ListView.builder(
+                            itemCount: tratamientos.length,
+                            itemBuilder: (ctx, i) {
+                              final t = tratamientos[i];
+                              return ListTile(
+                                title: Text(t.nombre),
+                                subtitle: Text("${t.zona}\n${t.sintomas}",
+                                    maxLines: 3, overflow: TextOverflow.ellipsis),
+                                trailing: const Icon(Icons.info_outline),
+                                onTap: () {
+                                  showDialog(
+                                      context: context,
+                                      builder: (dialogCtx) => AlertDialog(
+                                            content: SingleChildScrollView(
+                                              child: SizedBox(
+                                                width: double.maxFinite,
+                                                child: TreatmentCard(t: t),
+                                              ),
+                                            ),
+                                            actions: [
+                                              TextButton(
+                                                  onPressed: () =>
+                                                      Navigator.pop(dialogCtx),
+                                                  child: const Text("Cancelar")),
+                                              FilledButton(
+                                                onPressed: () {
+                                                  Navigator.pop(dialogCtx);
+                                                  if (askTime) {
+                                                    showDialog(
+                                                        context: context,
+                                                        builder: (_) =>
+                                                            SimpleDialog(
+                                                              title: const Text(
+                                                                  "Cuando?"),
+                                                              children: [
+                                                                "PRE",
+                                                                "POST",
+                                                                "NOCHE",
+                                                                "FLEX"
+                                                              ]
+                                                                  .map((m) =>
+                                                                      SimpleDialogOption(
+                                                                        child: Text(m),
+                                                                        onPressed:
+                                                                            () {
+                                                                          onAdd(t, m);
+                                                                          Navigator.pop(
+                                                                              context);
+                                                                        },
+                                                                      ))
+                                                                  .toList(),
+                                                            ));
+                                                  } else {
+                                                    onAdd(t, "Now");
+                                                  }
+                                                },
+                                                child: const Text(
+                                                    "Seleccionar / Anadir"),
+                                              )
+                                            ],
+                                          ));
+                                },
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      });
+    }
     return ExpansionTile(
       title: const Text("➕ Añadir Tratamiento Manual"),
       collapsedShape: RoundedRectangleBorder(
