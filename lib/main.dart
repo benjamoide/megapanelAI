@@ -1467,11 +1467,15 @@ class AppState extends ChangeNotifier {
         await Future.delayed(const Duration(milliseconds: 500));
 
         await _sendParameters(t, workMode: 0);
+        // Wake/run handshake for panels that stay idle until explicit power-on.
+        await _bleManager.write(BleProtocol.setPower(true));
+        await Future.delayed(const Duration(milliseconds: 220));
         await _bleManager.write(BleProtocol.quickStart(mode: 0));
         await Future.delayed(const Duration(milliseconds: 360));
 
-        // Some firmwares ignore dimming updates until the run state is active.
-        await _sendParameters(t, workMode: 0);
+        // Re-apply only values that are commonly ignored before run becomes active.
+        await _sendTimeAndPulse(t, phase: "post-start");
+        await _sendBrightness(t, phase: "post-start");
         await _readBackRunState(reason: "after iniciarCiclo");
         print("BLE: Configuration sent.");
       } catch (e) {
@@ -1536,6 +1540,19 @@ class AppState extends ChangeNotifier {
     await Future.delayed(commandDelay);
   }
 
+  Future<void> _sendBrightness(Tratamiento t, {String phase = ""}) async {
+    const dimmingDelay = Duration(milliseconds: 120);
+    final brightness = _brightnessByChannel(t);
+    final phaseLabel = phase.isEmpty ? "" : "[$phase] ";
+
+    for (final channel in [0, 1, 2, 3, 4]) {
+      final value = brightness[channel] ?? 0;
+      print("BLE: ${phaseLabel}Dimming Ch$channel -> $value%");
+      await _bleManager.write(BleProtocol.setBrightnessChannel(channel, value));
+      await Future.delayed(dimmingDelay);
+    }
+  }
+
   Future<void> _readBackRunState({String reason = ""}) async {
     const readDelay = Duration(milliseconds: 180);
     final suffix = reason.isEmpty ? "" : " ($reason)";
@@ -1549,21 +1566,12 @@ class AppState extends ChangeNotifier {
 
   Future<void> _sendParameters(Tratamiento t, {int workMode = 0}) async {
     const modeDelay = Duration(milliseconds: 200);
-    const dimmingDelay = Duration(milliseconds: 120);
-
-    final brightness = _brightnessByChannel(t);
 
     print("BLE: Sending Work Mode: $workMode");
     await _bleManager.write(BleProtocol.setWorkMode(workMode));
     await Future.delayed(modeDelay);
 
-    for (final channel in [0, 1, 2, 3, 4]) {
-      final value = brightness[channel] ?? 0;
-      print("BLE: Dimming Ch$channel -> $value%");
-      await _bleManager.write(BleProtocol.setBrightnessChannel(channel, value));
-      await Future.delayed(dimmingDelay);
-    }
-
+    await _sendBrightness(t);
     await _sendTimeAndPulse(t, phase: "pre-start");
   }
 
