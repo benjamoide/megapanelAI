@@ -570,6 +570,23 @@ final List<Tratamiento> DB_DEFINICIONES = [
       hz: "CW",
       duracion: "12",
       prohibidos: ["No usar si hay sospecha de rotura completa del manguito."]),
+  Tratamiento(
+      id: "homb_supra",
+      nombre: "Tendinopatia Supraespinoso",
+      zona: "Hombro",
+      descripcion: "Tendinopatia del supraespinoso (manguito rotador).",
+      sintomas: "Dolor en elevacion y arco doloroso subacromial.",
+      posicion: "5-15cm sobre insercion del supraespinoso y espacio subacromial.",
+      frecuencias: [
+        {'nm': 630, 'p': 0},
+        {'nm': 660, 'p': 20},
+        {'nm': 810, 'p': 30},
+        {'nm': 830, 'p': 20},
+        {'nm': 850, 'p': 30}
+      ],
+      hz: "CW",
+      duracion: "12",
+      prohibidos: ["No usar si hay rotura completa no evaluada clinicamente."]),
 
   // RODILLA
   Tratamiento(
@@ -609,6 +626,23 @@ final List<Tratamiento> DB_DEFINICIONES = [
         "No usar con derrame agudo severo o bloqueo articular.",
         "No sustituye rehabilitacion de fuerza de cadera/cuadriceps."
       ]),
+  Tratamiento(
+      id: "rod_rotul",
+      nombre: "Tendinopatia Rotuliana",
+      zona: "Rodilla",
+      descripcion: "Tendinopatia del tendon rotuliano por sobrecarga.",
+      sintomas: "Dolor infrapatelar al salto, sentadilla o carrera.",
+      posicion: "5-10cm sobre polo inferior de rotula y tendon rotuliano.",
+      frecuencias: [
+        {'nm': 630, 'p': 0},
+        {'nm': 660, 'p': 20},
+        {'nm': 810, 'p': 30},
+        {'nm': 830, 'p': 20},
+        {'nm': 850, 'p': 30}
+      ],
+      hz: "CW",
+      duracion: "12",
+      prohibidos: ["No usar si hay sospecha de rotura parcial alta o completa."]),
   Tratamiento(
       id: "tob_aquiles",
       nombre: "Tendinopatia de Aquiles",
@@ -778,6 +812,40 @@ final List<Tratamiento> DB_DEFINICIONES = [
       hz: "CW",
       duracion: "10",
       prohibidos: ["No usar con dermatitis activa o fotosensibilidad marcada."]),
+  Tratamiento(
+      id: "anti_cuello",
+      nombre: "Antiaging Cuello",
+      zona: "Piel",
+      descripcion: "Coadyuvante para fotoenvejecimiento en cuello.",
+      sintomas: "Flacidez y lineas finas cervicales.",
+      posicion: "20-30cm sobre cuello anterior y lateral, evitando tiroides directa.",
+      frecuencias: [
+        {'nm': 630, 'p': 45},
+        {'nm': 660, 'p': 45},
+        {'nm': 810, 'p': 0},
+        {'nm': 830, 'p': 0},
+        {'nm': 850, 'p': 10}
+      ],
+      hz: "CW",
+      duracion: "10",
+      prohibidos: ["Evitar irradiacion directa sobre glandula tiroidea."]),
+  Tratamiento(
+      id: "anti_manos",
+      nombre: "Antiaging Manos",
+      zona: "Mano",
+      descripcion: "Coadyuvante en fotoenvejecimiento dorsal de manos.",
+      sintomas: "Textura irregular y signos de edad en dorso de manos.",
+      posicion: "15-25cm sobre dorso de manos.",
+      frecuencias: [
+        {'nm': 630, 'p': 45},
+        {'nm': 660, 'p': 45},
+        {'nm': 810, 'p': 0},
+        {'nm': 830, 'p': 0},
+        {'nm': 850, 'p': 10}
+      ],
+      hz: "CW",
+      duracion: "10",
+      prohibidos: ["No usar sobre lesiones cutaneas activas no evaluadas."]),
 
   // SISTEMICO
   Tratamiento(
@@ -893,7 +961,651 @@ final List<Tratamiento> DB_DEFINICIONES = [
       hz: "CW",
       duracion: "10",
       prohibidos: ["No usar en epilepsia fotosensible.", "Uso experimental en cognicion."]),
+
+  // RECUPERACION / RENDIMIENTO / SESION (NUEVOS)
+  Tratamiento(
+      id: "rec_gluteo_post",
+      nombre: "Recuperacion Gluteos/Isquios (Post)",
+      zona: "Cadera",
+      descripcion: "Recuperacion post-entreno en cadena posterior.",
+      sintomas: "Fatiga en gluteos e isquios tras fuerza o WOD.",
+      posicion: "10-20cm sobre gluteo mayor e isquios.",
+      frecuencias: [
+        {'nm': 630, 'p': 0},
+        {'nm': 660, 'p': 15},
+        {'nm': 810, 'p': 35},
+        {'nm': 830, 'p': 25},
+        {'nm': 850, 'p': 25}
+      ],
+      hz: "CW",
+      duracion: "12",
+      prohibidos: ["No usar sobre desgarro muscular agudo severo."]),
+  Tratamiento(
+      id: "rec_gemelos_post",
+      nombre: "Recuperacion Gemelos/Tobillo (Post)",
+      zona: "Pierna",
+      descripcion: "Recuperacion de musculatura distal tras carrera o salto.",
+      sintomas: "Carga en gemelos y fatiga distal.",
+      posicion: "10-20cm sobre gemelos y region aquilea distal.",
+      frecuencias: [
+        {'nm': 630, 'p': 0},
+        {'nm': 660, 'p': 15},
+        {'nm': 810, 'p': 35},
+        {'nm': 830, 'p': 25},
+        {'nm': 850, 'p': 25}
+      ],
+      hz: "CW",
+      duracion: "12",
+      prohibidos: ["No usar si hay sospecha de rotura aquilea o trombosis."]),
+  Tratamiento(
+      id: "perf_prime",
+      nombre: "Activacion Pre-entreno (Prime Movers)",
+      zona: "Cuerpo",
+      descripcion: "Activacion breve previa de musculos motores principales.",
+      sintomas: "Preparacion neuromuscular antes de sesion intensa.",
+      posicion: "10-20cm sobre cuadriceps, gluteos, dorsales o pectoral.",
+      frecuencias: [
+        {'nm': 630, 'p': 0},
+        {'nm': 660, 'p': 10},
+        {'nm': 810, 'p': 45},
+        {'nm': 830, 'p': 25},
+        {'nm': 850, 'p': 20}
+      ],
+      hz: "CW",
+      duracion: "8",
+      prohibidos: ["No reemplaza calentamiento dinamico."]),
+  Tratamiento(
+      id: "perf_stab",
+      nombre: "Activacion Estabilizadores (Core/Escapula)",
+      zona: "Espalda",
+      descripcion: "Activacion de estabilizadores articulares antes de entrenar.",
+      sintomas: "Necesidad de control postural en push/pull.",
+      posicion: "10-20cm paravertebral y region escapular.",
+      frecuencias: [
+        {'nm': 630, 'p': 0},
+        {'nm': 660, 'p': 10},
+        {'nm': 810, 'p': 45},
+        {'nm': 830, 'p': 25},
+        {'nm': 850, 'p': 20}
+      ],
+      hz: "CW",
+      duracion: "8",
+      prohibidos: ["No usar si hay dolor agudo neurologico no evaluado."]),
+  Tratamiento(
+      id: "perf_transfer",
+      nombre: "Activacion Transferencia de Fuerza (Cadera/Escapula)",
+      zona: "Cadera",
+      descripcion: "Activacion pre-sesion de zonas de transferencia de fuerza.",
+      sintomas: "Objetivo de rendimiento tecnico en patrones complejos.",
+      posicion: "10-20cm sobre cadera lateral y control escapular.",
+      frecuencias: [
+        {'nm': 630, 'p': 0},
+        {'nm': 660, 'p': 10},
+        {'nm': 810, 'p': 45},
+        {'nm': 830, 'p': 25},
+        {'nm': 850, 'p': 20}
+      ],
+      hz: "CW",
+      duracion: "8",
+      prohibidos: ["No sustituye trabajo tecnico del patron de movimiento."]),
+  Tratamiento(
+      id: "ses_pierna",
+      nombre: "Dia Pierna (Cuadriceps + Gluteos)",
+      zona: "Pierna",
+      descripcion: "Protocolo pre-entreno para dia de pierna.",
+      sintomas: "Preparacion de tren inferior dominante de rodilla/cadera.",
+      posicion: "10-20cm sobre cuadriceps y gluteos.",
+      frecuencias: [
+        {'nm': 630, 'p': 0},
+        {'nm': 660, 'p': 10},
+        {'nm': 810, 'p': 45},
+        {'nm': 830, 'p': 25},
+        {'nm': 850, 'p': 20}
+      ],
+      hz: "CW",
+      duracion: "8",
+      prohibidos: ["No reemplaza movilidad ni series de aproximacion."]),
+  Tratamiento(
+      id: "ses_tiron",
+      nombre: "Dia Tiron (Dorsales + Espalda Media)",
+      zona: "Espalda",
+      descripcion: "Protocolo pre-entreno para sesion pull.",
+      sintomas: "Preparacion de dorsales, romboides y biceps.",
+      posicion: "10-20cm en dorsales y zona escapular.",
+      frecuencias: [
+        {'nm': 630, 'p': 0},
+        {'nm': 660, 'p': 10},
+        {'nm': 810, 'p': 45},
+        {'nm': 830, 'p': 25},
+        {'nm': 850, 'p': 20}
+      ],
+      hz: "CW",
+      duracion: "8",
+      prohibidos: ["No sustituye activacion escapular ni tecnica de tiron."]),
+  Tratamiento(
+      id: "ses_empuje",
+      nombre: "Dia Empuje (Pecho + Hombro)",
+      zona: "Hombro",
+      descripcion: "Protocolo pre-entreno para sesion push.",
+      sintomas: "Preparacion de pectoral, deltoides anterior y triceps.",
+      posicion: "10-20cm sobre pectoral y hombro anterior.",
+      frecuencias: [
+        {'nm': 630, 'p': 0},
+        {'nm': 660, 'p': 10},
+        {'nm': 810, 'p': 45},
+        {'nm': 830, 'p': 25},
+        {'nm': 850, 'p': 20}
+      ],
+      hz: "CW",
+      duracion: "8",
+      prohibidos: ["No sustituye calentamiento progresivo del hombro."]),
+  Tratamiento(
+      id: "ses_wod",
+      nombre: "WOD Crossfit (Cadera + Dorsales)",
+      zona: "Cuerpo",
+      descripcion: "Protocolo pre-WOD para patrones de potencia y tiron.",
+      sintomas: "Preparacion de cadena posterior y traccion.",
+      posicion: "10-20cm en cadera posterior y dorsales.",
+      frecuencias: [
+        {'nm': 630, 'p': 0},
+        {'nm': 660, 'p': 10},
+        {'nm': 810, 'p': 45},
+        {'nm': 830, 'p': 25},
+        {'nm': 850, 'p': 20}
+      ],
+      hz: "CW",
+      duracion: "8",
+      prohibidos: ["No reemplaza calentamiento especifico del WOD."]),
+
+  // GRASA LOCALIZADA (NUEVOS)
+  Tratamiento(
+      id: "fat_abd_low",
+      nombre: "Grasa Abdomen Bajo",
+      zona: "Abdomen",
+      descripcion: "Coadyuvante en adiposidad subcutanea infraumbilical.",
+      sintomas: "Acumulo graso en abdomen inferior.",
+      posicion: "5-15cm sobre abdomen bajo.",
+      frecuencias: [
+        {'nm': 630, 'p': 70},
+        {'nm': 660, 'p': 30},
+        {'nm': 810, 'p': 0},
+        {'nm': 830, 'p': 0},
+        {'nm': 850, 'p': 0}
+      ],
+      hz: "CW",
+      duracion: "18",
+      prohibidos: ["No usar en embarazo o hernia abdominal."]),
+  Tratamiento(
+      id: "fat_flancos",
+      nombre: "Grasa Flancos",
+      zona: "Abdomen",
+      descripcion: "Coadyuvante en adiposidad subcutanea lateral.",
+      sintomas: "Acumulo graso en cintura lateral.",
+      posicion: "5-15cm sobre flancos bilaterales.",
+      frecuencias: [
+        {'nm': 630, 'p': 70},
+        {'nm': 660, 'p': 30},
+        {'nm': 810, 'p': 0},
+        {'nm': 830, 'p': 0},
+        {'nm': 850, 'p': 0}
+      ],
+      hz: "CW",
+      duracion: "18",
+      prohibidos: ["No usar sobre neoplasia activa local."]),
+  Tratamiento(
+      id: "fat_caderas",
+      nombre: "Grasa Caderas",
+      zona: "Cadera",
+      descripcion: "Coadyuvante en adiposidad gluteofemoral lateral.",
+      sintomas: "Deposito adiposo en cadera lateral.",
+      posicion: "5-15cm sobre caderas bilaterales.",
+      frecuencias: [
+        {'nm': 630, 'p': 70},
+        {'nm': 660, 'p': 30},
+        {'nm': 810, 'p': 0},
+        {'nm': 830, 'p': 0},
+        {'nm': 850, 'p': 0}
+      ],
+      hz: "CW",
+      duracion: "18",
+      prohibidos: ["No usar en embarazo."]),
+  Tratamiento(
+      id: "fat_muslo_ext",
+      nombre: "Grasa Muslo Externo",
+      zona: "Pierna",
+      descripcion: "Coadyuvante en adiposidad lateral de muslo.",
+      sintomas: "Acumulo adiposo subcutaneo en muslo externo.",
+      posicion: "5-15cm sobre muslo externo bilateral.",
+      frecuencias: [
+        {'nm': 630, 'p': 70},
+        {'nm': 660, 'p': 30},
+        {'nm': 810, 'p': 0},
+        {'nm': 830, 'p': 0},
+        {'nm': 850, 'p': 0}
+      ],
+      hz: "CW",
+      duracion: "18",
+      prohibidos: ["No usar sobre hematoma activo o lesion muscular aguda."]),
+  Tratamiento(
+      id: "fat_lumbar_low",
+      nombre: "Grasa Lumbar Baja",
+      zona: "Espalda",
+      descripcion: "Coadyuvante en adiposidad lumbar posterior.",
+      sintomas: "Acumulo adiposo en zona lumbar baja.",
+      posicion: "5-15cm en region lumbar baja.",
+      frecuencias: [
+        {'nm': 630, 'p': 70},
+        {'nm': 660, 'p': 30},
+        {'nm': 810, 'p': 0},
+        {'nm': 830, 'p': 0},
+        {'nm': 850, 'p': 0}
+      ],
+      hz: "CW",
+      duracion: "18",
+      prohibidos: ["No usar sobre lesiones cutaneas activas."]),
+
+  // DOLOR / LESION (NUEVOS)
+  Tratamiento(
+      id: "mio_trigger",
+      nombre: "Puntos Gatillo Miofasciales",
+      zona: "Espalda",
+      descripcion: "Coadyuvante en puntos gatillo y dolor miofascial.",
+      sintomas: "Dolor localizado con banda tensa palpable.",
+      posicion: "5-10cm sobre punto gatillo, sin presion directa excesiva.",
+      frecuencias: [
+        {'nm': 630, 'p': 5},
+        {'nm': 660, 'p': 20},
+        {'nm': 810, 'p': 30},
+        {'nm': 830, 'p': 20},
+        {'nm': 850, 'p': 25}
+      ],
+      hz: "CW",
+      duracion: "10",
+      prohibidos: ["No usar sobre infeccion cutanea activa."]),
+  Tratamiento(
+      id: "trap_contract",
+      nombre: "Contractura Trapecio/Lumbar",
+      zona: "Espalda",
+      descripcion: "Sobrecarga muscular localizada en trapecio o lumbar.",
+      sintomas: "Rigidez y dolor postural.",
+      posicion: "10-20cm sobre zona contracturada.",
+      frecuencias: [
+        {'nm': 630, 'p': 5},
+        {'nm': 660, 'p': 20},
+        {'nm': 810, 'p': 30},
+        {'nm': 830, 'p': 20},
+        {'nm': 850, 'p': 25}
+      ],
+      hz: "CW",
+      duracion: "12",
+      prohibidos: ["No usar si hay fiebre o dolor de origen visceral no aclarado."]),
+
+  // PIEL / ANTIAGING / CICATRIZ (NUEVOS)
+  Tratamiento(
+      id: "piel_estrias",
+      nombre: "Estrias (Apoyo)",
+      zona: "Piel",
+      descripcion: "Coadyuvante estetico en estrias recientes o antiguas.",
+      sintomas: "Alteracion de textura y color por distension cutanea.",
+      posicion: "15-25cm sobre zona con estrias.",
+      frecuencias: [
+        {'nm': 630, 'p': 45},
+        {'nm': 660, 'p': 45},
+        {'nm': 810, 'p': 0},
+        {'nm': 830, 'p': 0},
+        {'nm': 850, 'p': 10}
+      ],
+      hz: "CW",
+      duracion: "10",
+      prohibidos: ["Evidencia clinica limitada en estrias; usar expectativas realistas."]),
+  Tratamiento(
+      id: "piel_cicat_rec",
+      nombre: "Cicatriz Reciente (Cerrada)",
+      zona: "Piel",
+      descripcion: "Coadyuvante en remodelacion temprana de cicatriz cerrada.",
+      sintomas: "Eritema o rigidez leve post-cierre.",
+      posicion: "15-25cm sobre cicatriz cerrada no infectada.",
+      frecuencias: [
+        {'nm': 630, 'p': 35},
+        {'nm': 660, 'p': 45},
+        {'nm': 810, 'p': 10},
+        {'nm': 830, 'p': 5},
+        {'nm': 850, 'p': 5}
+      ],
+      hz: "CW",
+      duracion: "10",
+      prohibidos: ["No usar en herida abierta o con signos de infeccion."]),
+  Tratamiento(
+      id: "piel_fibrosis",
+      nombre: "Cicatriz Antigua/Fibrosis (Apoyo)",
+      zona: "Piel",
+      descripcion: "Coadyuvante en fibrosis cicatricial cronica.",
+      sintomas: "Rigidez, retraccion o baja elasticidad local.",
+      posicion: "10-20cm sobre banda fibrotica.",
+      frecuencias: [
+        {'nm': 630, 'p': 25},
+        {'nm': 660, 'p': 35},
+        {'nm': 810, 'p': 20},
+        {'nm': 830, 'p': 10},
+        {'nm': 850, 'p': 10}
+      ],
+      hz: "CW",
+      duracion: "12",
+      prohibidos: ["No usar si hay sospecha de queloide activo inflamado."]),
 ];
+
+const Map<String, List<String>> _clasificacionTratamientos = {
+  // 1. Recuperacion muscular
+  "pierna_fem": [
+    "1 Recuperacion muscular (post entreno / crossfit / gym)",
+    "1.2.3 Lower Knee-dominant",
+    "Muslo (cuadriceps + rodilla)"
+  ],
+  "rec_gluteo_post": [
+    "1 Recuperacion muscular (post entreno / crossfit / gym)",
+    "1.2.4 Lower Hip-dominant",
+    "Gluteos / isquios / lumbar baja"
+  ],
+  "rec_gemelos_post": [
+    "1 Recuperacion muscular (post entreno / crossfit / gym)",
+    "1.2.5 Lower Distal",
+    "Gemelos / tobillo / fascia plantar"
+  ],
+  "ant_sobre": [
+    "1 Recuperacion muscular (post entreno / crossfit / gym)",
+    "1.1.3 Musculos accesorios / fatiga localizada",
+    "Antebrazos"
+  ],
+  "esp_dors": [
+    "1 Recuperacion muscular (post entreno / crossfit / gym)",
+    "1.2.2 Upper Pull",
+    "Dorsales / espalda media-alta"
+  ],
+  "esp_lumb": [
+    "1 Recuperacion muscular (post entreno / crossfit / gym)",
+    "1.1.2 Estabilizadores y postural",
+    "Lumbar / core"
+  ],
+  "sueno": [
+    "1 Recuperacion muscular (post entreno / crossfit / gym)",
+    "1.1.2 Estabilizadores y postural",
+    "Recuperacion neurovegetativa (sueno)"
+  ],
+
+  // 2. Rendimiento deportivo
+  "perf_prime": [
+    "2 Rendimiento deportivo (antes de entrenar)",
+    "2.1.1 Musculos motores principales (prime movers)",
+    "Cuadriceps / gluteos / dorsales / pectoral"
+  ],
+  "perf_stab": [
+    "2 Rendimiento deportivo (antes de entrenar)",
+    "2.1.2 Estabilizadores articulares",
+    "Manguito / core / erectores espinales"
+  ],
+  "perf_transfer": [
+    "2 Rendimiento deportivo (antes de entrenar)",
+    "2.1.3 Zonas de transferencia de fuerza",
+    "Cadera / escapulas"
+  ],
+  "sis_energ": [
+    "2 Rendimiento deportivo (antes de entrenar)",
+    "2.1.1 Musculos motores principales (prime movers)",
+    "Activacion sistemica previa"
+  ],
+  "cab_brain": [
+    "2 Rendimiento deportivo (antes de entrenar)",
+    "2.1.2 Estabilizadores articulares",
+    "Activacion cognitiva (experimental)"
+  ],
+  "testo": [
+    "2 Rendimiento deportivo (antes de entrenar)",
+    "2.1.1 Musculos motores principales (prime movers)",
+    "Objetivo hormonal (experimental)"
+  ],
+
+  // 3. Subdivision por tipo de sesion
+  "ses_pierna": [
+    "3 Subdivision por tipo de sesion",
+    "3.1 Dia pierna",
+    "Cuadriceps + gluteos"
+  ],
+  "ses_tiron": [
+    "3 Subdivision por tipo de sesion",
+    "3.2 Dia tiron",
+    "Dorsales + espalda media"
+  ],
+  "ses_empuje": [
+    "3 Subdivision por tipo de sesion",
+    "3.3 Dia empuje",
+    "Pecho + hombro"
+  ],
+  "ses_wod": [
+    "3 Subdivision por tipo de sesion",
+    "3.4 WOD crossfit",
+    "Cadera + dorsales"
+  ],
+
+  // 4. Grasa localizada
+  "fat_front": [
+    "4 Grasa localizada / metabolismo local",
+    "4.2.1 Abdomen bajo",
+    "Abdomen frontal"
+  ],
+  "fat_abd_low": [
+    "4 Grasa localizada / metabolismo local",
+    "4.2.1 Abdomen bajo",
+    "Abdomen infraumbilical"
+  ],
+  "fat_flancos": [
+    "4 Grasa localizada / metabolismo local",
+    "4.2.2 Flancos",
+    "Cintura lateral"
+  ],
+  "fat_caderas": [
+    "4 Grasa localizada / metabolismo local",
+    "4.2.3 Caderas",
+    "Cadera lateral"
+  ],
+  "fat_muslo_ext": [
+    "4 Grasa localizada / metabolismo local",
+    "4.2.4 Muslo externo",
+    "Muslo lateral"
+  ],
+  "fat_lumbar_low": [
+    "4 Grasa localizada / metabolismo local",
+    "4.2.5 Zona lumbar baja",
+    "Lumbar posterior"
+  ],
+  "sis_circ": [
+    "4 Grasa localizada / metabolismo local",
+    "4.1.2 Zonas con peor perfusion",
+    "Perfusion periferica"
+  ],
+
+  // 5. Dolor / lesion
+  "codo_epi": [
+    "5 Dolor / lesion (articular, tendones, sobrecargas)",
+    "5.1.2 Tendinopatias",
+    "Codo lateral (epicondilo)"
+  ],
+  "codo_golf": [
+    "5 Dolor / lesion (articular, tendones, sobrecargas)",
+    "5.1.2 Tendinopatias",
+    "Codo medial (epitroclea)"
+  ],
+  "codo_calc": [
+    "5 Dolor / lesion (articular, tendones, sobrecargas)",
+    "5.1.2 Tendinopatias",
+    "Calcificacion tendinosa"
+  ],
+  "codo_bur": [
+    "5 Dolor / lesion (articular, tendones, sobrecargas)",
+    "5.1.1 Dolor articular",
+    "Codo / bursa"
+  ],
+  "ant_tend": [
+    "5 Dolor / lesion (articular, tendones, sobrecargas)",
+    "5.1.2 Tendinopatias",
+    "Tendones de antebrazo"
+  ],
+  "mun_tunel": [
+    "5 Dolor / lesion (articular, tendones, sobrecargas)",
+    "5.1.1 Dolor articular",
+    "Muneca / tunel carpiano"
+  ],
+  "mun_art": [
+    "5 Dolor / lesion (articular, tendones, sobrecargas)",
+    "5.1.1 Dolor articular",
+    "Muneca articular"
+  ],
+  "pierna_itb": [
+    "5 Dolor / lesion (articular, tendones, sobrecargas)",
+    "5.1.3 Sobrecarga muscular localizada",
+    "Cintilla iliotibial"
+  ],
+  "pie_fasc": [
+    "5 Dolor / lesion (articular, tendones, sobrecargas)",
+    "5.1.2 Tendinopatias",
+    "Fascia plantar"
+  ],
+  "pie_esg": [
+    "5 Dolor / lesion (articular, tendones, sobrecargas)",
+    "5.1.1 Dolor articular",
+    "Tobillo / esguince"
+  ],
+  "pie_lat": [
+    "5 Dolor / lesion (articular, tendones, sobrecargas)",
+    "5.1.3 Sobrecarga muscular localizada",
+    "Pie lateral / metatarso"
+  ],
+  "homb_tend": [
+    "5 Dolor / lesion (articular, tendones, sobrecargas)",
+    "5.1.2 Tendinopatias",
+    "Manguito rotador"
+  ],
+  "homb_supra": [
+    "5 Dolor / lesion (articular, tendones, sobrecargas)",
+    "5.1.2 Tendinopatias",
+    "Supraespinoso"
+  ],
+  "rod_gen": [
+    "5 Dolor / lesion (articular, tendones, sobrecargas)",
+    "5.1.1 Dolor articular",
+    "Rodilla general / menisco"
+  ],
+  "rod_pfps": [
+    "5 Dolor / lesion (articular, tendones, sobrecargas)",
+    "5.1.1 Dolor articular",
+    "Rodilla patelofemoral"
+  ],
+  "rod_rotul": [
+    "5 Dolor / lesion (articular, tendones, sobrecargas)",
+    "5.1.2 Tendinopatias",
+    "Tendon rotuliano"
+  ],
+  "tob_aquiles": [
+    "5 Dolor / lesion (articular, tendones, sobrecargas)",
+    "5.1.2 Tendinopatias",
+    "Tendon de Aquiles"
+  ],
+  "esp_cerv": [
+    "5 Dolor / lesion (articular, tendones, sobrecargas)",
+    "5.1.3 Sobrecarga muscular localizada",
+    "Cervical / trapecio"
+  ],
+  "mio_trigger": [
+    "5 Dolor / lesion (articular, tendones, sobrecargas)",
+    "5.1.4 Puntos gatillo / contracturas",
+    "Puntos miofasciales"
+  ],
+  "trap_contract": [
+    "5 Dolor / lesion (articular, tendones, sobrecargas)",
+    "5.1.4 Puntos gatillo / contracturas",
+    "Trapecio / lumbar"
+  ],
+  "cara_atm": [
+    "5 Dolor / lesion (articular, tendones, sobrecargas)",
+    "5.1.1 Dolor articular",
+    "ATM / masetero"
+  ],
+  "cab_migr": [
+    "5 Dolor / lesion (articular, tendones, sobrecargas)",
+    "5.2.3 Profundo (articulacion, inserciones)",
+    "Cefalea / migrana"
+  ],
+
+  // 6. Piel / antiaging / cicatrices
+  "face_rejuv": [
+    "6 Piel / antiaging / cicatrices",
+    "6.1.1 Antiaging / colageno",
+    "6.2.1 Cara"
+  ],
+  "anti_cuello": [
+    "6 Piel / antiaging / cicatrices",
+    "6.1.1 Antiaging / colageno",
+    "6.2.2 Cuello"
+  ],
+  "anti_manos": [
+    "6 Piel / antiaging / cicatrices",
+    "6.1.1 Antiaging / colageno",
+    "6.2.3 Manos"
+  ],
+  "piel_acne": [
+    "6 Piel / antiaging / cicatrices",
+    "6.1.4 Acne / inflamacion cutanea",
+    "6.2.1 Cara"
+  ],
+  "piel_cicat": [
+    "6 Piel / antiaging / cicatrices",
+    "6.1.3 Cicatrices antiguas / fibrosis",
+    "6.2.4 Zona con cicatriz especifica"
+  ],
+  "piel_cicat_rec": [
+    "6 Piel / antiaging / cicatrices",
+    "6.1.2 Cicatrices recientes",
+    "6.2.4 Zona con cicatriz especifica"
+  ],
+  "piel_fibrosis": [
+    "6 Piel / antiaging / cicatrices",
+    "6.1.3 Cicatrices antiguas / fibrosis",
+    "6.2.4 Zona con cicatriz especifica"
+  ],
+  "piel_estrias": [
+    "6 Piel / antiaging / cicatrices",
+    "6.1.5 Estrias",
+    "6.2.4 Zona con cicatriz especifica"
+  ],
+  "piel_quem": [
+    "6 Piel / antiaging / cicatrices",
+    "6.1.2 Cicatrices recientes",
+    "6.2.4 Zona con cicatriz especifica"
+  ],
+  "pie_ulc": [
+    "6 Piel / antiaging / cicatrices",
+    "6.1.2 Cicatrices recientes",
+    "6.2.4 Zona con cicatriz especifica"
+  ],
+  "boca_mucos": [
+    "6 Piel / antiaging / cicatrices",
+    "6.1.4 Acne / inflamacion cutanea",
+    "6.2.4 Zona con cicatriz especifica"
+  ],
+};
+
+String _zonaClasificadaPorId(String id) {
+  final c = _clasificacionTratamientos[id];
+  if (c == null) {
+    return "5 Dolor / lesion (articular, tendones, sobrecargas) > 5.1.3 Sobrecarga muscular localizada > General";
+  }
+  return "${c[0]} > ${c[1]} > ${c[2]}";
+}
+
+int _compararCatalogo(Tratamiento a, Tratamiento b) {
+  final byZona = a.zona.compareTo(b.zona);
+  if (byZona != 0) return byZona;
+  return a.nombre.compareTo(b.nombre);
+}
 
 const Set<String> _idsTendinopatia = {
   "codo_epi",
@@ -903,6 +1615,8 @@ const Set<String> _idsTendinopatia = {
   "pierna_itb",
   "pie_fasc",
   "homb_tend",
+  "homb_supra",
+  "rod_rotul",
   "tob_aquiles",
 };
 
@@ -917,13 +1631,44 @@ const Set<String> _idsDolorMuscular = {
   "pie_lat",
   "sis_energ",
   "sis_circ",
+  "rec_gluteo_post",
+  "rec_gemelos_post",
+  "mio_trigger",
+  "trap_contract",
 };
+
+const Set<String> _idsRecuperacionPost = {
+  "pierna_fem",
+  "ant_sobre",
+  "esp_dors",
+  "esp_lumb",
+  "rec_gluteo_post",
+  "rec_gemelos_post",
+};
+const Set<String> _idsRendimientoPre = {"perf_prime", "perf_stab", "perf_transfer", "sis_energ"};
+const Set<String> _idsSesionTipo = {"ses_pierna", "ses_tiron", "ses_empuje", "ses_wod"};
+const Set<String> _idsGrasaLocalizada = {
+  "fat_front",
+  "fat_abd_low",
+  "fat_flancos",
+  "fat_caderas",
+  "fat_muslo_ext",
+  "fat_lumbar_low",
+};
+const Set<String> _idsTriggerContractura = {"mio_trigger", "trap_contract"};
 
 const Set<String> _idsRodilla = {"rod_gen", "rod_pfps"};
 const Set<String> _idsCefalea = {"cab_migr"};
 const Set<String> _idsNeuroExperimental = {"cab_brain"};
-const Set<String> _idsPielRegenerativa = {"piel_cicat", "piel_quem", "pie_ulc"};
-const Set<String> _idsPielEstetica = {"face_rejuv", "piel_acne"};
+const Set<String> _idsPielRegenerativa = {
+  "piel_cicat",
+  "piel_cicat_rec",
+  "piel_fibrosis",
+  "piel_quem",
+  "pie_ulc"
+};
+const Set<String> _idsPielEstetica = {"face_rejuv", "anti_cuello", "anti_manos", "piel_acne"};
+const Set<String> _idsEstrias = {"piel_estrias"};
 const Set<String> _idsPulso10 = {
   "codo_epi",
   "codo_golf",
@@ -1012,6 +1757,21 @@ List<String> _mergeUniqueStrings(List<String> base, List<String> extra) {
 }
 
 List<String> _tipsAntesCientificosPorId(String id) {
+  if (_idsRendimientoPre.contains(id) || _idsSesionTipo.contains(id)) {
+    return ["Dosimetria objetivo pre-sesion: 3-6 J por punto, aplicar 5-10 min antes del esfuerzo."];
+  }
+  if (_idsRecuperacionPost.contains(id)) {
+    return ["Dosimetria objetivo post-sesion: 6-12 J por zona (20-100 mW/cm2), progresar segun tolerancia."];
+  }
+  if (_idsGrasaLocalizada.contains(id)) {
+    return ["Uso coadyuvante: combinar con entrenamiento y control nutricional para respuesta metabolica local."];
+  }
+  if (_idsTriggerContractura.contains(id)) {
+    return ["Aplicar en puntos dolorosos 4-8 J por punto y reevaluar sensibilidad 24-48h."];
+  }
+  if (_idsEstrias.contains(id)) {
+    return ["Evidencia clinica limitada en estrias; usar con expectativas conservadoras."];
+  }
   if (_idsTendinopatia.contains(id)) {
     return [
       "Dosimetria objetivo: 4-8 J por punto doloroso (20-100 mW/cm2), priorizando 810/830/850nm."
@@ -1042,9 +1802,50 @@ List<String> _tipsAntesCientificosPorId(String id) {
 }
 
 List<String> _tipsDespuesCientificosPorId(String id) {
+  if (_idsRendimientoPre.contains(id) || _idsSesionTipo.contains(id)) {
+    return [
+      "Fuente: PubMed PMID:35802348 (meta-analisis PBM pre-ejercicio y rendimiento).",
+      "Fuente: PubMed PMID:39883205 (revision 2025 sobre PBM en rendimiento deportivo).",
+      "Fuente: PubMed PMID:38781474 (meta-analisis de ejercicio/resistencia; busqueda en Cochrane, CINAHL, EMBASE, Web of Science y MEDLINE).",
+    ];
+  }
+  if (_idsRecuperacionPost.contains(id)) {
+    return [
+      "Fuente: PubMed PMID:38150056 (meta-analisis PBM en dano muscular y recuperacion de fuerza).",
+      "Fuente: PubMed PMID:40700213 (review 2025 PBM y DOMS/recuperacion).",
+      "Fuente: PubMed PMID:38759478 (J Photochemistry and Photobiology B; revisión dosimétrica en musculoesqueletico).",
+    ];
+  }
+  if (_idsGrasaLocalizada.contains(id)) {
+    return [
+      "Fuente: PubMed PMID:20014253 (ensayo clinico 635nm en contorno corporal).",
+      "Fuente: PubMed PMID:20393809 (spot fat reduction trial).",
+      "Fuente: PubMed PMID:41423522 (revision sistematica 2025 sobre LLLT en circunferencia corporal).",
+    ];
+  }
+  if (_idsTriggerContractura.contains(id)) {
+    return [
+      "Fuente: PubMed PMID:35962884 (meta-analisis dolor miofascial cervical con LLLT).",
+      "Fuente: PubMed PMID:19913903 (meta-analisis dolor cervical cronico).",
+    ];
+  }
+  if (_idsEstrias.contains(id)) {
+    return [
+      "Fuente: evidencia clinica directa limitada para PBM en estrias; extrapolacion de protocolos de remodelacion dermica.",
+    ];
+  }
+  if (_idsPielEstetica.contains(id) && id != "piel_acne") {
+    return [
+      "Fuente: PubMed PMID:36780572 (RCT rejuvenecimiento facial LED/PBM).",
+      "Fuente: PubMed PMID:32427553 (Photobiomodulation, Photomedicine, and Laser Surgery; rejuvenecimiento piel).",
+      "Fuente: Journal of Biophotonics 2018;11:e201700355 (PBM 650/830/850nm en rejuvenecimiento).",
+    ];
+  }
   if (_idsTendinopatia.contains(id)) {
     return [
       "Fuente: PubMed PMID:36171024 (meta-analisis en tendinopatia de miembro inferior y fascitis plantar).",
+      "Fuente: PubMed PMID:34391447 (meta-analisis tendinopatias; busqueda en PubMed, EMBASE, CINAHL, SCOPUS y Cochrane).",
+      "Fuente: PubMed PMID:37288499 (Lasers in Surgery and Medicine; dolor y funcion en tendinopatia).",
       "Fuente: WALT PBM Recommendations (tendinopathy dosimetry, 780-860nm).",
     ];
   }
@@ -1063,16 +1864,21 @@ List<String> _tipsDespuesCientificosPorId(String id) {
     return [
       "Fuente: WALT PBM Recommendations (dolor musculoesqueletico, dosimetria conservadora).",
       "Fuente: PubMed PMID:27207675 (soporte indirecto de analgesia en dolor musculoesqueletico).",
+      "Fuente: Clinical Rehabilitation 2022;36(10):1293-1305 (PMID:35918813; LLLT en dolor lumbar cronico).",
     ];
   }
   if (_idsRodilla.contains(id)) {
     return [
       "Fuente: PubMed PMID:38775202 (knee OA, metanalisis 2024).",
-      "Fuente: ScienceDirect doi:10.1016/j.ptsp.2025.11.009 (patellofemoral pain, metanalisis).",
+      "Fuente: PubMed PMID:41517270 (J Photochemistry and Photobiology B; busqueda en PubMed, Scopus, ScienceDirect, CENTRAL y Google Scholar; PMCID: PMC12786645).",
     ];
   }
   if (id == "mun_tunel") {
-    return ["Fuente: PubMed PMID:35611937 (Cochrane review sindrome tunel carpiano)."];
+    return [
+      "Fuente: PubMed PMID:35611937 (Cochrane review sindrome tunel carpiano).",
+      "Fuente: PubMed PMID:39776290 (meta-analisis 2025; busqueda en PubMed, EMBASE, Scopus, CINAHL, Cochrane y Google Scholar).",
+      "Fuente: Journal of Clinical Laser Medicine & Surgery 1998;16(3):143-151 (PMID:9743652).",
+    ];
   }
   if (id == "mun_art") {
     return ["Fuente: WALT PBM Recommendations (articulaciones perifericas, recomendacion por dosis)."];
@@ -1092,14 +1898,14 @@ List<String> _tipsDespuesCientificosPorId(String id) {
       "Fuente: PubMed PMID:34696155 (revision sistematica acne, luz visible).",
     ];
   }
-  if (id == "face_rejuv") {
-    return ["Fuente: PubMed PMID:36780572 (RCT rejuvenecimiento facial LED/PBM)."];
-  }
   if (id == "piel_quem" || id == "pie_ulc") {
     return ["Fuente: PubMed PMID:39172550 (revision/meta PBM en cicatrizacion de heridas y quemaduras)."];
   }
   if (id == "boca_mucos") {
-    return ["Fuente: PubMed PMID:34742930 (meta-analisis PBM para mucositis oral por cancer)."];
+    return [
+      "Fuente: PubMed PMID:34742930 (meta-analisis PBM para mucositis oral por cancer).",
+      "Fuente: PubMed PMID:37853254 (revision 2024; busqueda en MEDLINE, LILACS, EMBASE, Cochrane, Scopus, CINAHL y ClinicalTrials.gov).",
+    ];
   }
   if (id == "fat_front") {
     return [
@@ -1130,10 +1936,24 @@ List<String> _tipsDespuesCientificosPorId(String id) {
   if (id == "cab_brain") {
     return [
       "Fuente: PubMed PMID:36371017 (revision sistematica tPBM cognicion).",
+      "Fuente: PubMed PMID:38849495 (Journal of NeuroEngineering and Rehabilitation; revision clinica tPBM).",
+      "Fuente: PubMed PMID:40437278 (meta-analisis 2025, tPBM en deterioro cognitivo; PMCID: PMC12199797).",
       "Fuente: ClinicalTrials.gov NCT06757374 (tPBM en deterioro cognitivo, en curso).",
+      "Fuente: ClinicalTrials.gov NCT04619121 (tPBM para disfuncion cognitiva, completado).",
     ];
   }
   return [];
+}
+
+List<String> _fuentesMultibasePorId(String id) {
+  final common = <String>[
+    "Rastreo multibase: PubMed (NCBI E-utilities), Europe PMC y PMCID en PubMed Central, Cochrane Library/CENTRAL, EMBASE, CINAHL, Scopus, ScienceDirect, Google Scholar y Semantic Scholar.",
+    "Revistas priorizadas: Photobiomodulation, Photomedicine, and Laser Surgery; Lasers in Medical Science; Lasers in Surgery and Medicine; Journal of Biophotonics; Journal of Photochemistry and Photobiology B; Journal of Clinical Laser Medicine & Surgery; Journal of NeuroEngineering and Rehabilitation; Clinical Rehabilitation.",
+  ];
+  if (_idsNeuroExperimental.contains(id) || id == "testo") {
+    common.add("ClinicalTrials.gov y preprints (bioRxiv/arXiv) se usan como evidencia preliminar, no para fijar dosis definitivas.");
+  }
+  return common;
 }
 
 List<String> _prohibidosExtraPorId(String id) {
@@ -1159,6 +1979,7 @@ Tratamiento _aplicarActualizacionCientifica(Tratamiento t) {
   if (_idsPulso10.contains(t.id)) hz = "10Hz";
   if (t.id == "cab_brain") hz = "40Hz";
 
+  if (_idsRecuperacionPost.contains(t.id)) frecuencias = _copyFrecuencias(_mixDolorMuscular);
   if (_idsTendinopatia.contains(t.id)) frecuencias = _copyFrecuencias(_mixDeepTendon);
   if (_idsDolorMuscular.contains(t.id)) frecuencias = _copyFrecuencias(_mixDolorMuscular);
   if (_idsRodilla.contains(t.id)) frecuencias = _copyFrecuencias(_mixRodilla);
@@ -1174,11 +1995,13 @@ Tratamiento _aplicarActualizacionCientifica(Tratamiento t) {
   if (t.id == "cab_brain" || t.id == "cab_migr") duracion = "10";
   if (t.id == "boca_mucos") duracion = "8";
   if (t.id == "pie_ulc") duracion = "10";
+  if (_idsRendimientoPre.contains(t.id) || _idsSesionTipo.contains(t.id)) duracion = "8";
+  if (_idsGrasaLocalizada.contains(t.id)) duracion = "18";
 
   return Tratamiento(
     id: t.id,
     nombre: t.nombre,
-    zona: t.zona,
+    zona: _zonaClasificadaPorId(t.id),
     descripcion: t.descripcion,
     sintomas: t.sintomas,
     posicion: t.posicion,
@@ -1186,7 +2009,9 @@ Tratamiento _aplicarActualizacionCientifica(Tratamiento t) {
     duracion: duracion,
     frecuencias: frecuencias,
     tipsAntes: _mergeUniqueStrings(t.tipsAntes, _tipsAntesCientificosPorId(t.id)),
-    tipsDespues: _mergeUniqueStrings(t.tipsDespues, _tipsDespuesCientificosPorId(t.id)),
+    tipsDespues: _mergeUniqueStrings(
+        _mergeUniqueStrings(t.tipsDespues, _tipsDespuesCientificosPorId(t.id)),
+        _fuentesMultibasePorId(t.id)),
     prohibidos: _mergeUniqueStrings(t.prohibidos, _prohibidosExtraPorId(t.id)),
     esCustom: t.esCustom,
     oculto: t.oculto,
@@ -1366,7 +2191,7 @@ class AppState extends ChangeNotifier {
         }
 
         catalogo = catalogo.where((t) => !t.oculto).toList();
-        catalogo.sort((a, b) => a.zona.compareTo(b.zona));
+        catalogo.sort(_compararCatalogo);
 
         notifyListeners();
       } else {
@@ -1381,13 +2206,14 @@ class AppState extends ChangeNotifier {
     List<Tratamiento> lista = [];
     for (var base in DB_DEFINICIONES) {
       final t = _aplicarActualizacionCientifica(base);
-      if (ZONAS_SIMETRICAS.contains(t.zona)) {
+      if (ZONAS_SIMETRICAS.contains(base.zona)) {
         lista.add(t.copyWith(id: "${t.id}_d", nombre: "${t.nombre} (Dcho)"));
         lista.add(t.copyWith(id: "${t.id}_i", nombre: "${t.nombre} (Izq)"));
       } else {
         lista.add(t);
       }
     }
+    lista.sort(_compararCatalogo);
     return lista;
   }
 
@@ -3091,8 +3917,8 @@ class _BuscadorManual extends StatelessWidget {
               var t = catalogo[i];
               return ListTile(
                 title: Text(t.nombre),
-                subtitle: Text(t.sintomas,
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                subtitle: Text("${t.zona}\n${t.sintomas}",
+                    maxLines: 3, overflow: TextOverflow.ellipsis),
                 trailing: const Icon(Icons.info_outline),
                 onTap: () {
                   showDialog(
@@ -3217,6 +4043,10 @@ class _TreatmentCardState extends State<TreatmentCard> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (widget.t.zona.isNotEmpty)
+                  _buildSection("Grupo / Parte", widget.t.zona,
+                      Icons.category_outlined, Colors.amber.shade50),
+                const SizedBox(height: 10),
                 if (widget.t.sintomas.isNotEmpty)
                   _buildSection("Indicado para", widget.t.sintomas,
                       Icons.medical_information, Colors.grey.shade200),
