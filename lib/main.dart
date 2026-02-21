@@ -3025,7 +3025,7 @@ class _SidebarContent extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (isMobile)
-          const SizedBox(height: 40)
+          const SizedBox(height: 72)
         else
           Padding(
               padding: const EdgeInsets.all(20),
@@ -3034,7 +3034,7 @@ class _SidebarContent extends StatelessWidget {
                       fontWeight: FontWeight.bold, fontSize: 16))),
         _SidebarItem(
             icon: Icons.tune,
-            label: "Configurar Tratamientos",
+            label: "Tratamientos",
             selected: selectedIndex == 0,
             onTap: () {
               onItemSelected(0);
@@ -3131,7 +3131,7 @@ class _MobileLayout extends StatelessWidget {
       const ConfigurarTratamientosView(),
       const BuscadorIAView(),
       const GestionView(),
-      const BluetoothCustomView()
+      BluetoothCustomView(onGoToTreatments: () => onNav(0))
     ];
     return Scaffold(
       appBar: AppBar(
@@ -3159,7 +3159,7 @@ class _DesktopLayout extends StatelessWidget {
       const ConfigurarTratamientosView(),
       const BuscadorIAView(),
       const GestionView(),
-      const BluetoothCustomView()
+      BluetoothCustomView(onGoToTreatments: () => onNav(0))
     ];
     return Scaffold(
       body: Row(
@@ -3217,7 +3217,7 @@ class _SidebarItem extends StatelessWidget {
   }
 }
 
-enum _ConfigTratamientosPage { menu, diario, semanal, historial, clinica }
+enum _ConfigTratamientosPage { menu, diario, semanal, historial, clinica, control }
 
 class ConfigurarTratamientosView extends StatefulWidget {
   const ConfigurarTratamientosView({super.key});
@@ -3245,44 +3245,47 @@ class _ConfigurarTratamientosViewState
         return "HISTORIAL";
       case _ConfigTratamientosPage.clinica:
         return "CLINICA";
+      case _ConfigTratamientosPage.control:
+        return "CONTROL MANUAL";
       case _ConfigTratamientosPage.menu:
-        return "CONFIGURAR TRATAMIENTOS";
+        return "TRATAMIENTOS";
     }
   }
 
   Widget _buildGradientMenuButton({
     required String label,
-    required IconData icon,
     required VoidCallback onTap,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(38),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(38),
           child: Ink(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            height: 84,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(38),
               gradient: const LinearGradient(colors: [_gradStart, _gradEnd]),
             ),
-            child: Row(
-              children: [
-                Icon(icon, color: Colors.white),
-                const SizedBox(width: 10),
-                Expanded(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
                   child: Text(
                     label,
                     style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 16),
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 42,
+                      letterSpacing: 0.8,
+                    ),
                   ),
-                )
-              ],
+                ),
+              ),
             ),
           ),
         ),
@@ -3290,24 +3293,41 @@ class _ConfigurarTratamientosViewState
     );
   }
 
+  void _openControlManualPage() {
+    setState(() => _page = _ConfigTratamientosPage.control);
+  }
   Widget _currentPage() {
     switch (_page) {
       case _ConfigTratamientosPage.diario:
-        return const PanelDiarioView();
+        return PanelDiarioView(onOpenControlManual: _openControlManualPage);
       case _ConfigTratamientosPage.semanal:
-        return const PanelSemanalView();
+        return PanelSemanalView(onOpenControlManual: _openControlManualPage);
       case _ConfigTratamientosPage.historial:
         return const HistorialView();
       case _ConfigTratamientosPage.clinica:
-        return const ClinicaView();
+        return ClinicaView(onOpenControlManual: _openControlManualPage);
+      case _ConfigTratamientosPage.control:
+        return BluetoothCustomView(
+          homeBackTarget: ManualHomeBackTarget.treatments,
+          onGoToTreatments: () =>
+              setState(() => _page = _ConfigTratamientosPage.menu),
+          onBackToTreatments: () =>
+              setState(() => _page = _ConfigTratamientosPage.menu),
+        );
       case _ConfigTratamientosPage.menu:
         return const SizedBox.shrink();
     }
   }
-
   @override
   Widget build(BuildContext context) {
     final inMenu = _page == _ConfigTratamientosPage.menu;
+    final inControl = _page == _ConfigTratamientosPage.control;
+    if (inControl) {
+      return Container(
+        color: _bg,
+        child: _currentPage(),
+      );
+    }
     return Container(
       color: _bg,
       child: Column(
@@ -3354,23 +3374,19 @@ class _ConfigurarTratamientosViewState
                       key: const ValueKey("submenu_config_tratamientos"),
                       children: [
                         _buildGradientMenuButton(
-                            label: "Panel Diario",
-                            icon: Icons.calendar_today,
+                            label: "PANEL DIARIO",
                             onTap: () => setState(
                                 () => _page = _ConfigTratamientosPage.diario)),
                         _buildGradientMenuButton(
-                            label: "Panel Semanal",
-                            icon: Icons.calendar_month,
+                            label: "PANEL SEMANAL",
                             onTap: () => setState(
                                 () => _page = _ConfigTratamientosPage.semanal)),
                         _buildGradientMenuButton(
-                            label: "Historial",
-                            icon: Icons.history,
+                            label: "HISTORIAL",
                             onTap: () => setState(() =>
                                 _page = _ConfigTratamientosPage.historial)),
                         _buildGradientMenuButton(
-                            label: "Clinica",
-                            icon: Icons.medical_services,
+                            label: "CLINICA",
                             onTap: () => setState(
                                 () => _page = _ConfigTratamientosPage.clinica)),
                       ],
@@ -3550,7 +3566,8 @@ class _TratamientosGradientButton extends StatelessWidget {
 
 // --- VISTA 1: DIARIO ---
 class PanelDiarioView extends StatelessWidget {
-  const PanelDiarioView({super.key});
+  final VoidCallback? onOpenControlManual;
+  const PanelDiarioView({super.key, this.onOpenControlManual});
   @override
   Widget build(BuildContext context) {
     var state = context.watch<AppState>();
@@ -3743,6 +3760,7 @@ class PanelDiarioView extends StatelessWidget {
                       }
                       if (state.isConnected) {
                         await state.iniciarCiclo(t.id);
+                onOpenControlManual?.call();
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                               content: Text('Iniciando ${t.nombre}...'),
@@ -4063,7 +4081,8 @@ class _EditRoutineDialogState extends State<EditRoutineDialog> {
 
 // --- VISTA 2: SEMANAL ---
 class PanelSemanalView extends StatefulWidget {
-  const PanelSemanalView({super.key});
+  final VoidCallback? onOpenControlManual;
+  const PanelSemanalView({super.key, this.onOpenControlManual});
   @override
   State<PanelSemanalView> createState() => _PanelSemanalViewState();
 }
@@ -4196,6 +4215,7 @@ class _PanelSemanalViewState extends State<PanelSemanalView>
                               }
                               if (state.isConnected) {
                                 await state.iniciarCiclo(t.id);
+                widget.onOpenControlManual?.call();
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
@@ -4315,7 +4335,8 @@ class HistorialView extends StatelessWidget {
 }
 
 class ClinicaView extends StatelessWidget {
-  const ClinicaView({super.key});
+  final VoidCallback? onOpenControlManual;
+  const ClinicaView({super.key, this.onOpenControlManual});
   @override
   Widget build(BuildContext context) {
     var state = context.watch<AppState>();
@@ -4380,6 +4401,7 @@ class ClinicaView extends StatelessWidget {
               }
               if (state.isConnected) {
                 await state.iniciarCiclo(t.id);
+                onOpenControlManual?.call();
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                       content: Text('Iniciando ${t.nombre}...'),

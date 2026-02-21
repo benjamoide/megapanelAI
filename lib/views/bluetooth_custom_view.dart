@@ -9,6 +9,8 @@ import 'package:provider/provider.dart';
 
 enum _ManualSection { home, menu, onOff, time, dimming, pulse, presets }
 
+enum ManualHomeBackTarget { manualMenu, treatments }
+
 class _PresetSlot {
   _PresetSlot({
     required this.name,
@@ -56,7 +58,16 @@ class _ManualConfigSnapshot {
 }
 
 class BluetoothCustomView extends StatefulWidget {
-  const BluetoothCustomView({super.key});
+  const BluetoothCustomView({
+    super.key,
+    this.onGoToTreatments,
+    this.onBackToTreatments,
+    this.homeBackTarget = ManualHomeBackTarget.manualMenu,
+  });
+
+  final VoidCallback? onGoToTreatments;
+  final VoidCallback? onBackToTreatments;
+  final ManualHomeBackTarget homeBackTarget;
 
   @override
   State<BluetoothCustomView> createState() => _BluetoothCustomViewState();
@@ -184,6 +195,8 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
                 children: [
                   _buildLogo(),
                   SizedBox(height: _s(14)),
+                  if (_section == _ManualSection.home) _buildHomeBackRow(),
+                  if (_section == _ManualSection.home) SizedBox(height: _s(14)),
                   if (_section != _ManualSection.home) _buildBackRow(),
                   if (_section != _ManualSection.home) SizedBox(height: _s(14)),
                   if (!isConnected) _buildConnectionHint(),
@@ -247,6 +260,27 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
             letterSpacing: _s(3.0),
             fontWeight: FontWeight.w600,
             color: _brandBlueLight,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHomeBackRow() {
+    return Row(
+      children: [
+        _buildRoundIconButton(
+          icon: Icons.arrow_back_rounded,
+          onTap: _onHomeBackPressed,
+        ),
+        SizedBox(width: _s(12)),
+        Text(
+          'BACK',
+          style: TextStyle(
+            color: const Color(0xFF1999ED),
+            fontSize: _s(52),
+            fontWeight: FontWeight.w500,
+            letterSpacing: 1.2,
           ),
         ),
       ],
@@ -329,7 +363,6 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
     required bool isConnected,
   }) {
     final activeConfig = _snapshotFromActiveTreatment(appState);
-    final hasActive = appState.hayCicloActivo && activeConfig != null;
     final shown = activeConfig ?? _currentSnapshot();
 
     return Column(
@@ -373,11 +406,24 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
             ),
           ),
         ),
-        if (!hasActive) ...[
-          SizedBox(height: _s(12)),
+        SizedBox(height: _s(12)),
+        _buildRunButton(
+          enabled: isConnected,
+          label: 'RUN',
+          onTap: () => _runManualTreatment(context),
+        ),
+        SizedBox(height: _s(10)),
+        _buildRunButton(
+          enabled: appState.hayCicloActivo || isConnected,
+          label: 'STOP',
+          onTap: () => _stopActiveTreatmentFromHome(appState),
+        ),
+        if (widget.onGoToTreatments != null) ...[
+          SizedBox(height: _s(10)),
           _buildRunButton(
-            isConnected: isConnected,
-            onTap: () => _runManualTreatment(context),
+            enabled: true,
+            label: 'TRATAMIENTOS',
+            onTap: _openTreatmentsFromHome,
           ),
         ],
       ],
@@ -542,7 +588,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
         ),
         SizedBox(height: _s(14)),
         _buildRunButton(
-          isConnected: isConnected,
+          enabled: isConnected,
           onTap: () => _applyPowerSelection(context),
         ),
       ],
@@ -597,7 +643,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
         ),
         SizedBox(height: _s(16)),
         _buildRunButton(
-          isConnected: isConnected,
+          enabled: isConnected,
           onTap: () => _runManualTreatment(context),
         ),
       ],
@@ -627,7 +673,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
         ),
         SizedBox(height: _s(16)),
         _buildRunButton(
-          isConnected: isConnected,
+          enabled: isConnected,
           onTap: () => _runManualTreatment(context),
         ),
       ],
@@ -709,7 +755,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
         ),
         SizedBox(height: _s(16)),
         _buildRunButton(
-          isConnected: isConnected,
+          enabled: isConnected,
           onTap: () => _runManualTreatment(context),
         ),
       ],
@@ -769,7 +815,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
           children: [
             Expanded(
               child: _buildRunButton(
-                isConnected: isConnected,
+                enabled: isConnected,
                 onTap: () => _runManualTreatment(context),
               ),
             ),
@@ -1020,15 +1066,16 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
   }
 
   Widget _buildRunButton({
-    required bool isConnected,
+    required bool enabled,
     required VoidCallback onTap,
+    String label = 'RUN',
   }) {
     return Opacity(
-      opacity: isConnected ? 1 : 0.45,
+      opacity: enabled ? 1 : 0.45,
       child: _buildMenuButton(
-        'RUN',
+        label,
         compact: true,
-        onTap: isConnected ? onTap : null,
+        onTap: enabled ? onTap : null,
       ),
     );
   }
@@ -1387,6 +1434,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
     );
 
     if (confirmed != true) return;
+    if (!mounted) return;
 
     final rawName = controller.text.trim();
     final nextName = rawName.isEmpty ? 'Preset ${selectedIndex + 1}' : rawName;
@@ -1421,6 +1469,10 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
 
   Future<void> _runManualTreatment(BuildContext context) async {
     final state = context.read<AppState>();
+    final activeBeforeStop = _snapshotFromActiveTreatment(state);
+    if (activeBeforeStop != null) {
+      _applySnapshotToEditor(activeBeforeStop);
+    }
     await state.detenerPanelActivo();
     if (!context.mounted) return;
 
@@ -1453,5 +1505,42 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Enviando configuracion al dispositivo...')),
     );
+  }
+
+  Future<void> _stopActiveTreatmentFromHome(AppState appState) async {
+    final active = _snapshotFromActiveTreatment(appState);
+    if (active != null) {
+      _applySnapshotToEditor(active);
+    }
+    await appState.detenerPanelActivo();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+          content: Text('Panel detenido. Pulsa RUN para continuar.')),
+    );
+  }
+
+  void _openTreatmentsFromHome() {
+    if (widget.onGoToTreatments != null) {
+      widget.onGoToTreatments!();
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Abre Tratamientos desde el menu lateral.')),
+    );
+  }
+
+  void _onHomeBackPressed() {
+    if (widget.homeBackTarget == ManualHomeBackTarget.treatments) {
+      if (widget.onBackToTreatments != null) {
+        widget.onBackToTreatments!();
+        return;
+      }
+      if (widget.onGoToTreatments != null) {
+        widget.onGoToTreatments!();
+        return;
+      }
+    }
+    setState(() => _section = _ManualSection.menu);
   }
 }
