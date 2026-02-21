@@ -3906,10 +3906,17 @@ class _BuscadorManual extends StatelessWidget {
       String? nivel2;
       String? nivel3;
 
+      String limpiarNivel(String raw) {
+        final cleaned = raw
+            .replaceFirst(RegExp(r'^\s*\d+\s*[\)\.\-:]*\s*'), '')
+            .trim();
+        return cleaned.isEmpty ? raw.trim() : cleaned;
+      }
+
       List<String> niveles(Tratamiento t) {
         final parts = t.zona
             .split(">")
-            .map((e) => e.trim())
+            .map((e) => limpiarNivel(e.trim()))
             .where((e) => e.isNotEmpty)
             .toList();
         while (parts.length < 3) {
@@ -3997,13 +4004,18 @@ class _BuscadorManual extends StatelessWidget {
                 children: [
                   DropdownButtonFormField<String>(
                     initialValue: nivel1,
+                    isExpanded: true,
                     decoration: const InputDecoration(
-                      labelText: "Nivel 1",
+                      labelText: "Grupo",
                       border: OutlineInputBorder(),
                     ),
-                    hint: const Text("Selecciona grupo principal"),
+                    hint: const Text("Selecciona grupo"),
                     items: n1Options
-                        .map((v) => DropdownMenuItem(value: v, child: Text(v)))
+                        .map((v) => DropdownMenuItem(
+                            value: v,
+                            child: Text(v,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis)))
                         .toList(),
                     onChanged: (v) {
                       setInnerState(() {
@@ -4017,13 +4029,18 @@ class _BuscadorManual extends StatelessWidget {
                   if (nivel1 != null)
                     DropdownButtonFormField<String>(
                       initialValue: nivel2,
+                      isExpanded: true,
                       decoration: const InputDecoration(
-                        labelText: "Nivel 2",
+                        labelText: "Subgrupo",
                         border: OutlineInputBorder(),
                       ),
                       hint: const Text("Selecciona subgrupo"),
                       items: n2Options
-                          .map((v) => DropdownMenuItem(value: v, child: Text(v)))
+                          .map((v) => DropdownMenuItem(
+                              value: v,
+                              child: Text(v,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis)))
                           .toList(),
                       onChanged: (v) {
                         setInnerState(() {
@@ -4036,13 +4053,18 @@ class _BuscadorManual extends StatelessWidget {
                   if (nivel2 != null && n3Options.isNotEmpty)
                     DropdownButtonFormField<String>(
                       initialValue: nivel3,
+                      isExpanded: true,
                       decoration: const InputDecoration(
-                        labelText: "Nivel 3",
+                        labelText: "Zona",
                         border: OutlineInputBorder(),
                       ),
-                      hint: const Text("Selecciona parte/zona"),
+                      hint: const Text("Selecciona zona"),
                       items: n3Options
-                          .map((v) => DropdownMenuItem(value: v, child: Text(v)))
+                          .map((v) => DropdownMenuItem(
+                              value: v,
+                              child: Text(v,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis)))
                           .toList(),
                       onChanged: (v) {
                         setInnerState(() {
@@ -4057,11 +4079,11 @@ class _BuscadorManual extends StatelessWidget {
                         ? Center(
                             child: Text(
                               nivel1 == null
-                                  ? "Selecciona Nivel 1 para continuar."
+                                  ? "Selecciona Grupo para continuar."
                                   : (nivel2 == null
-                                      ? "Selecciona Nivel 2 para ver tratamientos."
+                                      ? "Selecciona Subgrupo para ver tratamientos."
                                       : (n3Options.isNotEmpty && nivel3 == null)
-                                          ? "Selecciona Nivel 3 para ver tratamientos."
+                                          ? "Selecciona Zona para ver tratamientos."
                                           : "No hay tratamientos para esta ruta."),
                               style: const TextStyle(color: Colors.grey),
                               textAlign: TextAlign.center,
@@ -4072,9 +4094,12 @@ class _BuscadorManual extends StatelessWidget {
                             itemBuilder: (ctx, i) {
                               final t = tratamientos[i];
                               return ListTile(
-                                title: Text(t.nombre),
+                                title: Text(t.nombre,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis),
                                 subtitle: Text("${t.zona}\n${t.sintomas}",
-                                    maxLines: 3, overflow: TextOverflow.ellipsis),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis),
                                 trailing: const Icon(Icons.info_outline),
                                 onTap: () {
                                   showDialog(
@@ -4156,9 +4181,10 @@ class _BuscadorManual extends StatelessWidget {
             itemBuilder: (ctx, i) {
               var t = catalogo[i];
               return ListTile(
-                title: Text(t.nombre),
+                title: Text(t.nombre,
+                    maxLines: 2, overflow: TextOverflow.ellipsis),
                 subtitle: Text("${t.zona}\n${t.sintomas}",
-                    maxLines: 3, overflow: TextOverflow.ellipsis),
+                    maxLines: 2, overflow: TextOverflow.ellipsis),
                 trailing: const Icon(Icons.info_outline),
                 onTap: () {
                   showDialog(
@@ -4268,6 +4294,8 @@ class _TreatmentCardState extends State<TreatmentCard> {
             widget.isDone ? Icons.check_circle : (isActive ? Icons.flash_on : Icons.circle_outlined),
             color: statusColor),
         title: Text(widget.t.nombre,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
                 fontWeight: FontWeight.bold,
                 decoration: widget.isDone ? TextDecoration.lineThrough : null)),
@@ -4340,8 +4368,10 @@ class _TreatmentCardState extends State<TreatmentCard> {
                       Icons.warning_amber, Colors.red.shade50),
                 const SizedBox(height: 15),
                 
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
+                  Wrap(
+                    alignment: WrapAlignment.end,
+                    spacing: 8,
+                    runSpacing: 8,
                     children: [
                       // STOP BUTTON
                       if (isActive)
@@ -4357,8 +4387,6 @@ class _TreatmentCardState extends State<TreatmentCard> {
                           },
                         ),
                         
-                      const SizedBox(width: 8),
-
                       if (widget.onStart != null && !widget.isDone && !isActive)
                         FilledButton.icon(
                           style: FilledButton.styleFrom(
@@ -4367,7 +4395,6 @@ class _TreatmentCardState extends State<TreatmentCard> {
                           label: const Text("Iniciar"),
                           onPressed: widget.onStart,
                         ),
-                      const SizedBox(width: 8),
                       // Delete Plan
                       if (widget.isPlanned &&
                           widget.onDeletePlan != null &&
@@ -4377,7 +4404,6 @@ class _TreatmentCardState extends State<TreatmentCard> {
                           label: const Text("Quitar"),
                           onPressed: widget.onDeletePlan,
                         ),
-                      const SizedBox(width: 8),
                       // Register
                       if (!widget.isDone && !isActive && widget.onRegister != null)
                         FilledButton.icon(
