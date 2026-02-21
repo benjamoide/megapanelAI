@@ -2106,6 +2106,8 @@ class AppState extends ChangeNotifier {
   Map<String, Map<String, String>> planificados = {};
   Map<String, dynamic> ciclosActivos = {};
   Map<String, RutinaDiaria> rutinasEditadas = {};
+  Tratamiento? _tratamientoActivoActual;
+  String? _idCicloActivoActual;
 
   List<Tratamiento> catalogo = [];
 
@@ -2114,6 +2116,11 @@ class AppState extends ChangeNotifier {
   bool isConnected = false;
 
   bool get hasApiKey => _apiKey.isNotEmpty;
+  Tratamiento? get tratamientoActivoActual => _tratamientoActivoActual;
+  String? get idCicloActivoActual => _idCicloActivoActual;
+  bool get hayCicloActivo =>
+      _idCicloActivoActual != null &&
+      ciclosActivos[_idCicloActivoActual]?['activo'] == true;
 
   AppState() {
     catalogo = _generarCatalogoCompleto();
@@ -2129,6 +2136,53 @@ class AppState extends ChangeNotifier {
     });
     // Check initial state
     isConnected = _bleManager.isConnected;
+  }
+
+  void _actualizarTratamientoActivoDesdeCiclos() {
+    String? activeId;
+    Map<String, dynamic>? activeMap;
+
+    for (final entry in ciclosActivos.entries) {
+      final value = entry.value;
+      if (value is Map && value['activo'] == true) {
+        activeId = entry.key;
+        activeMap = Map<String, dynamic>.from(value);
+      }
+    }
+
+    if (activeId == null || activeMap == null) {
+      _idCicloActivoActual = null;
+      _tratamientoActivoActual = null;
+      return;
+    }
+
+    _idCicloActivoActual = activeId;
+
+    final snapshot = activeMap['tratamiento'];
+    if (snapshot is Map) {
+      try {
+        _tratamientoActivoActual =
+            Tratamiento.fromJson(Map<String, dynamic>.from(snapshot));
+        return;
+      } catch (_) {}
+    }
+
+    final fromCatalog = catalogo.where((t) => t.id == activeId).toList();
+    _tratamientoActivoActual = fromCatalog.isNotEmpty ? fromCatalog.first : null;
+  }
+
+  Future<void> detenerPanelActivo() async {
+    _actualizarTratamientoActivoDesdeCiclos();
+    final activeId = _idCicloActivoActual;
+    if (activeId != null) {
+      await detenerCiclo(activeId);
+      return;
+    }
+    if (isConnected) {
+      await _bleManager.write(BleProtocol.setPower(false));
+    }
+    _actualizarTratamientoActivoDesdeCiclos();
+    notifyListeners();
   }
 
   Future<bool> connectToDevice(BluetoothDevice device) async {
@@ -2188,6 +2242,8 @@ class AppState extends ChangeNotifier {
     planificados = {};
     ciclosActivos = {};
     rutinasEditadas = {};
+    _tratamientoActivoActual = null;
+    _idCicloActivoActual = null;
     catalogo = _generarCatalogoCompleto(); // Catálogo limpio
     notifyListeners();
   }
@@ -2216,6 +2272,8 @@ class AppState extends ChangeNotifier {
     planificados = {};
     ciclosActivos = {};
     rutinasEditadas = {};
+    _tratamientoActivoActual = null;
+    _idCicloActivoActual = null;
     catalogo = _generarCatalogoCompleto();
     notifyListeners();
   }
@@ -2264,6 +2322,7 @@ class AppState extends ChangeNotifier {
 
         catalogo = catalogo.where((t) => !t.oculto).toList();
         catalogo.sort(_compararCatalogo);
+        _actualizarTratamientoActivoDesdeCiclos();
 
         notifyListeners();
       } else {
@@ -2349,14 +2408,18 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> iniciarCiclo(String id) async {
+    final t = catalogo.firstWhere((e) => e.id == id);
     ciclosActivos[id] = {
       'activo': true,
-      'inicio': DateFormat('HH:mm:ss').format(DateTime.now())
+      'inicio': DateFormat('HH:mm:ss').format(DateTime.now()),
+      'origen': 'catalogo',
+      'tratamiento': t.toJson(),
     };
+    _idCicloActivoActual = id;
+    _tratamientoActivoActual = t;
 
     if (isConnected) {
       try {
-        final t = catalogo.firstWhere((e) => e.id == id);
         print("BLE: Starting Treatment '${t.nombre}'");
         print(
             "BLE: Params -> duracion=${t.duracion} min, hz='${t.hz}', frecuencias=${t.frecuencias}");
@@ -2382,6 +2445,7 @@ class AppState extends ChangeNotifier {
       }
     }
 
+    _actualizarTratamientoActivoDesdeCiclos();
     notifyListeners();
   }
 
@@ -2482,8 +2546,12 @@ class AppState extends ChangeNotifier {
 
     ciclosActivos[tempId] = {
       'activo': true,
-      'inicio': DateFormat('HH:mm:ss').format(DateTime.now())
+      'inicio': DateFormat('HH:mm:ss').format(DateTime.now()),
+      'origen': 'manual',
+      'tratamiento': t.toJson(),
     };
+    _idCicloActivoActual = tempId;
+    _tratamientoActivoActual = t;
 
     if (isConnected) {
       try {
@@ -2539,8 +2607,10 @@ class AppState extends ChangeNotifier {
       } catch (e) {
         print("BLE Manual Error: $e");
         ciclosActivos.remove(tempId);
+        _actualizarTratamientoActivoDesdeCiclos();
       }
     }
+    _actualizarTratamientoActivoDesdeCiclos();
     notifyListeners();
   }
 
@@ -2549,20 +2619,21 @@ class AppState extends ChangeNotifier {
       ciclosActivos[id]!['activo'] = false;
       ciclosActivos[id]!['fin'] = DateFormat('HH:mm:ss').format(DateTime.now());
 
-      // BLE Command: Turn Off
       if (isConnected) {
         await _bleManager.write(BleProtocol.setPower(false));
       }
 
-      // Guardar en historial (Mock)
       String hoy = DateFormat('yyyy-MM-dd').format(DateTime.now());
-      if (!historial.containsKey(hoy)) historial[hoy] = [];
+      if (!historial.containsKey(hoy)) {
+        historial[hoy] = [];
+      }
       historial[hoy]!.add({
         'id': id,
         'hora': ciclosActivos[id]!['inicio'],
-        'momento': 'Clínica'
+        'momento': 'Clinica'
       });
     }
+    _actualizarTratamientoActivoDesdeCiclos();
     notifyListeners();
   }
 
@@ -5182,3 +5253,4 @@ class _BluetoothScanDialogState extends State<BluetoothScanDialog> {
     );
   }
 }
+

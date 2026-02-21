@@ -9,6 +9,52 @@ import 'package:provider/provider.dart';
 
 enum _ManualSection { home, menu, onOff, time, dimming, pulse, presets }
 
+class _PresetSlot {
+  _PresetSlot({
+    required this.name,
+    required this.duration,
+    required this.pulseHz,
+    required this.w630,
+    required this.w660,
+    required this.w810,
+    required this.w830,
+    required this.w850,
+  });
+
+  String name;
+  double duration;
+  double pulseHz;
+  double w630;
+  double w660;
+  double w810;
+  double w830;
+  double w850;
+
+  bool get pulseEnabled => pulseHz > 0;
+}
+
+class _ManualConfigSnapshot {
+  const _ManualConfigSnapshot({
+    required this.duration,
+    required this.pulseHz,
+    required this.pulseEnabled,
+    required this.w630,
+    required this.w660,
+    required this.w810,
+    required this.w830,
+    required this.w850,
+  });
+
+  final double duration;
+  final double pulseHz;
+  final bool pulseEnabled;
+  final double w630;
+  final double w660;
+  final double w810;
+  final double w830;
+  final double w850;
+}
+
 class BluetoothCustomView extends StatefulWidget {
   const BluetoothCustomView({super.key});
 
@@ -38,33 +84,52 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
   int _workMode = 0;
 
   _ManualSection _section = _ManualSection.home;
-  int _selectedWavelengthIndex = 0;
   bool _powerShouldBeOn = true;
   final List<String> _logs = [];
   StreamSubscription? _logSub;
 
-  final Map<String, Map<String, dynamic>> _presets = const {
-    'Lesiones': {
-      'duration': 10,
-      'pulse': 10,
-      'freq': [10, 30, 20, 20, 20]
-    },
-    'Facial': {
-      'duration': 15,
-      'pulse': 0,
-      'freq': [40, 40, 10, 10, 0]
-    },
-    'Young': {
-      'duration': 15,
-      'pulse': 10,
-      'freq': [35, 45, 10, 5, 5]
-    },
-    'Fat': {
-      'duration': 20,
-      'pulse': 0,
-      'freq': [0, 15, 35, 25, 25]
-    },
-  };
+  final List<_PresetSlot> _presetSlots = [
+    _PresetSlot(
+      name: 'Lesiones',
+      duration: 10,
+      pulseHz: 10,
+      w630: 10,
+      w660: 30,
+      w810: 20,
+      w830: 20,
+      w850: 20,
+    ),
+    _PresetSlot(
+      name: 'Facial',
+      duration: 15,
+      pulseHz: 0,
+      w630: 40,
+      w660: 40,
+      w810: 10,
+      w830: 10,
+      w850: 0,
+    ),
+    _PresetSlot(
+      name: 'Young',
+      duration: 15,
+      pulseHz: 10,
+      w630: 35,
+      w660: 45,
+      w810: 10,
+      w830: 5,
+      w850: 5,
+    ),
+    _PresetSlot(
+      name: 'Fat',
+      duration: 20,
+      pulseHz: 0,
+      w630: 0,
+      w660: 15,
+      w810: 35,
+      w830: 25,
+      w850: 25,
+    ),
+  ];
 
   bool get _isCompact => MediaQuery.of(context).size.width <= 430;
 
@@ -100,7 +165,8 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
 
   @override
   Widget build(BuildContext context) {
-    final isConnected = context.watch<AppState>().isConnected;
+    final appState = context.watch<AppState>();
+    final isConnected = appState.isConnected;
 
     return Container(
       color: _screenBg,
@@ -122,7 +188,10 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
                   if (_section != _ManualSection.home) SizedBox(height: _s(14)),
                   if (!isConnected) _buildConnectionHint(),
                   if (!isConnected) SizedBox(height: _s(10)),
-                  _buildSectionContent(isConnected),
+                  _buildSectionContent(
+                    appState: appState,
+                    isConnected: isConnected,
+                  ),
                   SizedBox(height: _s(14)),
                   _buildDebugPanel(),
                 ],
@@ -233,10 +302,13 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
     );
   }
 
-  Widget _buildSectionContent(bool isConnected) {
+  Widget _buildSectionContent({
+    required AppState appState,
+    required bool isConnected,
+  }) {
     switch (_section) {
       case _ManualSection.home:
-        return _buildHomeContent();
+        return _buildHomeContent(appState: appState, isConnected: isConnected);
       case _ManualSection.menu:
         return _buildMainMenu();
       case _ManualSection.onOff:
@@ -252,13 +324,29 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
     }
   }
 
-  Widget _buildHomeContent() {
+  Widget _buildHomeContent({
+    required AppState appState,
+    required bool isConnected,
+  }) {
+    final activeConfig = _snapshotFromActiveTreatment(appState);
+    final hasActive = appState.hayCicloActivo && activeConfig != null;
+    final shown = activeConfig ?? _currentSnapshot();
+
     return Column(
       children: [
-        _buildStatusCircle(),
+        _buildStatusCircle(
+          duration: shown.duration,
+          pulseHz: shown.pulseHz,
+          pulseEnabled: shown.pulseEnabled,
+          w630: shown.w630,
+          w660: shown.w660,
+          w810: shown.w810,
+          w830: shown.w830,
+          w850: shown.w850,
+        ),
         SizedBox(height: _s(18)),
         InkWell(
-          onTap: () => setState(() => _section = _ManualSection.menu),
+          onTap: () => _handleSetPressed(appState),
           borderRadius: BorderRadius.circular(999),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -267,7 +355,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
               children: [
                 _buildRoundIconButton(
                   icon: Icons.settings,
-                  onTap: () => setState(() => _section = _ManualSection.menu),
+                  onTap: () => _handleSetPressed(appState),
                   diameter: 96,
                   iconSize: 50,
                 ),
@@ -285,13 +373,29 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
             ),
           ),
         ),
+        if (!hasActive) ...[
+          SizedBox(height: _s(12)),
+          _buildRunButton(
+            isConnected: isConnected,
+            onTap: () => _runManualTreatment(context),
+          ),
+        ],
       ],
     );
   }
 
-  Widget _buildStatusCircle() {
+  Widget _buildStatusCircle({
+    required double duration,
+    required double pulseHz,
+    required bool pulseEnabled,
+    required double w630,
+    required double w660,
+    required double w810,
+    required double w830,
+    required double w850,
+  }) {
     final pulseLabel =
-        (!_pulseEnabled || _pulseHz == 0) ? 'OFF' : '${_pulseHz.toInt()}HZ';
+        (!pulseEnabled || pulseHz == 0) ? 'OFF' : '${pulseHz.toInt()}HZ';
 
     return Container(
       width: double.infinity,
@@ -312,59 +416,68 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
               ),
               child: Padding(
                 padding: EdgeInsets.all(_s(22)),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      '0',
-                      style: TextStyle(
-                        fontSize: _s(160),
-                        fontFamily: 'monospace',
-                        height: 0.8,
-                        fontWeight: FontWeight.w500,
-                        color: const Color(0xFF2E54E8),
+                child: LayoutBuilder(
+                  builder: (context, constraints) => FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: ConstrainedBox(
+                      constraints:
+                          BoxConstraints(maxWidth: constraints.maxWidth),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            duration.toInt().toString(),
+                            style: TextStyle(
+                              fontSize: _s(160),
+                              fontFamily: 'monospace',
+                              height: 0.8,
+                              fontWeight: FontWeight.w500,
+                              color: const Color(0xFF2E54E8),
+                            ),
+                          ),
+                          SizedBox(height: _s(8)),
+                          Text(
+                            'Pulse:$pulseLabel',
+                            style: TextStyle(
+                              fontSize: _s(38),
+                              color: const Color(0xFF25AEE2),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          SizedBox(height: _s(10)),
+                          Text(
+                            '630:${w630.toInt()}%  810:${w810.toInt()}%',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: _s(36),
+                              color: const Color(0xFF3D9FD8),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          SizedBox(height: _s(3)),
+                          Text(
+                            '660:${w660.toInt()}%  830:${w830.toInt()}%',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: _s(36),
+                              color: const Color(0xFF3D9FD8),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          SizedBox(height: _s(3)),
+                          Text(
+                            '850:${w850.toInt()}%',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: _s(36),
+                              color: const Color(0xFF3D9FD8),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    SizedBox(height: _s(8)),
-                    Text(
-                      'Pulse:$pulseLabel',
-                      style: TextStyle(
-                        fontSize: _s(38),
-                        color: const Color(0xFF25AEE2),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    SizedBox(height: _s(10)),
-                    Text(
-                      '630:${_red630.toInt()}%  810:${_nir810.toInt()}%',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: _s(36),
-                        color: const Color(0xFF3D9FD8),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    SizedBox(height: _s(3)),
-                    Text(
-                      '660:${_red660.toInt()}%  830:${_nir830.toInt()}%',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: _s(36),
-                        color: const Color(0xFF3D9FD8),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    SizedBox(height: _s(3)),
-                    Text(
-                      '850:${_nir850.toInt()}%',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: _s(36),
-                        color: const Color(0xFF3D9FD8),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -512,32 +625,6 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
                 .toList(),
           ),
         ),
-        SizedBox(height: _s(14)),
-        _buildPlusMinusControl(
-          onMinus: _selectPreviousWavelength,
-          onPlus: _selectNextWavelength,
-          center: Column(
-            children: [
-              Text(
-                _currentSelectedWavelength.toString(),
-                style: TextStyle(
-                  fontSize: _s(84),
-                  fontWeight: FontWeight.w500,
-                  height: 0.85,
-                  fontFamily: 'monospace',
-                ),
-              ),
-              Text(
-                'NM',
-                style: TextStyle(
-                  fontSize: _s(44),
-                  fontWeight: FontWeight.w600,
-                  height: 0.9,
-                ),
-              ),
-            ],
-          ),
-        ),
         SizedBox(height: _s(16)),
         _buildRunButton(
           isConnected: isConnected,
@@ -639,40 +726,43 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
           childAspectRatio: _isCompact ? 1.08 : 1.22,
           mainAxisSpacing: _s(12),
           crossAxisSpacing: _s(12),
-          children: _presets.keys
-              .map(
-                (name) => InkWell(
+          children: _presetSlots.asMap().entries.map((entry) {
+            final index = entry.key;
+            final slot = entry.value;
+            return InkWell(
+              borderRadius: BorderRadius.circular(_s(14)),
+              onTap: () => _applyPreset(index),
+              child: Container(
+                decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(_s(14)),
-                  onTap: () => _applyPreset(name),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(_s(14)),
-                      color: const Color(0xFFF3F3F3),
-                      border: Border.all(color: Colors.black38),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.cloud_upload_outlined,
-                          size: _s(66),
-                          color: Colors.black54,
-                        ),
-                        SizedBox(height: _s(6)),
-                        Text(
-                          name,
-                          style: TextStyle(
-                            fontSize: _s(20),
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black87,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  color: const Color(0xFFF3F3F3),
+                  border: Border.all(color: Colors.black38),
                 ),
-              )
-              .toList(),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.cloud_upload_outlined,
+                      size: _s(66),
+                      color: Colors.black54,
+                    ),
+                    SizedBox(height: _s(6)),
+                    Text(
+                      slot.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: _s(20),
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
         ),
         SizedBox(height: _s(18)),
         Row(
@@ -691,8 +781,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
                 child: _buildMenuButton(
                   'SAVE CURRENT AS PRESET',
                   compact: true,
-                  onTap:
-                      isConnected ? () => _saveCurrentAsPreset(context) : null,
+                  onTap: isConnected ? _showSavePresetDialog : null,
                 ),
               ),
             ),
@@ -704,24 +793,20 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
 
   Widget _buildDimmingRow(int nm) {
     final value = _dimmingValue(nm);
-    final selected = nm == _currentSelectedWavelength;
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 160),
-      decoration: BoxDecoration(
-        color: selected ? Colors.white24 : Colors.transparent,
-        borderRadius: BorderRadius.circular(_s(9)),
-      ),
-      padding: EdgeInsets.symmetric(horizontal: _s(6), vertical: _s(2)),
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: _s(4), vertical: _s(3)),
       child: Row(
         children: [
           SizedBox(
-            width: _s(58),
+            width: _s(52),
             child: Text(
               '$nm',
               style: TextStyle(fontSize: _s(22), fontWeight: FontWeight.w700),
             ),
           ),
+          _buildInlineAdjustButton(
+              symbol: '-', onTap: () => _stepDimming(nm, -1)),
+          SizedBox(width: _s(6)),
           Expanded(
             child: SliderTheme(
               data: SliderTheme.of(context).copyWith(
@@ -738,13 +823,14 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
                 max: 100,
                 divisions: 100,
                 onChanged: (v) => _setDimmingValue(nm, v),
-                onChangeStart: (_) => _selectWavelengthByValue(nm),
-                onChangeEnd: (_) => _selectWavelengthByValue(nm),
               ),
             ),
           ),
+          SizedBox(width: _s(6)),
+          _buildInlineAdjustButton(
+              symbol: '+', onTap: () => _stepDimming(nm, 1)),
           SizedBox(
-            width: _s(68),
+            width: _s(66),
             child: Text(
               '${value.toInt()}%',
               textAlign: TextAlign.end,
@@ -875,6 +961,35 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
               color: Colors.white,
               fontSize: _s(72),
               fontWeight: FontWeight.w300,
+              height: 1,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInlineAdjustButton({
+    required String symbol,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(999),
+      onTap: onTap,
+      child: Ink(
+        width: _s(34),
+        height: _s(34),
+        decoration: const BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.white24,
+        ),
+        child: Center(
+          child: Text(
+            symbol,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: _s(20),
+              fontWeight: FontWeight.w700,
               height: 1,
             ),
           ),
@@ -1050,30 +1165,8 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
     );
   }
 
-  int get _currentSelectedWavelength => _waveOrder[_selectedWavelengthIndex];
-
   void _openSection(_ManualSection section) {
     setState(() => _section = section);
-  }
-
-  void _selectNextWavelength() {
-    setState(() {
-      _selectedWavelengthIndex =
-          (_selectedWavelengthIndex + 1).clamp(0, _waveOrder.length - 1);
-    });
-  }
-
-  void _selectPreviousWavelength() {
-    setState(() {
-      _selectedWavelengthIndex =
-          (_selectedWavelengthIndex - 1).clamp(0, _waveOrder.length - 1);
-    });
-  }
-
-  void _selectWavelengthByValue(int nm) {
-    final idx = _waveOrder.indexOf(nm);
-    if (idx == -1) return;
-    setState(() => _selectedWavelengthIndex = idx);
   }
 
   double _dimmingValue(int nm) {
@@ -1115,6 +1208,11 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
     });
   }
 
+  void _stepDimming(int nm, int delta) {
+    final next = (_dimmingValue(nm).toInt() + delta).clamp(0, 100);
+    _setDimmingValue(nm, next.toDouble());
+  }
+
   void _setPulse(int hz) {
     setState(() {
       _pulseEnabled = true;
@@ -1138,55 +1236,174 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
     });
   }
 
-  void _applyPreset(String name) {
-    final preset = _presets[name];
-    if (preset == null) return;
-
-    final values = List<int>.from(preset['freq'] as List);
+  void _applyPreset(int index) {
+    if (index < 0 || index >= _presetSlots.length) return;
+    final slot = _presetSlots[index];
     setState(() {
-      _duration = (preset['duration'] as int).toDouble();
-      final pulse = preset['pulse'] as int;
-      _pulseEnabled = pulse > 0;
-      _pulseHz = pulse.toDouble();
-      _red630 = values[0].toDouble();
-      _red660 = values[1].toDouble();
-      _nir810 = values[2].toDouble();
-      _nir830 = values[3].toDouble();
-      _nir850 = values[4].toDouble();
+      _duration = slot.duration;
+      _pulseEnabled = slot.pulseEnabled;
+      _pulseHz = slot.pulseHz;
+      _red630 = slot.w630;
+      _red660 = slot.w660;
+      _nir810 = slot.w810;
+      _nir830 = slot.w830;
+      _nir850 = slot.w850;
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Preset '$name' aplicado")),
+      SnackBar(content: Text("Preset '${slot.name}' aplicado")),
     );
   }
 
-  void _saveCurrentAsPreset(BuildContext context) {
-    final state = context.read<AppState>();
-    final presetName =
-        'Custom ${DateTime.now().hour}:${DateTime.now().minute.toString().padLeft(2, '0')}';
+  _ManualConfigSnapshot _currentSnapshot() {
+    return _ManualConfigSnapshot(
+      duration: _duration,
+      pulseHz: _pulseHz,
+      pulseEnabled: _pulseEnabled,
+      w630: _red630,
+      w660: _red660,
+      w810: _nir810,
+      w830: _nir830,
+      w850: _nir850,
+    );
+  }
 
-    final custom = Tratamiento(
-      id: 'manual_preset_${DateTime.now().millisecondsSinceEpoch}',
-      nombre: presetName,
-      zona: 'Manual',
-      descripcion: 'Preset guardado desde configuracion manual',
-      sintomas: 'Personalizado',
-      hz: !_pulseEnabled || _pulseHz == 0 ? 'CW' : '${_pulseHz.toInt()}Hz',
-      duracion: _duration.toInt().toString(),
-      frecuencias: [
-        {'nm': 630, 'p': _red630.toInt()},
-        {'nm': 660, 'p': _red660.toInt()},
-        {'nm': 810, 'p': _nir810.toInt()},
-        {'nm': 830, 'p': _nir830.toInt()},
-        {'nm': 850, 'p': _nir850.toInt()},
-      ],
-      esCustom: true,
+  _ManualConfigSnapshot? _snapshotFromActiveTreatment(AppState appState) {
+    final t = appState.tratamientoActivoActual;
+    if (t == null) return null;
+
+    double parseNm(int nm) {
+      for (final f in t.frecuencias) {
+        final fnm = (f['nm'] as num?)?.toInt();
+        if (fnm == nm) {
+          final value = ((f['p'] as num?)?.toDouble() ?? 0).clamp(0, 100);
+          return value.toDouble();
+        }
+      }
+      return 0;
+    }
+
+    final duration = (int.tryParse(t.duracion) ?? 10).clamp(1, 60).toDouble();
+    final hzMatch = RegExp(r'(\d+)').firstMatch(t.hz);
+    final hz = hzMatch != null ? int.parse(hzMatch.group(1)!).toDouble() : 0.0;
+    final isPulse = hz > 0 && !t.hz.toUpperCase().contains('CW');
+
+    return _ManualConfigSnapshot(
+      duration: duration,
+      pulseHz: isPulse ? hz : 0.0,
+      pulseEnabled: isPulse,
+      w630: parseNm(630),
+      w660: parseNm(660),
+      w810: parseNm(810),
+      w830: parseNm(830),
+      w850: parseNm(850),
+    );
+  }
+
+  void _applySnapshotToEditor(_ManualConfigSnapshot snapshot) {
+    setState(() {
+      _duration = snapshot.duration;
+      _pulseHz = snapshot.pulseHz;
+      _pulseEnabled = snapshot.pulseEnabled;
+      _red630 = snapshot.w630;
+      _red660 = snapshot.w660;
+      _nir810 = snapshot.w810;
+      _nir830 = snapshot.w830;
+      _nir850 = snapshot.w850;
+    });
+  }
+
+  Future<void> _handleSetPressed(AppState appState) async {
+    if (appState.hayCicloActivo) {
+      final active = _snapshotFromActiveTreatment(appState);
+      if (active != null) {
+        _applySnapshotToEditor(active);
+      }
+      await appState.detenerPanelActivo();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Panel detenido. Ajusta parametros y pulsa RUN.')),
+      );
+    }
+    if (!mounted) return;
+    setState(() => _section = _ManualSection.menu);
+  }
+
+  Future<void> _showSavePresetDialog() async {
+    int selectedIndex = 0;
+    final controller = TextEditingController(text: _presetSlots.first.name);
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return AlertDialog(
+              title: const Text('Guardar preset'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DropdownButtonFormField<int>(
+                    initialValue: selectedIndex,
+                    decoration: const InputDecoration(labelText: 'Slot'),
+                    items: List.generate(
+                      _presetSlots.length,
+                      (i) => DropdownMenuItem(
+                        value: i,
+                        child: Text('Preset ${i + 1}'),
+                      ),
+                    ),
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setDialogState(() {
+                        selectedIndex = value;
+                        controller.text = _presetSlots[value].name;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: controller,
+                    maxLength: 20,
+                    decoration: const InputDecoration(labelText: 'Nombre'),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: const Text('Cancelar'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  child: const Text('Guardar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
 
-    state.agregarTratamientoCatalogo(custom);
+    if (confirmed != true) return;
+
+    final rawName = controller.text.trim();
+    final nextName = rawName.isEmpty ? 'Preset ${selectedIndex + 1}' : rawName;
+    final slot = _presetSlots[selectedIndex];
+    setState(() {
+      slot.name = nextName;
+      slot.duration = _duration;
+      slot.pulseHz = _pulseEnabled ? _pulseHz : 0;
+      slot.w630 = _red630;
+      slot.w660 = _red660;
+      slot.w810 = _nir810;
+      slot.w830 = _nir830;
+      slot.w850 = _nir850;
+    });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Guardado como '$presetName' en catalogo")),
+      SnackBar(content: Text("Guardado en '${slot.name}'")),
     );
   }
 
@@ -1202,8 +1419,10 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
     );
   }
 
-  void _runManualTreatment(BuildContext context) {
+  Future<void> _runManualTreatment(BuildContext context) async {
     final state = context.read<AppState>();
+    await state.detenerPanelActivo();
+    if (!context.mounted) return;
 
     final manualT = Tratamiento(
       id: 'manual_${DateTime.now().millisecondsSinceEpoch}',
@@ -1227,6 +1446,9 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
       sequenceMode: _sequenceMode,
       workMode: _workMode,
     );
+    if (mounted) {
+      setState(() => _section = _ManualSection.home);
+    }
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Enviando configuracion al dispositivo...')),
