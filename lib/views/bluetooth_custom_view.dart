@@ -63,11 +63,13 @@ class BluetoothCustomView extends StatefulWidget {
     this.onGoToTreatments,
     this.onBackToTreatments,
     this.homeBackTarget = ManualHomeBackTarget.manualMenu,
+    this.startInHome = false,
   });
 
   final VoidCallback? onGoToTreatments;
   final VoidCallback? onBackToTreatments;
   final ManualHomeBackTarget homeBackTarget;
+  final bool startInHome;
 
   @override
   State<BluetoothCustomView> createState() => _BluetoothCustomViewState();
@@ -157,6 +159,9 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
   @override
   void initState() {
     super.initState();
+    if (widget.startInHome) {
+      _section = _ManualSection.home;
+    }
     _logSub = BleManager().logs.listen((log) {
       if (!mounted) return;
       setState(() {
@@ -172,6 +177,14 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
   void dispose() {
     _logSub?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant BluetoothCustomView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!oldWidget.startInHome && widget.startInHome) {
+      setState(() => _section = _ManualSection.home);
+    }
   }
 
   @override
@@ -346,7 +359,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
       case _ManualSection.menu:
         return _buildMainMenu();
       case _ManualSection.onOff:
-        return _buildOnOffContent(isConnected);
+        return _buildOnOffContent(appState: appState, isConnected: isConnected);
       case _ManualSection.time:
         return _buildTimeContent(isConnected);
       case _ManualSection.dimming:
@@ -550,7 +563,10 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
     );
   }
 
-  Widget _buildOnOffContent(bool isConnected) {
+  Widget _buildOnOffContent({
+    required AppState appState,
+    required bool isConnected,
+  }) {
     return Column(
       children: [
         Row(
@@ -559,7 +575,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
               child: _buildActionTile(
                 label: 'ON',
                 selected: _powerShouldBeOn,
-                onTap: () => setState(() => _powerShouldBeOn = true),
+                onTap: () => _handleOnFromOnOff(isConnected),
               ),
             ),
             SizedBox(width: _s(14)),
@@ -567,7 +583,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
               child: _buildActionTile(
                 label: 'OFF',
                 selected: !_powerShouldBeOn,
-                onTap: () => setState(() => _powerShouldBeOn = false),
+                onTap: () => _handleOffFromOnOff(appState),
               ),
             ),
           ],
@@ -581,11 +597,6 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
             letterSpacing: 2,
             fontFamily: 'monospace',
           ),
-        ),
-        SizedBox(height: _s(14)),
-        _buildRunButton(
-          enabled: isConnected,
-          onTap: () => _applyPowerSelection(context),
         ),
       ],
     );
@@ -1451,18 +1462,6 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
     );
   }
 
-  Future<void> _applyPowerSelection(BuildContext context) async {
-    await BleManager().write(BleProtocol.setPower(_powerShouldBeOn));
-    if (!context.mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-            _powerShouldBeOn ? 'Comando ON enviado' : 'Comando OFF enviado'),
-      ),
-    );
-  }
-
   Future<void> _runManualTreatment(BuildContext context) async {
     final state = context.read<AppState>();
     final activeBeforeStop = _snapshotFromActiveTreatment(state);
@@ -1501,6 +1500,22 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Enviando configuracion al dispositivo...')),
     );
+  }
+
+  Future<void> _handleOnFromOnOff(bool isConnected) async {
+    setState(() => _powerShouldBeOn = true);
+    if (!isConnected) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Conecta el panel para ejecutar ON/RUN.')),
+      );
+      return;
+    }
+    await _runManualTreatment(context);
+  }
+
+  Future<void> _handleOffFromOnOff(AppState appState) async {
+    setState(() => _powerShouldBeOn = false);
+    await _stopActiveTreatmentFromHome(appState);
   }
 
   Future<void> _stopActiveTreatmentFromHome(AppState appState) async {

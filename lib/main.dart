@@ -3308,6 +3308,7 @@ class _ConfigurarTratamientosViewState
         return ClinicaView(onOpenControlManual: _openControlManualPage);
       case _ConfigTratamientosPage.control:
         return BluetoothCustomView(
+          startInHome: true,
           homeBackTarget: ManualHomeBackTarget.treatments,
           onGoToTreatments: () =>
               setState(() => _page = _ConfigTratamientosPage.menu),
