@@ -1469,6 +1469,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
       _applySnapshotToEditor(activeBeforeStop);
     }
     await state.detenerPanelActivo();
+    await Future.delayed(const Duration(milliseconds: 320));
     if (!context.mounted) return;
 
     final manualT = Tratamiento(
@@ -1487,7 +1488,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
       ],
     );
 
-    state.iniciarCicloManual(
+    await state.iniciarCicloManual(
       manualT,
       startCommand: _startCommand,
       sequenceMode: _sequenceMode,
@@ -1496,6 +1497,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
     if (mounted) {
       setState(() => _section = _ManualSection.home);
     }
+    if (!context.mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Enviando configuracion al dispositivo...')),
