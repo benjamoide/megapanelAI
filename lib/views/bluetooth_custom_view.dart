@@ -94,7 +94,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
   int _sequenceMode = 0;
   int _workMode = 0;
 
-  _ManualSection _section = _ManualSection.home;
+  _ManualSection _section = _ManualSection.menu;
   bool _powerShouldBeOn = true;
   final List<String> _logs = [];
   StreamSubscription? _logSub;
@@ -418,14 +418,6 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
           label: 'STOP',
           onTap: () => _stopActiveTreatmentFromHome(appState),
         ),
-        if (widget.onGoToTreatments != null) ...[
-          SizedBox(height: _s(10)),
-          _buildRunButton(
-            enabled: true,
-            label: 'TRATAMIENTOS',
-            onTap: _openTreatmentsFromHome,
-          ),
-        ],
       ],
     );
   }
@@ -550,6 +542,10 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
         SizedBox(height: _s(13)),
         _buildMenuButton('PRESETS',
             onTap: () => _openSection(_ManualSection.presets)),
+        if (widget.onGoToTreatments != null) ...[
+          SizedBox(height: _s(13)),
+          _buildMenuButton('TRATAMIENTOS', onTap: _openTreatmentsFromHome),
+        ],
       ],
     );
   }
