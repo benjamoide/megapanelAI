@@ -71,15 +71,6 @@ const List<String> ZONAS_SIMETRICAS = [
   "Cadera"
 ];
 
-const Color kManualBg = Color(0xFFE8EDF5);
-const Color kManualGradStart = Color(0xFF1ED6CD);
-const Color kManualGradEnd = Color(0xFF4B86ED);
-const LinearGradient kManualGradient = LinearGradient(
-  colors: [kManualGradStart, kManualGradEnd],
-  begin: Alignment.centerLeft,
-  end: Alignment.centerRight,
-);
-
 // ==============================================================================
 // 2. MODELOS DE DATOS
 // ==============================================================================
@@ -222,8 +213,7 @@ class CardioSession {
     if (type == "Protocolo Noruego") {
       details = "Noruego (4x4) - $machine. ";
       if (machine == "Cinta") details += "Vel: $speed, Inc: $incline";
-      if (machine == "Elíptica")
-      {
+      if (machine == "Elíptica") {
         details += "Res: ${resistance.toInt()}, W: ${watts.toInt()}";
       }
       if (machine == "Remo") details += "Res: ${resistance.toInt()}";
@@ -398,7 +388,9 @@ final List<Tratamiento> DB_DEFINICIONES = [
       ],
       hz: "CW",
       duracion: "18",
-      prohibidos: ["Urgencias si hay deficit neurologico o sintomas de cauda equina."]),
+      prohibidos: [
+        "Urgencias si hay deficit neurologico o sintomas de cauda equina."
+      ]),
 
   // ANTEBRAZO
   Tratamiento(
@@ -489,7 +481,9 @@ final List<Tratamiento> DB_DEFINICIONES = [
       ],
       hz: "CW",
       duracion: "13",
-      prohibidos: ["No usar si hay edema importante o desgarro mayor sospechado."]),
+      prohibidos: [
+        "No usar si hay edema importante o desgarro mayor sospechado."
+      ]),
   Tratamiento(
       id: "pierna_fem",
       nombre: "Sobrecarga Femoral",
@@ -585,7 +579,8 @@ final List<Tratamiento> DB_DEFINICIONES = [
       zona: "Hombro",
       descripcion: "Tendinopatia del supraespinoso (manguito rotador).",
       sintomas: "Dolor en elevacion y arco doloroso subacromial.",
-      posicion: "5-15cm sobre insercion del supraespinoso y espacio subacromial.",
+      posicion:
+          "5-15cm sobre insercion del supraespinoso y espacio subacromial.",
       frecuencias: [
         {'nm': 630, 'p': 0},
         {'nm': 660, 'p': 20},
@@ -651,7 +646,9 @@ final List<Tratamiento> DB_DEFINICIONES = [
       ],
       hz: "CW",
       duracion: "12",
-      prohibidos: ["No usar si hay sospecha de rotura parcial alta o completa."]),
+      prohibidos: [
+        "No usar si hay sospecha de rotura parcial alta o completa."
+      ]),
   Tratamiento(
       id: "tob_aquiles",
       nombre: "Tendinopatia de Aquiles",
@@ -820,14 +817,17 @@ final List<Tratamiento> DB_DEFINICIONES = [
       ],
       hz: "CW",
       duracion: "10",
-      prohibidos: ["No usar con dermatitis activa o fotosensibilidad marcada."]),
+      prohibidos: [
+        "No usar con dermatitis activa o fotosensibilidad marcada."
+      ]),
   Tratamiento(
       id: "anti_cuello",
       nombre: "Antiaging Cuello",
       zona: "Piel",
       descripcion: "Coadyuvante para fotoenvejecimiento en cuello.",
       sintomas: "Flacidez y lineas finas cervicales.",
-      posicion: "20-30cm sobre cuello anterior y lateral, evitando tiroides directa.",
+      posicion:
+          "20-30cm sobre cuello anterior y lateral, evitando tiroides directa.",
       frecuencias: [
         {'nm': 630, 'p': 45},
         {'nm': 660, 'p': 45},
@@ -969,7 +969,10 @@ final List<Tratamiento> DB_DEFINICIONES = [
       ],
       hz: "CW",
       duracion: "10",
-      prohibidos: ["No usar en epilepsia fotosensible.", "Uso experimental en cognicion."]),
+      prohibidos: [
+        "No usar en epilepsia fotosensible.",
+        "Uso experimental en cognicion."
+      ]),
 
   // RECUPERACION / RENDIMIENTO / SESION (NUEVOS)
   Tratamiento(
@@ -1027,7 +1030,8 @@ final List<Tratamiento> DB_DEFINICIONES = [
       id: "perf_stab",
       nombre: "Activacion Estabilizadores (Core/Escapula)",
       zona: "Espalda",
-      descripcion: "Activacion de estabilizadores articulares antes de entrenar.",
+      descripcion:
+          "Activacion de estabilizadores articulares antes de entrenar.",
       sintomas: "Necesidad de control postural en push/pull.",
       posicion: "10-20cm paravertebral y region escapular.",
       frecuencias: [
@@ -1247,7 +1251,9 @@ final List<Tratamiento> DB_DEFINICIONES = [
       ],
       hz: "CW",
       duracion: "12",
-      prohibidos: ["No usar si hay fiebre o dolor de origen visceral no aclarado."]),
+      prohibidos: [
+        "No usar si hay fiebre o dolor de origen visceral no aclarado."
+      ]),
 
   // PIEL / ANTIAGING / CICATRIZ (NUEVOS)
   Tratamiento(
@@ -1266,7 +1272,9 @@ final List<Tratamiento> DB_DEFINICIONES = [
       ],
       hz: "CW",
       duracion: "10",
-      prohibidos: ["Evidencia clinica limitada en estrias; usar expectativas realistas."]),
+      prohibidos: [
+        "Evidencia clinica limitada en estrias; usar expectativas realistas."
+      ]),
   Tratamiento(
       id: "piel_cicat_rec",
       nombre: "Cicatriz Reciente (Cerrada)",
@@ -1654,8 +1662,18 @@ const Set<String> _idsRecuperacionPost = {
   "rec_gluteo_post",
   "rec_gemelos_post",
 };
-const Set<String> _idsRendimientoPre = {"perf_prime", "perf_stab", "perf_transfer", "sis_energ"};
-const Set<String> _idsSesionTipo = {"ses_pierna", "ses_tiron", "ses_empuje", "ses_wod"};
+const Set<String> _idsRendimientoPre = {
+  "perf_prime",
+  "perf_stab",
+  "perf_transfer",
+  "sis_energ"
+};
+const Set<String> _idsSesionTipo = {
+  "ses_pierna",
+  "ses_tiron",
+  "ses_empuje",
+  "ses_wod"
+};
 const Set<String> _idsGrasaLocalizada = {
   "fat_front",
   "fat_abd_low",
@@ -1676,7 +1694,12 @@ const Set<String> _idsPielRegenerativa = {
   "piel_quem",
   "pie_ulc"
 };
-const Set<String> _idsPielEstetica = {"face_rejuv", "anti_cuello", "anti_manos", "piel_acne"};
+const Set<String> _idsPielEstetica = {
+  "face_rejuv",
+  "anti_cuello",
+  "anti_manos",
+  "piel_acne"
+};
 const Set<String> _idsEstrias = {"piel_estrias"};
 const Set<String> _idsPulso10 = {
   "codo_epi",
@@ -1767,19 +1790,29 @@ List<String> _mergeUniqueStrings(List<String> base, List<String> extra) {
 
 List<String> _tipsAntesCientificosPorId(String id) {
   if (_idsRendimientoPre.contains(id) || _idsSesionTipo.contains(id)) {
-    return ["Dosimetria objetivo pre-sesion: 3-6 J por punto, aplicar 5-10 min antes del esfuerzo."];
+    return [
+      "Dosimetria objetivo pre-sesion: 3-6 J por punto, aplicar 5-10 min antes del esfuerzo."
+    ];
   }
   if (_idsRecuperacionPost.contains(id)) {
-    return ["Dosimetria objetivo post-sesion: 6-12 J por zona (20-100 mW/cm2), progresar segun tolerancia."];
+    return [
+      "Dosimetria objetivo post-sesion: 6-12 J por zona (20-100 mW/cm2), progresar segun tolerancia."
+    ];
   }
   if (_idsGrasaLocalizada.contains(id)) {
-    return ["Uso coadyuvante: combinar con entrenamiento y control nutricional para respuesta metabolica local."];
+    return [
+      "Uso coadyuvante: combinar con entrenamiento y control nutricional para respuesta metabolica local."
+    ];
   }
   if (_idsTriggerContractura.contains(id)) {
-    return ["Aplicar en puntos dolorosos 4-8 J por punto y reevaluar sensibilidad 24-48h."];
+    return [
+      "Aplicar en puntos dolorosos 4-8 J por punto y reevaluar sensibilidad 24-48h."
+    ];
   }
   if (_idsEstrias.contains(id)) {
-    return ["Evidencia clinica limitada en estrias; usar con expectativas conservadoras."];
+    return [
+      "Evidencia clinica limitada en estrias; usar con expectativas conservadoras."
+    ];
   }
   if (_idsTendinopatia.contains(id)) {
     return [
@@ -1787,25 +1820,39 @@ List<String> _tipsAntesCientificosPorId(String id) {
     ];
   }
   if (_idsDolorMuscular.contains(id) || _idsRodilla.contains(id)) {
-    return ["Dosimetria objetivo: 6-12 J por zona (20-100 mW/cm2), progresar segun tolerancia."];
+    return [
+      "Dosimetria objetivo: 6-12 J por zona (20-100 mW/cm2), progresar segun tolerancia."
+    ];
   }
   if (id == "mun_tunel") {
-    return ["Dosimetria objetivo: 4-8 J por punto sobre tunel carpiano, protocolo conservador."];
+    return [
+      "Dosimetria objetivo: 4-8 J por punto sobre tunel carpiano, protocolo conservador."
+    ];
   }
   if (_idsPielRegenerativa.contains(id) || id == "boca_mucos") {
-    return ["Dosimetria objetivo: 2-6 J/cm2 (irradiancia baja, sin calor en tejido lesionado)."];
+    return [
+      "Dosimetria objetivo: 2-6 J/cm2 (irradiancia baja, sin calor en tejido lesionado)."
+    ];
   }
   if (_idsPielEstetica.contains(id)) {
-    return ["Dosimetria objetivo: 4-10 J/cm2 en piel superficial, 2-4 sesiones/semana."];
+    return [
+      "Dosimetria objetivo: 4-10 J/cm2 en piel superficial, 2-4 sesiones/semana."
+    ];
   }
   if (_idsNeuroExperimental.contains(id) || _idsCefalea.contains(id)) {
-    return ["Iniciar con dosis bajas (8-10 min) y aumentar solo si no hay cefalea o agitacion post-sesion."];
+    return [
+      "Iniciar con dosis bajas (8-10 min) y aumentar solo si no hay cefalea o agitacion post-sesion."
+    ];
   }
   if (id == "sueno") {
-    return ["Aplicar por la noche (60-120 min antes de dormir), evitando luz azul intensa posterior."];
+    return [
+      "Aplicar por la noche (60-120 min antes de dormir), evitando luz azul intensa posterior."
+    ];
   }
   if (id == "fat_front") {
-    return ["Evidencia estetica: usar como coadyuvante junto a dieta/ejercicio; no reemplaza control calorico."];
+    return [
+      "Evidencia estetica: usar como coadyuvante junto a dieta/ejercicio; no reemplaza control calorico."
+    ];
   }
   return [];
 }
@@ -1890,7 +1937,9 @@ List<String> _tipsDespuesCientificosPorId(String id) {
     ];
   }
   if (id == "mun_art") {
-    return ["Fuente: WALT PBM Recommendations (articulaciones perifericas, recomendacion por dosis)."];
+    return [
+      "Fuente: WALT PBM Recommendations (articulaciones perifericas, recomendacion por dosis)."
+    ];
   }
   if (id == "cara_atm") {
     return [
@@ -1899,7 +1948,9 @@ List<String> _tipsDespuesCientificosPorId(String id) {
     ];
   }
   if (id == "piel_cicat") {
-    return ["Fuente: PubMed PMID:36045183 (830nm para prevencion de cicatriz)."];
+    return [
+      "Fuente: PubMed PMID:36045183 (830nm para prevencion de cicatriz)."
+    ];
   }
   if (id == "piel_acne") {
     return [
@@ -1908,7 +1959,9 @@ List<String> _tipsDespuesCientificosPorId(String id) {
     ];
   }
   if (id == "piel_quem" || id == "pie_ulc") {
-    return ["Fuente: PubMed PMID:39172550 (revision/meta PBM en cicatrizacion de heridas y quemaduras)."];
+    return [
+      "Fuente: PubMed PMID:39172550 (revision/meta PBM en cicatrizacion de heridas y quemaduras)."
+    ];
   }
   if (id == "boca_mucos") {
     return [
@@ -1960,15 +2013,19 @@ List<String> _fuentesMultibasePorId(String id) {
     "Revistas priorizadas: Photobiomodulation, Photomedicine, and Laser Surgery; Lasers in Medical Science; Lasers in Surgery and Medicine; Journal of Biophotonics; Journal of Photochemistry and Photobiology B; Journal of Clinical Laser Medicine & Surgery; Journal of NeuroEngineering and Rehabilitation; Clinical Rehabilitation.",
   ];
   if (_idsNeuroExperimental.contains(id) || id == "testo") {
-    common.add("ClinicalTrials.gov y preprints (bioRxiv/arXiv) se usan como evidencia preliminar, no para fijar dosis definitivas.");
+    common.add(
+        "ClinicalTrials.gov y preprints (bioRxiv/arXiv) se usan como evidencia preliminar, no para fijar dosis definitivas.");
   }
   return common;
 }
 
 List<String> _prohibidosExtraPorId(String id) {
-  final extra = <String>["No irradiar ojos directamente; usar gafas de proteccion."];
+  final extra = <String>[
+    "No irradiar ojos directamente; usar gafas de proteccion."
+  ];
   if (id == "testo" || id == "cab_brain" || id == "sueno") {
-    extra.add("Evidencia clinica aun limitada; usar solo como protocolo complementario.");
+    extra.add(
+        "Evidencia clinica aun limitada; usar solo como protocolo complementario.");
   }
   if (id == "pie_ulc" || id == "boca_mucos") {
     extra.add("Usar con seguimiento clinico y control de infeccion.");
@@ -1982,19 +2039,23 @@ List<String> _prohibidosExtraPorId(String id) {
 Tratamiento _aplicarActualizacionCientifica(Tratamiento t) {
   var hz = t.hz;
   var duracion = t.duracion;
-  var frecuencias =
-      List<Map<String, dynamic>>.from(t.frecuencias.map((f) => {'nm': f['nm'], 'p': f['p']}));
+  var frecuencias = List<Map<String, dynamic>>.from(
+      t.frecuencias.map((f) => {'nm': f['nm'], 'p': f['p']}));
 
   if (_idsPulso10.contains(t.id)) hz = "10Hz";
   if (t.id == "cab_brain") hz = "40Hz";
 
-  if (_idsRecuperacionPost.contains(t.id)) frecuencias = _copyFrecuencias(_mixDolorMuscular);
-  if (_idsTendinopatia.contains(t.id)) frecuencias = _copyFrecuencias(_mixDeepTendon);
-  if (_idsDolorMuscular.contains(t.id)) frecuencias = _copyFrecuencias(_mixDolorMuscular);
+  if (_idsRecuperacionPost.contains(t.id))
+    frecuencias = _copyFrecuencias(_mixDolorMuscular);
+  if (_idsTendinopatia.contains(t.id))
+    frecuencias = _copyFrecuencias(_mixDeepTendon);
+  if (_idsDolorMuscular.contains(t.id))
+    frecuencias = _copyFrecuencias(_mixDolorMuscular);
   if (_idsRodilla.contains(t.id)) frecuencias = _copyFrecuencias(_mixRodilla);
   if (t.id == "mun_tunel") frecuencias = _copyFrecuencias(_mixTunelCarpiano);
   if (_idsCefalea.contains(t.id)) frecuencias = _copyFrecuencias(_mixCefalea);
-  if (t.id == "cab_brain") frecuencias = _copyFrecuencias(_mixNeuroExperimental);
+  if (t.id == "cab_brain")
+    frecuencias = _copyFrecuencias(_mixNeuroExperimental);
   if (t.id == "sueno") frecuencias = _copyFrecuencias(_mixSueno);
   if (_idsPielRegenerativa.contains(t.id) || t.id == "boca_mucos") {
     frecuencias = _copyFrecuencias(_mixPielRegenerativa);
@@ -2004,7 +2065,8 @@ Tratamiento _aplicarActualizacionCientifica(Tratamiento t) {
   if (t.id == "cab_brain" || t.id == "cab_migr") duracion = "10";
   if (t.id == "boca_mucos") duracion = "8";
   if (t.id == "pie_ulc") duracion = "10";
-  if (_idsRendimientoPre.contains(t.id) || _idsSesionTipo.contains(t.id)) duracion = "8";
+  if (_idsRendimientoPre.contains(t.id) || _idsSesionTipo.contains(t.id))
+    duracion = "8";
   if (_idsGrasaLocalizada.contains(t.id)) duracion = "18";
 
   return Tratamiento(
@@ -2017,7 +2079,8 @@ Tratamiento _aplicarActualizacionCientifica(Tratamiento t) {
     hz: hz,
     duracion: duracion,
     frecuencias: frecuencias,
-    tipsAntes: _mergeUniqueStrings(t.tipsAntes, _tipsAntesCientificosPorId(t.id)),
+    tipsAntes:
+        _mergeUniqueStrings(t.tipsAntes, _tipsAntesCientificosPorId(t.id)),
     tipsDespues: _mergeUniqueStrings(
         _mergeUniqueStrings(t.tipsDespues, _tipsDespuesCientificosPorId(t.id)),
         _fuentesMultibasePorId(t.id)),
@@ -2295,7 +2358,8 @@ class AppState extends ChangeNotifier {
       try {
         final t = catalogo.firstWhere((e) => e.id == id);
         print("BLE: Starting Treatment '${t.nombre}'");
-        print("BLE: Params -> duracion=${t.duracion} min, hz='${t.hz}', frecuencias=${t.frecuencias}");
+        print(
+            "BLE: Params -> duracion=${t.duracion} min, hz='${t.hz}', frecuencias=${t.frecuencias}");
 
         // Force a clean baseline before applying parameters.
         await _bleManager.write(BleProtocol.setPower(false));
@@ -2412,7 +2476,8 @@ class AppState extends ChangeNotifier {
 
   /// Starts a manual treatment not in the catalog
   /// [sequenceMode]: 0=Params->Start, 1=Params only, 2=Start->Params, 3=Stop->Params->Start
-  Future<void> iniciarCicloManual(Tratamiento t, {int startCommand = 0x21, int sequenceMode = 0, int workMode = 0}) async {
+  Future<void> iniciarCicloManual(Tratamiento t,
+      {int startCommand = 0x21, int sequenceMode = 0, int workMode = 0}) async {
     final tempId = t.id;
 
     ciclosActivos[tempId] = {
@@ -2422,7 +2487,8 @@ class AppState extends ChangeNotifier {
 
     if (isConnected) {
       try {
-        print("BLE: Starting Manual Treatment (Seq: $sequenceMode, Cmd: $startCommand, Mode: $workMode)");
+        print(
+            "BLE: Starting Manual Treatment (Seq: $sequenceMode, Cmd: $startCommand, Mode: $workMode)");
         bool started = false;
 
         Future<void> stop() async {
@@ -2481,9 +2547,8 @@ class AppState extends ChangeNotifier {
   Future<void> detenerCiclo(String id) async {
     if (ciclosActivos.containsKey(id)) {
       ciclosActivos[id]!['activo'] = false;
-      ciclosActivos[id]!['fin'] =
-          DateFormat('HH:mm:ss').format(DateTime.now());
-          
+      ciclosActivos[id]!['fin'] = DateFormat('HH:mm:ss').format(DateTime.now());
+
       // BLE Command: Turn Off
       if (isConnected) {
         await _bleManager.write(BleProtocol.setPower(false));
@@ -2871,100 +2936,6 @@ class _MainLayoutState extends State<MainLayout> {
   }
 }
 
-class _ManualSectionHeader extends StatelessWidget {
-  final String title;
-  final IconData icon;
-  const _ManualSectionHeader({required this.title, required this.icon});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        gradient: kManualGradient,
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: Colors.white),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-                fontSize: 18,
-                letterSpacing: 0.6,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ManualGradientActionButton extends StatelessWidget {
-  final String label;
-  final IconData? icon;
-  final VoidCallback? onPressed;
-  final bool compact;
-
-  const _ManualGradientActionButton({
-    required this.label,
-    required this.onPressed,
-    this.icon,
-    this.compact = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Opacity(
-      opacity: onPressed == null ? 0.5 : 1,
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(compact ? 14 : 18),
-        child: InkWell(
-          onTap: onPressed,
-          borderRadius: BorderRadius.circular(compact ? 14 : 18),
-          child: Ink(
-            decoration: BoxDecoration(
-              gradient: kManualGradient,
-              borderRadius: BorderRadius.circular(compact ? 14 : 18),
-            ),
-            padding: EdgeInsets.symmetric(
-                horizontal: compact ? 12 : 16, vertical: compact ? 8 : 12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (icon != null) ...[
-                  Icon(icon, color: Colors.white, size: compact ? 16 : 18),
-                  const SizedBox(width: 8),
-                ],
-                Flexible(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                      fontSize: compact ? 13 : 15,
-                    ),
-                  ),
-                )
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 // --- CONTENIDO DEL SIDEBAR (REUTILIZABLE) ---
 class _SidebarContent extends StatelessWidget {
   final int selectedIndex;
@@ -2979,106 +2950,100 @@ class _SidebarContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     var state = context.watch<AppState>();
-    return Container(
-      color: kManualBg,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (isMobile)
-            const SizedBox(height: 32)
-          else
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
-              child: _ManualSectionHeader(
-                title: "HOLA, ${state.currentUser.toUpperCase()}",
-                icon: Icons.person_outline,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (isMobile)
+          const SizedBox(height: 40)
+        else
+          Padding(
+              padding: const EdgeInsets.all(20),
+              child: Text("Hola, ${state.currentUser}",
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 16))),
+        _SidebarItem(
+            icon: Icons.tune,
+            label: "Configurar Tratamientos",
+            selected: selectedIndex == 0,
+            onTap: () {
+              onItemSelected(0);
+              if (isMobile) Navigator.pop(context);
+            }),
+        const Divider(),
+        _SidebarItem(
+            icon: Icons.auto_awesome,
+            label: "Buscador AI",
+            selected: selectedIndex == 1,
+            onTap: () {
+              onItemSelected(1);
+              if (isMobile) Navigator.pop(context);
+            }),
+        _SidebarItem(
+            icon: Icons.settings,
+            label: "Gestionar",
+            selected: selectedIndex == 2,
+            onTap: () {
+              onItemSelected(2);
+              if (isMobile) Navigator.pop(context);
+            }),
+        _SidebarItem(
+            icon: Icons.settings_remote,
+            label: "Control Manual",
+            selected: selectedIndex == 3,
+            onTap: () {
+              onItemSelected(3);
+              if (isMobile) Navigator.pop(context);
+            }),
+        const Spacer(),
+        // Bluetooth Disconnect Button
+        if (state.isConnected)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
+            child: SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                icon:
+                    const Icon(Icons.bluetooth_disabled, color: Colors.indigo),
+                label: const Text("Desconectar",
+                    style: TextStyle(color: Colors.indigo)),
+                style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.indigo)),
+                onPressed: () {
+                  state.disconnectDevice();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Bluetooth Desconectado")));
+                  if (isMobile) Navigator.pop(context);
+                },
               ),
             ),
-          _SidebarItem(
-              icon: Icons.tune,
-              label: "Configurar Tratamientos",
-              selected: selectedIndex == 0,
-              onTap: () {
-                onItemSelected(0);
-                if (isMobile) Navigator.pop(context);
-              }),
-          const SizedBox(height: 4),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 18),
-            child: Divider(height: 1, color: Color(0xFFBFD5E8)),
           ),
-          const SizedBox(height: 6),
-          _SidebarItem(
-              icon: Icons.auto_awesome,
-              label: "Buscador AI",
-              selected: selectedIndex == 1,
-              onTap: () {
-                onItemSelected(1);
-                if (isMobile) Navigator.pop(context);
-              }),
-          _SidebarItem(
-              icon: Icons.settings,
-              label: "Gestionar",
-              selected: selectedIndex == 2,
-              onTap: () {
-                onItemSelected(2);
-                if (isMobile) Navigator.pop(context);
-              }),
-          _SidebarItem(
-              icon: Icons.settings_remote,
-              label: "Control Manual",
-              selected: selectedIndex == 3,
-              onTap: () {
-                onItemSelected(3);
-                if (isMobile) Navigator.pop(context);
-              }),
-          const Spacer(),
-          if (state.isConnected)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
-              child: SizedBox(
+        Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
+            child: SizedBox(
                 width: double.infinity,
-                child: _ManualGradientActionButton(
-                  label: "Desconectar",
-                  icon: Icons.bluetooth_disabled,
-                  onPressed: () {
-                    state.disconnectDevice();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("Bluetooth Desconectado")));
-                    if (isMobile) Navigator.pop(context);
-                  },
-                ),
-              ),
-            ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
-            child: SizedBox(
-              width: double.infinity,
-              child: _ManualGradientActionButton(
-                label: state.isConnected ? "Conectado" : "Conectar Panel",
-                icon: state.isConnected
-                    ? Icons.bluetooth_connected
-                    : Icons.bluetooth,
-                onPressed: () => showDialog(
-                  context: context,
-                  builder: (_) => const BluetoothScanDialog(),
-                ),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 5, 16, 20),
-            child: SizedBox(
-              width: double.infinity,
-              child: _ManualGradientActionButton(
-                label: "Salir",
-                icon: Icons.logout,
+                child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: state.isConnected
+                            ? Colors.green.shade600
+                            : Colors.blue.shade700,
+                        foregroundColor: Colors.white),
+                    icon: Icon(
+                        state.isConnected
+                            ? Icons.bluetooth_connected
+                            : Icons.bluetooth,
+                        size: 20),
+                    label: Text(
+                        state.isConnected ? "Conectado" : "Conectar Panel"),
+                    onPressed: () => showDialog(
+                        context: context,
+                        builder: (_) => const BluetoothScanDialog())))),
+        Padding(
+            padding: const EdgeInsets.all(20),
+            child: OutlinedButton.icon(
                 onPressed: state.logout,
-              ),
-            ),
-          )
-        ],
-      ),
+                icon: const Icon(Icons.logout, size: 16),
+                label: const Text("Salir")))
+      ],
     );
   }
 }
@@ -3100,16 +3065,13 @@ class _MobileLayout extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
           title: const Text("Mega Panel AI"),
-          backgroundColor: kManualBg,
-          foregroundColor: const Color(0xFF255F86),
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.black,
           elevation: 0),
       drawer: Drawer(
-          backgroundColor: kManualBg,
           child: _SidebarContent(
               selectedIndex: idx, onItemSelected: onNav, isMobile: true)),
-      body: Container(
-          color: kManualBg,
-          child: Padding(padding: const EdgeInsets.all(16), child: pages[idx])),
+      body: Padding(padding: const EdgeInsets.all(16), child: pages[idx]),
     );
   }
 }
@@ -3133,16 +3095,14 @@ class _DesktopLayout extends StatelessWidget {
         children: [
           Container(
               width: 260,
-              color: kManualBg,
+              color: const Color(0xFFF0F2F6),
               child:
                   _SidebarContent(selectedIndex: idx, onItemSelected: onNav)),
           Expanded(
-              child: Container(
-                  color: kManualBg,
-                  child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 40, vertical: 20),
-                      child: pages[idx])))
+              child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+                  child: pages[idx]))
         ],
       ),
     );
@@ -3162,56 +3122,31 @@ class _SidebarItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(18),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(18),
-          child: Ink(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              gradient: kManualGradient,
-              boxShadow: selected
-                  ? const [
-                      BoxShadow(
-                        color: Color(0x332B86E7),
-                        blurRadius: 10,
-                        offset: Offset(0, 3),
-                      )
-                    ]
-                  : null,
-            ),
-            child: Opacity(
-              opacity: selected ? 1 : 0.78,
-              child: Row(
-                children: [
-                  Icon(icon, size: 20, color: Colors.white),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      label,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight:
-                            selected ? FontWeight.w700 : FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        color: selected ? Colors.white : null,
+        child: Row(
+          children: [
+            Icon(icon,
+                size: 20,
+                color: selected ? const Color(0xFFB71C1C) : Colors.grey[700]),
+            const SizedBox(width: 10),
+            Text(label,
+                style: TextStyle(
+                    color:
+                        selected ? const Color(0xFFB71C1C) : Colors.grey[800],
+                    fontWeight:
+                        selected ? FontWeight.bold : FontWeight.normal)),
+          ],
         ),
       ),
     );
   }
 }
 
-enum _TratamientosSubmenuPage { menu, diario, semanal, historial, clinica }
+enum _ConfigTratamientosPage { menu, diario, semanal, historial, clinica }
 
 class ConfigurarTratamientosView extends StatefulWidget {
   const ConfigurarTratamientosView({super.key});
@@ -3221,113 +3156,323 @@ class ConfigurarTratamientosView extends StatefulWidget {
       _ConfigurarTratamientosViewState();
 }
 
-class _ConfigurarTratamientosViewState extends State<ConfigurarTratamientosView> {
-  _TratamientosSubmenuPage _page = _TratamientosSubmenuPage.menu;
+class _ConfigurarTratamientosViewState
+    extends State<ConfigurarTratamientosView> {
+  static const Color _bg = Color(0xFFE8EDF5);
+  static const Color _gradStart = Color(0xFF1ED6CD);
+  static const Color _gradEnd = Color(0xFF4B86ED);
 
-  String get _subtitle {
+  _ConfigTratamientosPage _page = _ConfigTratamientosPage.menu;
+
+  String get _title {
     switch (_page) {
-      case _TratamientosSubmenuPage.diario:
-        return "Panel Diario";
-      case _TratamientosSubmenuPage.semanal:
-        return "Panel Semanal";
-      case _TratamientosSubmenuPage.historial:
-        return "Historial";
-      case _TratamientosSubmenuPage.clinica:
-        return "Clínica";
-      case _TratamientosSubmenuPage.menu:
-        return "Configurar Tratamientos";
+      case _ConfigTratamientosPage.diario:
+        return "PANEL DIARIO";
+      case _ConfigTratamientosPage.semanal:
+        return "PANEL SEMANAL";
+      case _ConfigTratamientosPage.historial:
+        return "HISTORIAL";
+      case _ConfigTratamientosPage.clinica:
+        return "CLINICA";
+      case _ConfigTratamientosPage.menu:
+        return "CONFIGURAR TRATAMIENTOS";
     }
   }
 
-  Widget _submenuButton({
+  Widget _buildGradientMenuButton({
     required String label,
     required IconData icon,
     required VoidCallback onTap,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: _ManualGradientActionButton(
-        label: label,
-        icon: icon,
-        onPressed: onTap,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
+          child: Ink(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              gradient: const LinearGradient(colors: [_gradStart, _gradEnd]),
+            ),
+            child: Row(
+              children: [
+                Icon(icon, color: Colors.white),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16),
+                  ),
+                )
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
 
-  Widget _currentView() {
+  Widget _currentPage() {
     switch (_page) {
-      case _TratamientosSubmenuPage.diario:
+      case _ConfigTratamientosPage.diario:
         return const PanelDiarioView();
-      case _TratamientosSubmenuPage.semanal:
+      case _ConfigTratamientosPage.semanal:
         return const PanelSemanalView();
-      case _TratamientosSubmenuPage.historial:
+      case _ConfigTratamientosPage.historial:
         return const HistorialView();
-      case _TratamientosSubmenuPage.clinica:
+      case _ConfigTratamientosPage.clinica:
         return const ClinicaView();
-      case _TratamientosSubmenuPage.menu:
+      case _ConfigTratamientosPage.menu:
         return const SizedBox.shrink();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final inMenu = _page == _TratamientosSubmenuPage.menu;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _ManualSectionHeader(
-            title: inMenu ? "CONFIGURAR TRATAMIENTOS" : _subtitle.toUpperCase(),
-            icon: inMenu ? Icons.tune : Icons.arrow_forward_ios),
-        const SizedBox(height: 12),
-        if (!inMenu)
-          Align(
-            alignment: Alignment.centerLeft,
-            child: _ManualGradientActionButton(
-              label: "Volver al submenú",
-              icon: Icons.arrow_back,
-              compact: true,
-              onPressed: () {
-                setState(() => _page = _TratamientosSubmenuPage.menu);
-              },
+    final inMenu = _page == _ConfigTratamientosPage.menu;
+    return Container(
+      color: _bg,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(colors: [_gradStart, _gradEnd]),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              children: [
+                if (!inMenu)
+                  InkWell(
+                    onTap: () =>
+                        setState(() => _page = _ConfigTratamientosPage.menu),
+                    borderRadius: BorderRadius.circular(99),
+                    child: const Padding(
+                      padding: EdgeInsets.all(4),
+                      child: Icon(Icons.arrow_back, color: Colors.white),
+                    ),
+                  ),
+                if (!inMenu) const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _title,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 18,
+                        letterSpacing: 0.4),
+                  ),
+                )
+              ],
             ),
           ),
-        if (!inMenu) const SizedBox(height: 12),
-        Expanded(
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 180),
-            child: inMenu
-                ? ListView(
-                    key: const ValueKey("menu"),
-                    children: [
-                      _submenuButton(
-                          label: "Panel Diario",
-                          icon: Icons.calendar_today,
-                          onTap: () => setState(
-                              () => _page = _TratamientosSubmenuPage.diario)),
-                      _submenuButton(
-                          label: "Panel Semanal",
-                          icon: Icons.calendar_month,
-                          onTap: () => setState(
-                              () => _page = _TratamientosSubmenuPage.semanal)),
-                      _submenuButton(
-                          label: "Historial",
-                          icon: Icons.history,
-                          onTap: () => setState(
-                              () => _page = _TratamientosSubmenuPage.historial)),
-                      _submenuButton(
-                          label: "Clínica",
-                          icon: Icons.medical_services,
-                          onTap: () => setState(
-                              () => _page = _TratamientosSubmenuPage.clinica)),
-                    ],
-                  )
-                : KeyedSubtree(
-                    key: ValueKey(_page.name),
-                    child: _currentView(),
+          const SizedBox(height: 14),
+          Expanded(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 180),
+              child: inMenu
+                  ? ListView(
+                      key: const ValueKey("submenu_config_tratamientos"),
+                      children: [
+                        _buildGradientMenuButton(
+                            label: "Panel Diario",
+                            icon: Icons.calendar_today,
+                            onTap: () => setState(
+                                () => _page = _ConfigTratamientosPage.diario)),
+                        _buildGradientMenuButton(
+                            label: "Panel Semanal",
+                            icon: Icons.calendar_month,
+                            onTap: () => setState(
+                                () => _page = _ConfigTratamientosPage.semanal)),
+                        _buildGradientMenuButton(
+                            label: "Historial",
+                            icon: Icons.history,
+                            onTap: () => setState(() =>
+                                _page = _ConfigTratamientosPage.historial)),
+                        _buildGradientMenuButton(
+                            label: "Clinica",
+                            icon: Icons.medical_services,
+                            onTap: () => setState(
+                                () => _page = _ConfigTratamientosPage.clinica)),
+                      ],
+                    )
+                  : KeyedSubtree(
+                      key: ValueKey(_page.name),
+                      child: _currentPage(),
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+const Color _tratamientosBg = Color(0xFFE8EDF5);
+const Color _tratamientosGradStart = Color(0xFF1ED6CD);
+const Color _tratamientosGradEnd = Color(0xFF4B86ED);
+
+class _TratamientosHeader extends StatelessWidget {
+  final String title;
+  final String? subtitle;
+  final IconData icon;
+
+  const _TratamientosHeader({
+    required this.title,
+    required this.icon,
+    this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+            colors: [_tratamientosGradStart, _tratamientosGradEnd]),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.white),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.3,
                   ),
+                ),
+                if (subtitle != null && subtitle!.trim().isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle!,
+                    style: const TextStyle(
+                      color: Color(0xFFE8FAFF),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TratamientosSectionTitle extends StatelessWidget {
+  final String label;
+  final IconData icon;
+
+  const _TratamientosSectionTitle({required this.label, required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: const Color(0xFF255F86)),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF255F86),
+              fontWeight: FontWeight.w700,
+              fontSize: 16,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TratamientosSurface extends StatelessWidget {
+  final Widget child;
+  final EdgeInsetsGeometry? padding;
+
+  const _TratamientosSurface({required this.child, this.padding});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: padding ?? const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.88),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFC8DDF0)),
+      ),
+      child: child,
+    );
+  }
+}
+
+class _TratamientosGradientButton extends StatelessWidget {
+  final String label;
+  final IconData? icon;
+  final VoidCallback? onTap;
+
+  const _TratamientosGradientButton({
+    required this.label,
+    this.icon,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Ink(
+          height: 48,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            gradient: const LinearGradient(
+                colors: [_tratamientosGradStart, _tratamientosGradEnd]),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (icon != null) ...[
+                Icon(icon, color: Colors.white, size: 18),
+                const SizedBox(width: 8),
+              ],
+              Flexible(
+                child: Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 }
@@ -3346,8 +3491,8 @@ class PanelDiarioView extends StatelessWidget {
     List<Tratamiento> listaMostrar = [];
     planificadosMap.forEach((id, momento) {
       var t = state.catalogo.firstWhere((e) => e.id == id,
-          orElse: () => Tratamiento(id: "err", nombre: "Error", zona: ""));
-      if (t.id != "err") {
+          orElse: () => Tratamiento(id: 'err', nombre: 'Error', zona: ''));
+      if (t.id != 'err') {
         listaMostrar.add(t);
       }
     });
@@ -3356,182 +3501,223 @@ class PanelDiarioView extends StatelessWidget {
     List<Tratamiento> pendientes =
         listaMostrar.where((t) => !hechos.any((h) => h['id'] == t.id)).toList();
 
-    return ListView(children: [
-      const _ManualSectionHeader(
-          title: "PANEL DIARIO", icon: Icons.calendar_today),
-      const SizedBox(height: 8),
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-            color: Colors.white70, borderRadius: BorderRadius.circular(14)),
-        child: Text("Fecha: ${DateFormat('yyyy/MM/dd').format(hoyDt)}",
-            style: const TextStyle(
-                color: Color(0xFF255F86), fontWeight: FontWeight.w600)),
-      ),
-      const SizedBox(height: 20),
-      if (state.currentUser.toLowerCase() == "benja") ...[
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-              color: const Color(0xFFE8F5E9),
-              borderRadius: BorderRadius.circular(8)),
-          child: Row(children: [
-            Expanded(
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                  Text("Fuerza: ${rutina.fuerza.join(", ")}",
-                      style: const TextStyle(
-                          color: Color(0xFF2E7D32),
-                          fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 5),
-                  if (rutina.cardioSessions.isEmpty)
-                    const Text("Sin Cardio")
-                  else
-                    ...rutina.cardioSessions
-                        .map((c) => Text("• ${c.getSummary()}"))
-                ])),
-            IconButton(
-                icon: const Icon(Icons.edit, size: 20),
-                onPressed: () => showDialog(
-                    context: context,
-                    builder: (_) =>
-                        EditRoutineDialog(fecha: hoyDt, rutinaActual: rutina)))
-          ]),
-        ),
-        const SizedBox(height: 20),
-      ],
-      _BuscadorManual(
-          catalogo: state.catalogo,
-          onAdd: (t, momento) =>
-              state.planificarTratamiento(hoy, t.id, momento),
-          askTime: true),
-      const SizedBox(height: 10),
-      if (listaMostrar.isNotEmpty)
-        _ManualGradientActionButton(
-            icon: Icons.flash_on,
-            label: "Registrar Todo",
-            onPressed: () {
-              for (var t in listaMostrar) {
-                if (!hechos.any((h) => h['id'] == t.id)) {
-                  state.registrarTratamiento(hoy, t.id, "Batch");
-                }
-              }
-            }),
-      const SizedBox(height: 20),
-      const Text("✅ Completados",
-          style: TextStyle(
-              fontSize: 20, fontWeight: FontWeight.bold, color: Colors.green)),
-      ...completados.map((t) => ListTile(
-          leading: const Icon(Icons.check_box, color: Colors.green),
-          title: Text(t.nombre),
-          subtitle: Text(planificadosMap[t.id] ?? "Clinica"),
-          trailing: IconButton(
-            icon: const Icon(Icons.undo, color: Colors.orange),
-            tooltip: "Deshacer registro",
-            onPressed: () async {
-              final confirm = await showDialog<bool>(
-                    context: context,
-                    builder: (_) => AlertDialog(
-                      title: const Text("Deshacer registro"),
-                      content: Text(
-                          "Se quitara '${t.nombre}' de completados. Continuar?"),
-                      actions: [
-                        TextButton(
-                            onPressed: () => Navigator.pop(context, false),
-                            child: const Text("Cancelar")),
-                        FilledButton(
-                            onPressed: () => Navigator.pop(context, true),
-                            child: const Text("Deshacer")),
-                      ],
+    return Container(
+      color: _tratamientosBg,
+      child: ListView(
+        children: [
+          _TratamientosHeader(
+            title: 'PANEL DIARIO',
+            subtitle: DateFormat('yyyy/MM/dd').format(hoyDt),
+            icon: Icons.today,
+          ),
+          const SizedBox(height: 14),
+          if (state.currentUser.toLowerCase() == 'benja') ...[
+            const _TratamientosSectionTitle(
+              label: 'Rutina del dia',
+              icon: Icons.fitness_center,
+            ),
+            const SizedBox(height: 8),
+            _TratamientosSurface(
+              child: Row(children: [
+                Expanded(
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                      Text('Fuerza: ${rutina.fuerza.join(', ')}',
+                          style: const TextStyle(
+                              color: Color(0xFF2E7D32),
+                              fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 5),
+                      if (rutina.cardioSessions.isEmpty)
+                        const Text('Sin Cardio')
+                      else
+                        ...rutina.cardioSessions
+                            .map((c) => Text('- ${c.getSummary()}'))
+                    ])),
+                IconButton(
+                    icon: const Icon(Icons.edit, size: 20),
+                    onPressed: () => showDialog(
+                        context: context,
+                        builder: (_) => EditRoutineDialog(
+                            fecha: hoyDt, rutinaActual: rutina)))
+              ]),
+            ),
+            const SizedBox(height: 14),
+          ],
+          const _TratamientosSectionTitle(
+            label: 'Planificar tratamiento',
+            icon: Icons.playlist_add_circle,
+          ),
+          const SizedBox(height: 8),
+          _TratamientosSurface(
+            padding: const EdgeInsets.all(10),
+            child: _BuscadorManual(
+                catalogo: state.catalogo,
+                onAdd: (t, momento) =>
+                    state.planificarTratamiento(hoy, t.id, momento),
+                askTime: true),
+          ),
+          const SizedBox(height: 10),
+          if (listaMostrar.isNotEmpty)
+            _TratamientosGradientButton(
+                icon: Icons.flash_on,
+                label: 'REGISTRAR TODO',
+                onTap: () {
+                  for (var t in listaMostrar) {
+                    if (!hechos.any((h) => h['id'] == t.id)) {
+                      state.registrarTratamiento(hoy, t.id, 'Batch');
+                    }
+                  }
+                }),
+          const SizedBox(height: 18),
+          const _TratamientosSectionTitle(
+            label: 'Completados',
+            icon: Icons.check_circle,
+          ),
+          const SizedBox(height: 8),
+          if (completados.isEmpty)
+            const _TratamientosSurface(
+              child: Text('Aun no hay tratamientos completados hoy.'),
+            ),
+          ...completados.map((t) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _TratamientosSurface(
+                  padding: EdgeInsets.zero,
+                  child: ListTile(
+                    leading: const Icon(Icons.check_box, color: Colors.green),
+                    title: Text(t.nombre),
+                    subtitle: Text(planificadosMap[t.id] ?? 'Clinica'),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.undo, color: Colors.orange),
+                      tooltip: 'Deshacer registro',
+                      onPressed: () async {
+                        final confirm = await showDialog<bool>(
+                              context: context,
+                              builder: (_) => AlertDialog(
+                                title: const Text('Deshacer registro'),
+                                content: Text(
+                                    "Se quitara '${t.nombre}' de completados. Continuar?"),
+                                actions: [
+                                  TextButton(
+                                      onPressed: () =>
+                                          Navigator.pop(context, false),
+                                      child: const Text('Cancelar')),
+                                  FilledButton(
+                                      onPressed: () =>
+                                          Navigator.pop(context, true),
+                                      child: const Text('Deshacer')),
+                                ],
+                              ),
+                            ) ??
+                            false;
+                        if (!confirm) return;
+                        state.desregistrarTratamiento(hoy, t.id);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                                content:
+                                    Text('Registro eliminado: ${t.nombre}')),
+                          );
+                        }
+                      },
                     ),
-                  ) ??
-                  false;
-              if (!confirm) return;
-              state.desregistrarTratamiento(hoy, t.id);
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text("Registro eliminado: ${t.nombre}")),
-                );
-              }
-            },
-          ))),
-      const SizedBox(height: 20),
-      const Text("📋 Pendientes",
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-      if (pendientes.isEmpty)
-        const Text("Nada por hoy.", style: TextStyle(color: Colors.grey)),
-      ...pendientes.map((t) => TreatmentCard(
-          t: t,
-          isPlanned: true,
-          plannedMoment: planificadosMap[t.id],
-          onDeletePlan: () async {
-            final confirm = await showDialog<bool>(
-                  context: context,
-                  builder: (_) => AlertDialog(
-                    title: const Text("Quitar planificado"),
-                    content: Text("Quitar '${t.nombre}' de pendientes?"),
-                    actions: [
-                      TextButton(
-                          onPressed: () => Navigator.pop(context, false),
-                          child: const Text("Cancelar")),
-                      FilledButton(
-                          onPressed: () => Navigator.pop(context, true),
-                          child: const Text("Quitar")),
-                    ],
                   ),
-                ) ??
-                false;
-            if (!confirm) return;
-            state.desplanificarTratamiento(hoy, t.id);
-          },
-          onStart: () async {
-            if (!state.isConnected) {
-              await showDialog(
-                  context: context,
-                  builder: (_) => const BluetoothScanDialog());
-            }
-            if (state.isConnected) {
-              await state.iniciarCiclo(t.id);
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: Text("Iniciando ${t.nombre}..."),
-                    backgroundColor: Colors.green));
-              }
-            } else {
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                    content: Text("No conectado. Intente de nuevo."),
-                    backgroundColor: Colors.orange));
-              }
-            }
-          },
-          onRegister: () async {
-            final confirm = await showDialog<bool>(
-                  context: context,
-                  builder: (_) => AlertDialog(
-                    title: const Text("Confirmar realizado"),
-                    content:
-                        Text("Confirmas que realizaste '${t.nombre}'?"),
-                    actions: [
-                      TextButton(
-                          onPressed: () => Navigator.pop(context, false),
-                          child: const Text("Cancelar")),
-                      FilledButton(
-                          onPressed: () => Navigator.pop(context, true),
-                          child: const Text("Confirmar")),
-                    ],
-                  ),
-                ) ??
-                false;
-            if (!confirm) return;
-            state.registrarTratamiento(hoy, t.id, planificadosMap[t.id]!);
-          })),
-    ]);
+                ),
+              )),
+          const SizedBox(height: 14),
+          const _TratamientosSectionTitle(
+            label: 'Pendientes',
+            icon: Icons.schedule,
+          ),
+          const SizedBox(height: 8),
+          if (pendientes.isEmpty)
+            const _TratamientosSurface(
+              child:
+                  Text('Nada por hoy.', style: TextStyle(color: Colors.grey)),
+            ),
+          ...pendientes.map((t) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: TreatmentCard(
+                    t: t,
+                    isPlanned: true,
+                    plannedMoment: planificadosMap[t.id],
+                    onDeletePlan: () async {
+                      final confirm = await showDialog<bool>(
+                            context: context,
+                            builder: (_) => AlertDialog(
+                              title: const Text('Quitar planificado'),
+                              content:
+                                  Text("Quitar '${t.nombre}' de pendientes?"),
+                              actions: [
+                                TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(context, false),
+                                    child: const Text('Cancelar')),
+                                FilledButton(
+                                    onPressed: () =>
+                                        Navigator.pop(context, true),
+                                    child: const Text('Quitar')),
+                              ],
+                            ),
+                          ) ??
+                          false;
+                      if (!confirm) return;
+                      state.desplanificarTratamiento(hoy, t.id);
+                    },
+                    onStart: () async {
+                      if (!state.isConnected) {
+                        await showDialog(
+                            context: context,
+                            builder: (_) => const BluetoothScanDialog());
+                      }
+                      if (state.isConnected) {
+                        await state.iniciarCiclo(t.id);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                              content: Text('Iniciando ${t.nombre}...'),
+                              backgroundColor: Colors.green));
+                        }
+                      } else {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content:
+                                      Text('No conectado. Intente de nuevo.'),
+                                  backgroundColor: Colors.orange));
+                        }
+                      }
+                    },
+                    onRegister: () async {
+                      final confirm = await showDialog<bool>(
+                            context: context,
+                            builder: (_) => AlertDialog(
+                              title: const Text('Confirmar realizado'),
+                              content: Text(
+                                  "Confirmas que realizaste '${t.nombre}'?"),
+                              actions: [
+                                TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(context, false),
+                                    child: const Text('Cancelar')),
+                                FilledButton(
+                                    onPressed: () =>
+                                        Navigator.pop(context, true),
+                                    child: const Text('Confirmar')),
+                              ],
+                            ),
+                          ) ??
+                          false;
+                      if (!confirm) return;
+                      state.registrarTratamiento(
+                          hoy, t.id, planificadosMap[t.id]!);
+                    }),
+              )),
+        ],
+      ),
+    );
   }
 }
 
-// --- DIALOGO EDICIÓN RUTINA ---
 class EditRoutineDialog extends StatefulWidget {
   final DateTime fecha;
   final RutinaDiaria rutinaActual;
@@ -3569,8 +3755,7 @@ class _EditRoutineDialogState extends State<EditRoutineDialog> {
         type: selectedType, duration: int.tryParse(durationCtrl.text) ?? 0);
     if (selectedType == "Andar") {
       newSession.steps = steps;
-    }
-    else if (selectedType == "Elíptica") {
+    } else if (selectedType == "Elíptica") {
       newSession.resistance = resistance;
       newSession.watts = watts;
     } else if (selectedType == "Cinta Inclinada") {
@@ -3819,6 +4004,7 @@ class _PanelSemanalViewState extends State<PanelSemanalView>
       7,
       (i) =>
           DateTime.now().add(Duration(days: i - DateTime.now().weekday + 1)));
+
   @override
   void initState() {
     super.initState();
@@ -3827,120 +4013,167 @@ class _PanelSemanalViewState extends State<PanelSemanalView>
   }
 
   @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     var state = context.watch<AppState>();
-    return Column(children: [
-      const _ManualSectionHeader(
-          title: "PANEL SEMANAL", icon: Icons.calendar_month),
-      const SizedBox(height: 10),
-      Container(
-        decoration: BoxDecoration(
-          gradient: kManualGradient,
-          borderRadius: BorderRadius.circular(18),
+    return Container(
+      color: _tratamientosBg,
+      child: Column(children: [
+        const _TratamientosHeader(
+          title: 'PANEL SEMANAL',
+          subtitle: 'Planificacion por dia',
+          icon: Icons.calendar_month,
         ),
-        child: TabBar(
-            controller: _tabController,
-            isScrollable: true,
-            labelColor: Colors.white,
-            unselectedLabelColor: Colors.white70,
-            indicator: BoxDecoration(
-                color: const Color(0x33FFFFFF),
-                borderRadius: BorderRadius.circular(14)),
-            dividerColor: Colors.transparent,
-            tabs: _days
-                .map((d) => Tab(text: "${DateFormat('E').format(d)} ${d.day}"))
-                .toList()),
-      ),
-      Expanded(
-          child: TabBarView(
+        const SizedBox(height: 10),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.9),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFC8DDF0)),
+          ),
+          child: TabBar(
               controller: _tabController,
-              children: _days.map((d) {
-                String fStr = DateFormat('yyyy-MM-dd').format(d);
-                var plans = state.planificados[fStr] ?? {};
-                RutinaDiaria rut = state.obtenerRutina(d);
-                return ListView(padding: const EdgeInsets.all(16), children: [
-                  if (state.currentUser.toLowerCase() == "benja")
-                    Card(
-                        child: ListTile(
-                            title: Text("🏋️ ${rut.fuerza.join(", ")}"),
-                            subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: rut.cardioSessions
-                                    .map((c) => Text("• ${c.getSummary()}"))
-                                    .toList()),
-                            trailing: IconButton(
-                                icon: const Icon(Icons.edit),
-                                onPressed: () => showDialog(
+              isScrollable: true,
+              labelColor: const Color(0xFF1999ED),
+              unselectedLabelColor: Colors.grey,
+              indicatorColor: const Color(0xFF1999ED),
+              tabs: _days
+                  .map(
+                      (d) => Tab(text: '${DateFormat('E').format(d)} ${d.day}'))
+                  .toList()),
+        ),
+        const SizedBox(height: 10),
+        Expanded(
+            child: TabBarView(
+                controller: _tabController,
+                children: _days.map((d) {
+                  String fStr = DateFormat('yyyy-MM-dd').format(d);
+                  var plans = state.planificados[fStr] ?? {};
+                  RutinaDiaria rut = state.obtenerRutina(d);
+                  return ListView(padding: const EdgeInsets.all(2), children: [
+                    _TratamientosSurface(
+                      child: Row(
+                        children: [
+                          const Icon(Icons.event_note,
+                              size: 18, color: Color(0xFF255F86)),
+                          const SizedBox(width: 8),
+                          Text(DateFormat('EEEE, dd/MM').format(d),
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF255F86))),
+                          const Spacer(),
+                          Text('Plan: ${plans.length}',
+                              style: const TextStyle(color: Colors.black54)),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    if (state.currentUser.toLowerCase() == 'benja')
+                      _TratamientosSurface(
+                          child: ListTile(
+                              title: Text('Fuerza: ${rut.fuerza.join(', ')}'),
+                              subtitle: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: rut.cardioSessions
+                                      .map((c) => Text('- ${c.getSummary()}'))
+                                      .toList()),
+                              trailing: IconButton(
+                                  icon: const Icon(Icons.edit),
+                                  onPressed: () => showDialog(
+                                      context: context,
+                                      builder: (_) => EditRoutineDialog(
+                                          fecha: d, rutinaActual: rut))))),
+                    if (state.currentUser.toLowerCase() == 'benja')
+                      const SizedBox(height: 10),
+                    _TratamientosSurface(
+                      padding: const EdgeInsets.all(10),
+                      child: _BuscadorManual(
+                          catalogo: state.catalogo,
+                          onAdd: (t, m) =>
+                              state.planificarTratamiento(fStr, t.id, m),
+                          askTime: true),
+                    ),
+                    const SizedBox(height: 10),
+                    if (plans.isEmpty)
+                      const _TratamientosSurface(
+                        child: Text(
+                          'Sin tratamientos planificados para este dia.',
+                          style: TextStyle(color: Colors.black54),
+                        ),
+                      ),
+                    ...plans.entries.map((e) {
+                      var t = state.catalogo.firstWhere((x) => x.id == e.key,
+                          orElse: () =>
+                              Tratamiento(id: '', nombre: '?', zona: ''));
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: TreatmentCard(
+                            t: t,
+                            isPlanned: true,
+                            plannedMoment: e.value,
+                            onStart: () async {
+                              if (!state.isConnected) {
+                                await showDialog(
                                     context: context,
-                                    builder: (_) => EditRoutineDialog(
-                                        fecha: d, rutinaActual: rut))))),
-                  const SizedBox(height: 10),
-                  _BuscadorManual(
-                      catalogo: state.catalogo,
-                      onAdd: (t, m) =>
-                          state.planificarTratamiento(fStr, t.id, m),
-                      askTime: true),
-                  const Divider(),
-                  ...plans.entries.map((e) {
-                    var t = state.catalogo.firstWhere((x) => x.id == e.key,
-                        orElse: () =>
-                            Tratamiento(id: "", nombre: "?", zona: ""));
-                    return TreatmentCard(
-                        t: t,
-                        isPlanned: true,
-                        plannedMoment: e.value,
-                        onStart: () async {
-                          if (!state.isConnected) {
-                            await showDialog(
-                                context: context,
-                                builder: (_) => const BluetoothScanDialog());
-                          }
-                          if (state.isConnected) {
-                            await state.iniciarCiclo(t.id);
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                                  content: Text("Iniciando ${t.nombre}..."),
-                                  backgroundColor: Colors.green));
-                            }
-                          } else {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                                  content: Text("No conectado. Intente de nuevo."),
-                                  backgroundColor: Colors.orange));
-                            }
-                          }
-                        },
-                        onDeletePlan: () async {
-                          final confirm = await showDialog<bool>(
-                                context: context,
-                                builder: (_) => AlertDialog(
-                                  title: const Text("Quitar planificado"),
-                                  content:
-                                      Text("Quitar '${t.nombre}' de este dia?"),
-                                  actions: [
-                                    TextButton(
-                                        onPressed: () =>
-                                            Navigator.pop(context, false),
-                                        child: const Text("Cancelar")),
-                                    FilledButton(
-                                        onPressed: () =>
-                                            Navigator.pop(context, true),
-                                        child: const Text("Quitar")),
-                                  ],
-                                ),
-                              ) ??
-                              false;
-                          if (!confirm) return;
-                          state.desplanificarTratamiento(fStr, t.id);
-                        });
-                  })
-                ]);
-              }).toList()))
-    ]);
+                                    builder: (_) =>
+                                        const BluetoothScanDialog());
+                              }
+                              if (state.isConnected) {
+                                await state.iniciarCiclo(t.id);
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                          content:
+                                              Text('Iniciando ${t.nombre}...'),
+                                          backgroundColor: Colors.green));
+                                }
+                              } else {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                          content: Text(
+                                              'No conectado. Intente de nuevo.'),
+                                          backgroundColor: Colors.orange));
+                                }
+                              }
+                            },
+                            onDeletePlan: () async {
+                              final confirm = await showDialog<bool>(
+                                    context: context,
+                                    builder: (_) => AlertDialog(
+                                      title: const Text('Quitar planificado'),
+                                      content: Text(
+                                          "Quitar '${t.nombre}' de este dia?"),
+                                      actions: [
+                                        TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(context, false),
+                                            child: const Text('Cancelar')),
+                                        FilledButton(
+                                            onPressed: () =>
+                                                Navigator.pop(context, true),
+                                            child: const Text('Quitar')),
+                                      ],
+                                    ),
+                                  ) ??
+                                  false;
+                              if (!confirm) return;
+                              state.desplanificarTratamiento(fStr, t.id);
+                            }),
+                      );
+                    })
+                  ]);
+                }).toList()))
+      ]),
+    );
   }
 }
 
-// --- VISTA 3: HISTORIAL ---
 class HistorialView extends StatelessWidget {
   const HistorialView({super.key});
   @override
@@ -3950,112 +4183,150 @@ class HistorialView extends StatelessWidget {
     state.historial.forEach((fecha, lista) {
       for (var item in lista) {
         var t = state.catalogo.firstWhere((element) => element.id == item['id'],
-            orElse: () => Tratamiento(id: "", nombre: "???", zona: ""));
+            orElse: () => Tratamiento(id: '', nombre: '???', zona: ''));
         rows.add({
-          "Fecha": fecha,
-          "Hora": item['hora'],
-          "Tratamiento": t.nombre,
-          "Momento": item['momento']
+          'Fecha': fecha,
+          'Hora': item['hora'],
+          'Tratamiento': t.nombre,
+          'Momento': item['momento']
         });
       }
     });
     rows.sort((a, b) => b['Fecha']!.compareTo(a['Fecha']!));
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const _ManualSectionHeader(
-            title: "HISTORIAL DE REGISTROS", icon: Icons.history),
-        const SizedBox(height: 14),
-        Expanded(
-          child: Container(
-            decoration: BoxDecoration(
-                color: Colors.white70, borderRadius: BorderRadius.circular(18)),
-            padding: const EdgeInsets.all(10),
-            child: SingleChildScrollView(
-              child: DataTable(
-                columns: const [
-                  DataColumn(label: Text("Fecha")),
-                  DataColumn(label: Text("Hora")),
-                  DataColumn(label: Text("Tratamiento")),
-                  DataColumn(label: Text("Estado"))
-                ],
-                rows: rows
-                    .map((r) => DataRow(cells: [
-                          DataCell(Text(r['Fecha']!)),
-                          DataCell(Text(r['Hora']!)),
-                          DataCell(Text(r['Tratamiento']!)),
-                          DataCell(Text(r['Momento']!)),
-                        ]))
-                    .toList(),
-              ),
-            ),
+    return Container(
+      color: _tratamientosBg,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _TratamientosHeader(
+            title: 'HISTORIAL',
+            subtitle: 'Registro de tratamientos realizados',
+            icon: Icons.history,
           ),
-        )
-      ],
+          const SizedBox(height: 12),
+          Expanded(
+            child: _TratamientosSurface(
+              child: rows.isEmpty
+                  ? const Center(
+                      child: Text(
+                        'Sin registros todavia.',
+                        style: TextStyle(color: Colors.black54),
+                      ),
+                    )
+                  : SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: SingleChildScrollView(
+                        child: DataTable(
+                          columns: const [
+                            DataColumn(label: Text('Fecha')),
+                            DataColumn(label: Text('Hora')),
+                            DataColumn(label: Text('Tratamiento')),
+                            DataColumn(label: Text('Estado'))
+                          ],
+                          rows: rows
+                              .map((r) => DataRow(cells: [
+                                    DataCell(Text(r['Fecha']!)),
+                                    DataCell(Text(r['Hora']!)),
+                                    DataCell(Text(r['Tratamiento']!)),
+                                    DataCell(Text(r['Momento']!)),
+                                  ]))
+                              .toList(),
+                        ),
+                      ),
+                    ),
+            ),
+          )
+        ],
+      ),
     );
   }
 }
 
-// --- VISTA 4: CLÍNICA ---
 class ClinicaView extends StatelessWidget {
   const ClinicaView({super.key});
   @override
   Widget build(BuildContext context) {
     var state = context.watch<AppState>();
-    return ListView(children: [
-      const _ManualSectionHeader(title: "CLÍNICA", icon: Icons.medical_services),
-      const SizedBox(height: 14),
-      const Text("Tratamientos Activos en Curso:",
-          style:
-              TextStyle(color: Color(0xFF255F86), fontWeight: FontWeight.w600)),
-      const SizedBox(height: 10),
-      ...state.catalogo
-          .where((t) => state.ciclosActivos[t.id]?['activo'] == true)
-          .map((t) => Card(
-                color: Colors.white70,
+    final activos = state.catalogo
+        .where((t) => state.ciclosActivos[t.id]?['activo'] == true);
+
+    return Container(
+      color: _tratamientosBg,
+      child: ListView(children: [
+        const _TratamientosHeader(
+          title: 'CLINICA',
+          subtitle: 'Gestion de tratamientos activos',
+          icon: Icons.medical_services,
+        ),
+        const SizedBox(height: 14),
+        const _TratamientosSectionTitle(
+          label: 'Tratamientos activos',
+          icon: Icons.play_circle_fill,
+        ),
+        const SizedBox(height: 8),
+        if (activos.isEmpty)
+          const _TratamientosSurface(
+            child: Text(
+              'No hay tratamientos activos en este momento.',
+              style: TextStyle(color: Colors.black54),
+            ),
+          ),
+        ...activos.map((t) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _TratamientosSurface(
+                padding: EdgeInsets.zero,
                 child: ListTile(
                   title: Text(t.nombre),
                   subtitle:
-                      Text("Iniciado: ${state.ciclosActivos[t.id]['inicio']}"),
+                      Text('Iniciado: ${state.ciclosActivos[t.id]['inicio']}'),
                   trailing: SizedBox(
                     width: 120,
-                    child: _ManualGradientActionButton(
-                        label: "Finalizar",
-                        compact: true,
-                        onPressed: () => state.detenerCiclo(t.id)),
+                    height: 36,
+                    child: _TratamientosGradientButton(
+                      label: 'FINALIZAR',
+                      onTap: () => state.detenerCiclo(t.id),
+                    ),
                   ),
                 ),
-              )),
-      const Divider(height: 40),
-      const Text("Iniciar Nuevo Tratamiento:",
-          style: TextStyle(fontWeight: FontWeight.bold)),
-      _BuscadorManual(
-        catalogo: state.catalogo,
-        onAdd: (t, _) async {
-          if (!state.isConnected) {
-            await showDialog(
-                context: context,
-                builder: (_) => const BluetoothScanDialog());
-          }
-          if (state.isConnected) {
-            await state.iniciarCiclo(t.id);
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text("Iniciando ${t.nombre}..."),
-                  backgroundColor: Colors.green));
-            }
-          } else {
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                  content: Text("No conectado. Intente de nuevo."),
-                  backgroundColor: Colors.orange));
-            }
-          }
-        },
-        askTime: false,
-      )
-    ]);
+              ),
+            )),
+        const SizedBox(height: 8),
+        const _TratamientosSectionTitle(
+          label: 'Iniciar nuevo tratamiento',
+          icon: Icons.playlist_add,
+        ),
+        const SizedBox(height: 8),
+        _TratamientosSurface(
+          padding: const EdgeInsets.all(10),
+          child: _BuscadorManual(
+            catalogo: state.catalogo,
+            onAdd: (t, _) async {
+              if (!state.isConnected) {
+                await showDialog(
+                    context: context,
+                    builder: (_) => const BluetoothScanDialog());
+              }
+              if (state.isConnected) {
+                await state.iniciarCiclo(t.id);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text('Iniciando ${t.nombre}...'),
+                      backgroundColor: Colors.green));
+                }
+              } else {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text('No conectado. Intente de nuevo.'),
+                      backgroundColor: Colors.orange));
+                }
+              }
+            },
+            askTime: false,
+          ),
+        )
+      ]),
+    );
   }
 }
 
@@ -4167,9 +4438,8 @@ class _BuscadorManual extends StatelessWidget {
       String? nivel3;
 
       String limpiarNivel(String raw) {
-        final cleaned = raw
-            .replaceFirst(RegExp(r'^\s*\d+\s*[\)\.\-:]*\s*'), '')
-            .trim();
+        final cleaned =
+            raw.replaceFirst(RegExp(r'^\s*\d+\s*[\)\.\-:]*\s*'), '').trim();
         return cleaned.isEmpty ? raw.trim() : cleaned;
       }
 
@@ -4242,35 +4512,22 @@ class _BuscadorManual extends StatelessWidget {
           nivel2 = null;
           nivel3 = null;
         }
-        final n3Options =
-            (nivel1 == null || nivel2 == null) ? <String>[] : opcionesNivel3(nivel1!, nivel2!);
+        final n3Options = (nivel1 == null || nivel2 == null)
+            ? <String>[]
+            : opcionesNivel3(nivel1!, nivel2!);
         if (nivel3 != null && !n3Options.contains(nivel3)) {
           nivel3 = null;
         }
         final tratamientos = tratamientosFiltrados();
 
         return ExpansionTile(
-          backgroundColor: Colors.white70,
-          collapsedBackgroundColor: Colors.white70,
-          iconColor: const Color(0xFF255F86),
-          collapsedIconColor: const Color(0xFF255F86),
-          title: const Row(
-            children: [
-              Icon(Icons.add_circle_outline, color: Color(0xFF255F86)),
-              SizedBox(width: 8),
-              Expanded(
-                child: Text("Añadir Tratamiento Manual",
-                    style: TextStyle(
-                        color: Color(0xFF255F86), fontWeight: FontWeight.w700)),
-              ),
-            ],
-          ),
+          title: const Text("Anadir Tratamiento Manual"),
           collapsedShape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-              side: BorderSide(color: Colors.blue.shade100)),
+              borderRadius: BorderRadius.circular(8),
+              side: BorderSide(color: Colors.grey.shade300)),
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-              side: BorderSide(color: Colors.blue.shade100)),
+              borderRadius: BorderRadius.circular(8),
+              side: BorderSide(color: Colors.grey.shade300)),
           children: [
             Padding(
               padding: const EdgeInsets.all(12),
@@ -4281,18 +4538,14 @@ class _BuscadorManual extends StatelessWidget {
                     isExpanded: true,
                     decoration: const InputDecoration(
                       labelText: "Grupo",
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(12))),
+                      border: OutlineInputBorder(),
                     ),
                     hint: const Text("Selecciona grupo"),
                     items: n1Options
                         .map((v) => DropdownMenuItem(
                             value: v,
                             child: Text(v,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis)))
+                                maxLines: 1, overflow: TextOverflow.ellipsis)))
                         .toList(),
                     onChanged: (v) {
                       setInnerState(() {
@@ -4309,11 +4562,7 @@ class _BuscadorManual extends StatelessWidget {
                       isExpanded: true,
                       decoration: const InputDecoration(
                         labelText: "Subgrupo",
-                        filled: true,
-                        fillColor: Colors.white,
-                        border: OutlineInputBorder(
-                            borderRadius:
-                                BorderRadius.all(Radius.circular(12))),
+                        border: OutlineInputBorder(),
                       ),
                       hint: const Text("Selecciona subgrupo"),
                       items: n2Options
@@ -4337,11 +4586,7 @@ class _BuscadorManual extends StatelessWidget {
                       isExpanded: true,
                       decoration: const InputDecoration(
                         labelText: "Zona",
-                        filled: true,
-                        fillColor: Colors.white,
-                        border: OutlineInputBorder(
-                            borderRadius:
-                                BorderRadius.all(Radius.circular(12))),
+                        border: OutlineInputBorder(),
                       ),
                       hint: const Text("Selecciona zona"),
                       items: n3Options
@@ -4400,35 +4645,36 @@ class _BuscadorManual extends StatelessWidget {
                                               TextButton(
                                                   onPressed: () =>
                                                       Navigator.pop(dialogCtx),
-                                                  child: const Text("Cancelar")),
+                                                  child:
+                                                      const Text("Cancelar")),
                                               FilledButton(
                                                 onPressed: () {
                                                   Navigator.pop(dialogCtx);
                                                   if (askTime) {
                                                     showDialog(
                                                         context: context,
-                                                        builder: (_) =>
-                                                            SimpleDialog(
-                                                              title: const Text(
-                                                                  "Cuando?"),
-                                                              children: [
-                                                                "PRE",
-                                                                "POST",
-                                                                "NOCHE",
-                                                                "FLEX"
-                                                              ]
-                                                                  .map((m) =>
-                                                                      SimpleDialogOption(
-                                                                        child: Text(m),
-                                                                        onPressed:
-                                                                            () {
-                                                                          onAdd(t, m);
-                                                                          Navigator.pop(
-                                                                              context);
-                                                                        },
-                                                                      ))
-                                                                  .toList(),
-                                                            ));
+                                                        builder:
+                                                            (_) => SimpleDialog(
+                                                                  title: const Text(
+                                                                      "Cuando?"),
+                                                                  children: [
+                                                                    "PRE",
+                                                                    "POST",
+                                                                    "NOCHE",
+                                                                    "FLEX"
+                                                                  ]
+                                                                      .map((m) =>
+                                                                          SimpleDialogOption(
+                                                                            child:
+                                                                                Text(m),
+                                                                            onPressed:
+                                                                                () {
+                                                                              onAdd(t, m);
+                                                                              Navigator.pop(context);
+                                                                            },
+                                                                          ))
+                                                                      .toList(),
+                                                                ));
                                                   } else {
                                                     onAdd(t, "Now");
                                                   }
@@ -4451,27 +4697,13 @@ class _BuscadorManual extends StatelessWidget {
       });
     }
     return ExpansionTile(
-      backgroundColor: Colors.white70,
-      collapsedBackgroundColor: Colors.white70,
-      iconColor: const Color(0xFF255F86),
-      collapsedIconColor: const Color(0xFF255F86),
-      title: const Row(
-        children: [
-          Icon(Icons.add_circle_outline, color: Color(0xFF255F86)),
-          SizedBox(width: 8),
-          Expanded(
-            child: Text("Añadir Tratamiento Manual",
-                style: TextStyle(
-                    color: Color(0xFF255F86), fontWeight: FontWeight.w700)),
-          ),
-        ],
-      ),
+      title: const Text("➕ Añadir Tratamiento Manual"),
       collapsedShape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-          side: BorderSide(color: Colors.blue.shade100)),
+          borderRadius: BorderRadius.circular(8),
+          side: BorderSide(color: Colors.grey.shade300)),
       shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-          side: BorderSide(color: Colors.blue.shade100)),
+          borderRadius: BorderRadius.circular(8),
+          side: BorderSide(color: Colors.grey.shade300)),
       children: [
         SizedBox(
           height: 300,
@@ -4580,17 +4812,21 @@ class _TreatmentCardState extends State<TreatmentCard> {
   Widget build(BuildContext context) {
     var state = context.watch<AppState>();
     bool isActive = state.isTratamientoActivo(widget.t.id);
-    
+
     Color statusColor = widget.isDone
         ? Colors.green
-        : (isActive ? Colors.red : (widget.isPlanned ? Colors.blue : Colors.grey));
+        : (isActive
+            ? Colors.red
+            : (widget.isPlanned ? Colors.blue : Colors.grey));
 
     return Card(
       elevation: 2,
       child: ExpansionTile(
         initiallyExpanded: _initiallyExpanded || isActive,
         leading: Icon(
-            widget.isDone ? Icons.check_circle : (isActive ? Icons.flash_on : Icons.circle_outlined),
+            widget.isDone
+                ? Icons.check_circle
+                : (isActive ? Icons.flash_on : Icons.circle_outlined),
             color: statusColor),
         title: Text(widget.t.nombre,
             maxLines: 2,
@@ -4598,9 +4834,11 @@ class _TreatmentCardState extends State<TreatmentCard> {
             style: TextStyle(
                 fontWeight: FontWeight.bold,
                 decoration: widget.isDone ? TextDecoration.lineThrough : null)),
-        subtitle: isActive 
-             ? const Text("EN CURSO...", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold))
-             : (widget.isPlanned
+        subtitle: isActive
+            ? const Text("EN CURSO...",
+                style:
+                    TextStyle(color: Colors.red, fontWeight: FontWeight.bold))
+            : (widget.isPlanned
                 ? Text("Planificado: ${widget.plannedMoment}",
                     style: const TextStyle(color: Colors.blue))
                 : null),
@@ -4666,52 +4904,57 @@ class _TreatmentCardState extends State<TreatmentCard> {
                   _buildSection("PROHIBIDO", widget.t.prohibidos.join("\n"),
                       Icons.warning_amber, Colors.red.shade50),
                 const SizedBox(height: 15),
-                
-                  Wrap(
-                    alignment: WrapAlignment.end,
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      // STOP BUTTON
-                      if (isActive)
-                        OutlinedButton.icon(
-                          icon: const Icon(Icons.stop, color: Colors.red),
-                          label: const Text("Detener Tratamiento", style: TextStyle(color: Colors.red)),
-                          style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.red)),
-                          onPressed: () {
-                             state.detenerCiclo(widget.t.id);
-                             ScaffoldMessenger.of(context).showSnackBar(
-                               const SnackBar(content: Text("Tratamiento detenido"), backgroundColor: Colors.red)
-                             );
-                          },
-                        ),
-                        
-                      if (widget.onStart != null && !widget.isDone && !isActive)
-                        FilledButton.icon(
-                          style: FilledButton.styleFrom(
-                              backgroundColor: Colors.orange.shade700),
-                          icon: const Icon(Icons.play_arrow),
-                          label: const Text("Iniciar"),
-                          onPressed: widget.onStart,
-                        ),
-                      // Delete Plan
-                      if (widget.isPlanned &&
-                          widget.onDeletePlan != null &&
-                          !widget.isDone && !isActive)
-                        TextButton.icon(
-                          icon: const Icon(Icons.delete_outline),
-                          label: const Text("Quitar"),
-                          onPressed: widget.onDeletePlan,
-                        ),
-                      // Register
-                      if (!widget.isDone && !isActive && widget.onRegister != null)
-                        FilledButton.icon(
-                          icon: const Icon(Icons.check),
-                          label: const Text("Registrar"),
-                          onPressed: widget.onRegister,
-                        ),
-                    ],
-                  )
+                Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    // STOP BUTTON
+                    if (isActive)
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.stop, color: Colors.red),
+                        label: const Text("Detener Tratamiento",
+                            style: TextStyle(color: Colors.red)),
+                        style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Colors.red)),
+                        onPressed: () {
+                          state.detenerCiclo(widget.t.id);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content: Text("Tratamiento detenido"),
+                                  backgroundColor: Colors.red));
+                        },
+                      ),
+
+                    if (widget.onStart != null && !widget.isDone && !isActive)
+                      FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                            backgroundColor: Colors.orange.shade700),
+                        icon: const Icon(Icons.play_arrow),
+                        label: const Text("Iniciar"),
+                        onPressed: widget.onStart,
+                      ),
+                    // Delete Plan
+                    if (widget.isPlanned &&
+                        widget.onDeletePlan != null &&
+                        !widget.isDone &&
+                        !isActive)
+                      TextButton.icon(
+                        icon: const Icon(Icons.delete_outline),
+                        label: const Text("Quitar"),
+                        onPressed: widget.onDeletePlan,
+                      ),
+                    // Register
+                    if (!widget.isDone &&
+                        !isActive &&
+                        widget.onRegister != null)
+                      FilledButton.icon(
+                        icon: const Icon(Icons.check),
+                        label: const Text("Registrar"),
+                        onPressed: widget.onRegister,
+                      ),
+                  ],
+                )
               ],
             ),
           ),
@@ -4742,6 +4985,7 @@ class _TreatmentCardState extends State<TreatmentCard> {
     );
   }
 }
+
 // --- BLUETOOTH DIALOG ---
 class BluetoothScanDialog extends StatefulWidget {
   const BluetoothScanDialog({super.key});
@@ -4842,8 +5086,9 @@ class _BluetoothScanDialogState extends State<BluetoothScanDialog> {
                 initialData: const [],
                 builder: (c, snapshot) {
                   var results = snapshot.data ?? [];
-                  var filtered =
-                      List<ScanResult>.from(results).where(_matchesDefaultFilter).toList();
+                  var filtered = List<ScanResult>.from(results)
+                      .where(_matchesDefaultFilter)
+                      .toList();
 
                   filtered.sort((a, b) {
                     var nameA = _displayName(a).toLowerCase();
@@ -4890,30 +5135,34 @@ class _BluetoothScanDialogState extends State<BluetoothScanDialog> {
                         title: Text(_displayName(filtered[i]),
                             style:
                                 const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text("${d.remoteId} (${filtered[i].rssi} dBm)"),
+                        subtitle:
+                            Text("${d.remoteId} (${filtered[i].rssi} dBm)"),
                         onTap: () async {
-                           // Show loading indicator
-                           showDialog(
-                             context: context, 
-                             barrierDismissible: false,
-                             builder: (c) => const Center(child: CircularProgressIndicator())
-                           );
-                           
-                           bool success = await state.connectToDevice(d);
-                           
-                           if (context.mounted) {
-                             Navigator.pop(context); // Dismiss loading
-                             if (success) {
-                               Navigator.pop(context); // Dismiss scan dialog
-                               ScaffoldMessenger.of(context).showSnackBar(
-                                 SnackBar(content: Text("Conectado a ${_displayName(filtered[i])}"), backgroundColor: Colors.green)
-                               );
-                             } else {
-                               ScaffoldMessenger.of(context).showSnackBar(
-                                 const SnackBar(content: Text("Error al conectar. Intente de nuevo."), backgroundColor: Colors.red)
-                               );
-                             }
-                           }
+                          // Show loading indicator
+                          showDialog(
+                              context: context,
+                              barrierDismissible: false,
+                              builder: (c) => const Center(
+                                  child: CircularProgressIndicator()));
+
+                          bool success = await state.connectToDevice(d);
+
+                          if (context.mounted) {
+                            Navigator.pop(context); // Dismiss loading
+                            if (success) {
+                              Navigator.pop(context); // Dismiss scan dialog
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                  content: Text(
+                                      "Conectado a ${_displayName(filtered[i])}"),
+                                  backgroundColor: Colors.green));
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      content: Text(
+                                          "Error al conectar. Intente de nuevo."),
+                                      backgroundColor: Colors.red));
+                            }
+                          }
                         },
                       );
                     },
@@ -4933,4 +5182,3 @@ class _BluetoothScanDialogState extends State<BluetoothScanDialog> {
     );
   }
 }
-
