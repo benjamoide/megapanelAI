@@ -2430,7 +2430,10 @@ class AppState extends ChangeNotifier {
 
         await _sendParameters(t, workMode: 0);
         // Wake/run handshake for panels that stay idle until explicit power-on.
-        await _sendStartHandshake(workMode: 0, phase: "catalogo");
+        await _bleManager.write(BleProtocol.setPower(true));
+        await Future.delayed(const Duration(milliseconds: 220));
+        await _bleManager.write(BleProtocol.quickStart(mode: 0));
+        await Future.delayed(const Duration(milliseconds: 360));
 
         // Re-apply only values that are commonly ignored before run becomes active.
         await _sendTimeAndPulse(t, phase: "post-start");
@@ -2534,21 +2537,6 @@ class AppState extends ChangeNotifier {
     await _sendBrightness(t);
     await _sendTimeAndPulse(t, phase: "pre-start");
   }
-
-  Future<void> _sendStartHandshake({
-    required int workMode,
-    String phase = "",
-  }) async {
-    final phaseLabel = phase.isEmpty ? "" : "[$phase] ";
-    print("BLE: ${phaseLabel}Start handshake -> Power ON + Quick Start");
-    await _bleManager.write(BleProtocol.setPower(true));
-    await Future.delayed(const Duration(milliseconds: 220));
-    await _bleManager.write(BleProtocol.quickStart(mode: workMode));
-    await Future.delayed(const Duration(milliseconds: 320));
-    // Extra wake pulse for panels that ignore the first run command.
-    await _bleManager.write(BleProtocol.setPower(true));
-    await Future.delayed(const Duration(milliseconds: 180));
-  }
   /// Starts a manual treatment not in the catalog
   /// [sequenceMode]: 0=Params->Start, 1=Params only, 2=Start->Params, 3=Stop->Params->Start
   Future<void> iniciarCicloManual(Tratamiento t,
@@ -2579,15 +2567,11 @@ class AppState extends ChangeNotifier {
         Future<void> start() async {
           if (startCommand == 0x21) {
             print("BLE: Sending Quick Start (0x21) with Mode: $workMode");
-            await _sendStartHandshake(workMode: workMode, phase: "manual");
+            await _bleManager.write(BleProtocol.quickStart(mode: workMode));
             started = true;
           } else if (startCommand == 0x20) {
             print("BLE: Sending Power ON (0x20)");
             await _bleManager.write(BleProtocol.setPower(true));
-            await Future.delayed(const Duration(milliseconds: 220));
-            // Fallback quick-start for panels that need both commands.
-            await _bleManager.write(BleProtocol.quickStart(mode: workMode));
-            await Future.delayed(const Duration(milliseconds: 220));
             started = true;
           } else {
             print("BLE: Skipping Start Command");
