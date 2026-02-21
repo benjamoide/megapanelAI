@@ -71,6 +71,15 @@ const List<String> ZONAS_SIMETRICAS = [
   "Cadera"
 ];
 
+const Color kManualBg = Color(0xFFE8EDF5);
+const Color kManualGradStart = Color(0xFF1ED6CD);
+const Color kManualGradEnd = Color(0xFF4B86ED);
+const LinearGradient kManualGradient = LinearGradient(
+  colors: [kManualGradStart, kManualGradEnd],
+  begin: Alignment.centerLeft,
+  end: Alignment.centerRight,
+);
+
 // ==============================================================================
 // 2. MODELOS DE DATOS
 // ==============================================================================
@@ -2862,6 +2871,100 @@ class _MainLayoutState extends State<MainLayout> {
   }
 }
 
+class _ManualSectionHeader extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  const _ManualSectionHeader({required this.title, required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        gradient: kManualGradient,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.white),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              title,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+                fontSize: 18,
+                letterSpacing: 0.6,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ManualGradientActionButton extends StatelessWidget {
+  final String label;
+  final IconData? icon;
+  final VoidCallback? onPressed;
+  final bool compact;
+
+  const _ManualGradientActionButton({
+    required this.label,
+    required this.onPressed,
+    this.icon,
+    this.compact = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: onPressed == null ? 0.5 : 1,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(compact ? 14 : 18),
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(compact ? 14 : 18),
+          child: Ink(
+            decoration: BoxDecoration(
+              gradient: kManualGradient,
+              borderRadius: BorderRadius.circular(compact ? 14 : 18),
+            ),
+            padding: EdgeInsets.symmetric(
+                horizontal: compact ? 12 : 16, vertical: compact ? 8 : 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (icon != null) ...[
+                  Icon(icon, color: Colors.white, size: compact ? 16 : 18),
+                  const SizedBox(width: 8),
+                ],
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: compact ? 13 : 15,
+                    ),
+                  ),
+                )
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // --- CONTENIDO DEL SIDEBAR (REUTILIZABLE) ---
 class _SidebarContent extends StatelessWidget {
   final int selectedIndex;
@@ -2876,122 +2979,106 @@ class _SidebarContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     var state = context.watch<AppState>();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (isMobile)
-          const SizedBox(height: 40)
-        else
+    return Container(
+      color: kManualBg,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (isMobile)
+            const SizedBox(height: 32)
+          else
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
+              child: _ManualSectionHeader(
+                title: "HOLA, ${state.currentUser.toUpperCase()}",
+                icon: Icons.person_outline,
+              ),
+            ),
+          _SidebarItem(
+              icon: Icons.tune,
+              label: "Configurar Tratamientos",
+              selected: selectedIndex == 0,
+              onTap: () {
+                onItemSelected(0);
+                if (isMobile) Navigator.pop(context);
+              }),
+          const SizedBox(height: 4),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 18),
+            child: Divider(height: 1, color: Color(0xFFBFD5E8)),
+          ),
+          const SizedBox(height: 6),
+          _SidebarItem(
+              icon: Icons.auto_awesome,
+              label: "Buscador AI",
+              selected: selectedIndex == 1,
+              onTap: () {
+                onItemSelected(1);
+                if (isMobile) Navigator.pop(context);
+              }),
+          _SidebarItem(
+              icon: Icons.settings,
+              label: "Gestionar",
+              selected: selectedIndex == 2,
+              onTap: () {
+                onItemSelected(2);
+                if (isMobile) Navigator.pop(context);
+              }),
+          _SidebarItem(
+              icon: Icons.settings_remote,
+              label: "Control Manual",
+              selected: selectedIndex == 3,
+              onTap: () {
+                onItemSelected(3);
+                if (isMobile) Navigator.pop(context);
+              }),
+          const Spacer(),
+          if (state.isConnected)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+              child: SizedBox(
+                width: double.infinity,
+                child: _ManualGradientActionButton(
+                  label: "Desconectar",
+                  icon: Icons.bluetooth_disabled,
+                  onPressed: () {
+                    state.disconnectDevice();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Bluetooth Desconectado")));
+                    if (isMobile) Navigator.pop(context);
+                  },
+                ),
+              ),
+            ),
           Padding(
-              padding: const EdgeInsets.all(20),
-              child: Text("Hola, ${state.currentUser}",
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 16))),
-        _SidebarItem(
-            icon: Icons.calendar_today,
-            label: "Panel Diario",
-            selected: selectedIndex == 0,
-            onTap: () {
-              onItemSelected(0);
-              if (isMobile) Navigator.pop(context);
-            }),
-        _SidebarItem(
-            icon: Icons.calendar_month,
-            label: "Panel Semanal",
-            selected: selectedIndex == 1,
-            onTap: () {
-              onItemSelected(1);
-              if (isMobile) Navigator.pop(context);
-            }),
-        _SidebarItem(
-            icon: Icons.history,
-            label: "Historial",
-            selected: selectedIndex == 2,
-            onTap: () {
-              onItemSelected(2);
-              if (isMobile) Navigator.pop(context);
-            }),
-        _SidebarItem(
-            icon: Icons.medical_services,
-            label: "Clínica",
-            selected: selectedIndex == 3,
-            onTap: () {
-              onItemSelected(3);
-              if (isMobile) Navigator.pop(context);
-            }),
-        const Divider(),
-        _SidebarItem(
-            icon: Icons.auto_awesome,
-            label: "Buscador AI",
-            selected: selectedIndex == 4,
-            onTap: () {
-              onItemSelected(4);
-              if (isMobile) Navigator.pop(context);
-            }),
-        _SidebarItem(
-            icon: Icons.settings,
-            label: "Gestionar",
-            selected: selectedIndex == 5,
-            onTap: () {
-              onItemSelected(5);
-              if (isMobile) Navigator.pop(context);
-            }),
-        _SidebarItem(
-            icon: Icons.settings_remote,
-            label: "Control Manual",
-            selected: selectedIndex == 6,
-            onTap: () {
-              onItemSelected(6);
-              if (isMobile) Navigator.pop(context);
-            }),
-        const Spacer(),
-        // Bluetooth Disconnect Button
-        if (state.isConnected)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
             child: SizedBox(
-               width: double.infinity,
-               child: OutlinedButton.icon(
-                 icon: const Icon(Icons.bluetooth_disabled, color: Colors.indigo),
-                 label: const Text("Desconectar", style: TextStyle(color: Colors.indigo)),
-                 style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.indigo)),
-                 onPressed: () {
-                   state.disconnectDevice();
-                   ScaffoldMessenger.of(context).showSnackBar(
-                     const SnackBar(content: Text("Bluetooth Desconectado"))
-                   );
-                   if (isMobile) Navigator.pop(context);
-                 },
-               ),
+              width: double.infinity,
+              child: _ManualGradientActionButton(
+                label: state.isConnected ? "Conectado" : "Conectar Panel",
+                icon: state.isConnected
+                    ? Icons.bluetooth_connected
+                    : Icons.bluetooth,
+                onPressed: () => showDialog(
+                  context: context,
+                  builder: (_) => const BluetoothScanDialog(),
+                ),
+              ),
             ),
           ),
-        Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 5, 16, 20),
             child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                        backgroundColor: state.isConnected
-                            ? Colors.green.shade600
-                            : Colors.blue.shade700,
-                        foregroundColor: Colors.white),
-                    icon: Icon(
-                        state.isConnected
-                            ? Icons.bluetooth_connected
-                            : Icons.bluetooth,
-                        size: 20),
-                    label: Text(
-                        state.isConnected ? "Conectado" : "Conectar Panel"),
-                    onPressed: () => showDialog(
-                        context: context,
-                        builder: (_) => const BluetoothScanDialog())))),
-        Padding(
-            padding: const EdgeInsets.all(20),
-            child: OutlinedButton.icon(
+              width: double.infinity,
+              child: _ManualGradientActionButton(
+                label: "Salir",
+                icon: Icons.logout,
                 onPressed: state.logout,
-                icon: const Icon(Icons.logout, size: 16),
-                label: const Text("Salir")))
-      ],
+              ),
+            ),
+          )
+        ],
+      ),
     );
   }
 }
@@ -3005,10 +3092,7 @@ class _MobileLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pages = [
-      const PanelDiarioView(),
-      const PanelSemanalView(),
-      const HistorialView(),
-      const ClinicaView(),
+      const ConfigurarTratamientosView(),
       const BuscadorIAView(),
       const GestionView(),
       const BluetoothCustomView()
@@ -3016,13 +3100,16 @@ class _MobileLayout extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
           title: const Text("Mega Panel AI"),
-          backgroundColor: Colors.white,
-          foregroundColor: Colors.black,
+          backgroundColor: kManualBg,
+          foregroundColor: const Color(0xFF255F86),
           elevation: 0),
       drawer: Drawer(
+          backgroundColor: kManualBg,
           child: _SidebarContent(
               selectedIndex: idx, onItemSelected: onNav, isMobile: true)),
-      body: Padding(padding: const EdgeInsets.all(16), child: pages[idx]),
+      body: Container(
+          color: kManualBg,
+          child: Padding(padding: const EdgeInsets.all(16), child: pages[idx])),
     );
   }
 }
@@ -3036,10 +3123,7 @@ class _DesktopLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pages = [
-      const PanelDiarioView(),
-      const PanelSemanalView(),
-      const HistorialView(),
-      const ClinicaView(),
+      const ConfigurarTratamientosView(),
       const BuscadorIAView(),
       const GestionView(),
       const BluetoothCustomView()
@@ -3049,14 +3133,16 @@ class _DesktopLayout extends StatelessWidget {
         children: [
           Container(
               width: 260,
-              color: const Color(0xFFF0F2F6),
+              color: kManualBg,
               child:
                   _SidebarContent(selectedIndex: idx, onItemSelected: onNav)),
           Expanded(
-              child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
-                  child: pages[idx]))
+              child: Container(
+                  color: kManualBg,
+                  child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 40, vertical: 20),
+                      child: pages[idx])))
         ],
       ),
     );
@@ -3076,26 +3162,172 @@ class _SidebarItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        color: selected ? Colors.white : null,
-        child: Row(
-          children: [
-            Icon(icon,
-                size: 20,
-                color: selected ? const Color(0xFFB71C1C) : Colors.grey[700]),
-            const SizedBox(width: 10),
-            Text(label,
-                style: TextStyle(
-                    color:
-                        selected ? const Color(0xFFB71C1C) : Colors.grey[800],
-                    fontWeight:
-                        selected ? FontWeight.bold : FontWeight.normal)),
-          ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
+          child: Ink(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              gradient: kManualGradient,
+              boxShadow: selected
+                  ? const [
+                      BoxShadow(
+                        color: Color(0x332B86E7),
+                        blurRadius: 10,
+                        offset: Offset(0, 3),
+                      )
+                    ]
+                  : null,
+            ),
+            child: Opacity(
+              opacity: selected ? 1 : 0.78,
+              child: Row(
+                children: [
+                  Icon(icon, size: 20, color: Colors.white),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      label,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight:
+                            selected ? FontWeight.w700 : FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
+    );
+  }
+}
+
+enum _TratamientosSubmenuPage { menu, diario, semanal, historial, clinica }
+
+class ConfigurarTratamientosView extends StatefulWidget {
+  const ConfigurarTratamientosView({super.key});
+
+  @override
+  State<ConfigurarTratamientosView> createState() =>
+      _ConfigurarTratamientosViewState();
+}
+
+class _ConfigurarTratamientosViewState extends State<ConfigurarTratamientosView> {
+  _TratamientosSubmenuPage _page = _TratamientosSubmenuPage.menu;
+
+  String get _subtitle {
+    switch (_page) {
+      case _TratamientosSubmenuPage.diario:
+        return "Panel Diario";
+      case _TratamientosSubmenuPage.semanal:
+        return "Panel Semanal";
+      case _TratamientosSubmenuPage.historial:
+        return "Historial";
+      case _TratamientosSubmenuPage.clinica:
+        return "Clínica";
+      case _TratamientosSubmenuPage.menu:
+        return "Configurar Tratamientos";
+    }
+  }
+
+  Widget _submenuButton({
+    required String label,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: _ManualGradientActionButton(
+        label: label,
+        icon: icon,
+        onPressed: onTap,
+      ),
+    );
+  }
+
+  Widget _currentView() {
+    switch (_page) {
+      case _TratamientosSubmenuPage.diario:
+        return const PanelDiarioView();
+      case _TratamientosSubmenuPage.semanal:
+        return const PanelSemanalView();
+      case _TratamientosSubmenuPage.historial:
+        return const HistorialView();
+      case _TratamientosSubmenuPage.clinica:
+        return const ClinicaView();
+      case _TratamientosSubmenuPage.menu:
+        return const SizedBox.shrink();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final inMenu = _page == _TratamientosSubmenuPage.menu;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _ManualSectionHeader(
+            title: inMenu ? "CONFIGURAR TRATAMIENTOS" : _subtitle.toUpperCase(),
+            icon: inMenu ? Icons.tune : Icons.arrow_forward_ios),
+        const SizedBox(height: 12),
+        if (!inMenu)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: _ManualGradientActionButton(
+              label: "Volver al submenú",
+              icon: Icons.arrow_back,
+              compact: true,
+              onPressed: () {
+                setState(() => _page = _TratamientosSubmenuPage.menu);
+              },
+            ),
+          ),
+        if (!inMenu) const SizedBox(height: 12),
+        Expanded(
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 180),
+            child: inMenu
+                ? ListView(
+                    key: const ValueKey("menu"),
+                    children: [
+                      _submenuButton(
+                          label: "Panel Diario",
+                          icon: Icons.calendar_today,
+                          onTap: () => setState(
+                              () => _page = _TratamientosSubmenuPage.diario)),
+                      _submenuButton(
+                          label: "Panel Semanal",
+                          icon: Icons.calendar_month,
+                          onTap: () => setState(
+                              () => _page = _TratamientosSubmenuPage.semanal)),
+                      _submenuButton(
+                          label: "Historial",
+                          icon: Icons.history,
+                          onTap: () => setState(
+                              () => _page = _TratamientosSubmenuPage.historial)),
+                      _submenuButton(
+                          label: "Clínica",
+                          icon: Icons.medical_services,
+                          onTap: () => setState(
+                              () => _page = _TratamientosSubmenuPage.clinica)),
+                    ],
+                  )
+                : KeyedSubtree(
+                    key: ValueKey(_page.name),
+                    child: _currentView(),
+                  ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -3125,11 +3357,17 @@ class PanelDiarioView extends StatelessWidget {
         listaMostrar.where((t) => !hechos.any((h) => h['id'] == t.id)).toList();
 
     return ListView(children: [
-      const Text("Panel Diario",
-          style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
-      const SizedBox(height: 5),
-      Text("Fecha: ${DateFormat('yyyy/MM/dd').format(hoyDt)}",
-          style: const TextStyle(color: Colors.grey)),
+      const _ManualSectionHeader(
+          title: "PANEL DIARIO", icon: Icons.calendar_today),
+      const SizedBox(height: 8),
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+            color: Colors.white70, borderRadius: BorderRadius.circular(14)),
+        child: Text("Fecha: ${DateFormat('yyyy/MM/dd').format(hoyDt)}",
+            style: const TextStyle(
+                color: Color(0xFF255F86), fontWeight: FontWeight.w600)),
+      ),
       const SizedBox(height: 20),
       if (state.currentUser.toLowerCase() == "benja") ...[
         Container(
@@ -3170,9 +3408,9 @@ class PanelDiarioView extends StatelessWidget {
           askTime: true),
       const SizedBox(height: 10),
       if (listaMostrar.isNotEmpty)
-        OutlinedButton.icon(
-            icon: const Icon(Icons.flash_on, color: Colors.orange),
-            label: const Text("Registrar Todo"),
+        _ManualGradientActionButton(
+            icon: Icons.flash_on,
+            label: "Registrar Todo",
             onPressed: () {
               for (var t in listaMostrar) {
                 if (!hechos.any((h) => h['id'] == t.id)) {
@@ -3592,14 +3830,27 @@ class _PanelSemanalViewState extends State<PanelSemanalView>
   Widget build(BuildContext context) {
     var state = context.watch<AppState>();
     return Column(children: [
-      TabBar(
-          controller: _tabController,
-          isScrollable: true,
-          labelColor: Colors.red,
-          unselectedLabelColor: Colors.grey,
-          tabs: _days
-              .map((d) => Tab(text: "${DateFormat('E').format(d)} ${d.day}"))
-              .toList()),
+      const _ManualSectionHeader(
+          title: "PANEL SEMANAL", icon: Icons.calendar_month),
+      const SizedBox(height: 10),
+      Container(
+        decoration: BoxDecoration(
+          gradient: kManualGradient,
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: TabBar(
+            controller: _tabController,
+            isScrollable: true,
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.white70,
+            indicator: BoxDecoration(
+                color: const Color(0x33FFFFFF),
+                borderRadius: BorderRadius.circular(14)),
+            dividerColor: Colors.transparent,
+            tabs: _days
+                .map((d) => Tab(text: "${DateFormat('E').format(d)} ${d.day}"))
+                .toList()),
+      ),
       Expanded(
           child: TabBarView(
               controller: _tabController,
@@ -3713,26 +3964,31 @@ class HistorialView extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text("📊 Historial de Registros",
-            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 20),
+        const _ManualSectionHeader(
+            title: "HISTORIAL DE REGISTROS", icon: Icons.history),
+        const SizedBox(height: 14),
         Expanded(
-          child: SingleChildScrollView(
-            child: DataTable(
-              columns: const [
-                DataColumn(label: Text("Fecha")),
-                DataColumn(label: Text("Hora")),
-                DataColumn(label: Text("Tratamiento")),
-                DataColumn(label: Text("Estado"))
-              ],
-              rows: rows
-                  .map((r) => DataRow(cells: [
-                        DataCell(Text(r['Fecha']!)),
-                        DataCell(Text(r['Hora']!)),
-                        DataCell(Text(r['Tratamiento']!)),
-                        DataCell(Text(r['Momento']!)),
-                      ]))
-                  .toList(),
+          child: Container(
+            decoration: BoxDecoration(
+                color: Colors.white70, borderRadius: BorderRadius.circular(18)),
+            padding: const EdgeInsets.all(10),
+            child: SingleChildScrollView(
+              child: DataTable(
+                columns: const [
+                  DataColumn(label: Text("Fecha")),
+                  DataColumn(label: Text("Hora")),
+                  DataColumn(label: Text("Tratamiento")),
+                  DataColumn(label: Text("Estado"))
+                ],
+                rows: rows
+                    .map((r) => DataRow(cells: [
+                          DataCell(Text(r['Fecha']!)),
+                          DataCell(Text(r['Hora']!)),
+                          DataCell(Text(r['Tratamiento']!)),
+                          DataCell(Text(r['Momento']!)),
+                        ]))
+                    .toList(),
+              ),
             ),
           ),
         )
@@ -3748,23 +4004,27 @@ class ClinicaView extends StatelessWidget {
   Widget build(BuildContext context) {
     var state = context.watch<AppState>();
     return ListView(children: [
-      const Text("🏥 Clínica",
-          style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
-      const SizedBox(height: 20),
+      const _ManualSectionHeader(title: "CLÍNICA", icon: Icons.medical_services),
+      const SizedBox(height: 14),
       const Text("Tratamientos Activos en Curso:",
-          style: TextStyle(color: Colors.grey)),
+          style:
+              TextStyle(color: Color(0xFF255F86), fontWeight: FontWeight.w600)),
       const SizedBox(height: 10),
       ...state.catalogo
           .where((t) => state.ciclosActivos[t.id]?['activo'] == true)
           .map((t) => Card(
-                color: Colors.blue.shade50,
+                color: Colors.white70,
                 child: ListTile(
                   title: Text(t.nombre),
                   subtitle:
                       Text("Iniciado: ${state.ciclosActivos[t.id]['inicio']}"),
-                  trailing: FilledButton(
-                      onPressed: () => state.detenerCiclo(t.id),
-                      child: const Text("Finalizar")),
+                  trailing: SizedBox(
+                    width: 120,
+                    child: _ManualGradientActionButton(
+                        label: "Finalizar",
+                        compact: true,
+                        onPressed: () => state.detenerCiclo(t.id)),
+                  ),
                 ),
               )),
       const Divider(height: 40),
@@ -3990,13 +4250,27 @@ class _BuscadorManual extends StatelessWidget {
         final tratamientos = tratamientosFiltrados();
 
         return ExpansionTile(
-          title: const Text("Anadir Tratamiento Manual"),
+          backgroundColor: Colors.white70,
+          collapsedBackgroundColor: Colors.white70,
+          iconColor: const Color(0xFF255F86),
+          collapsedIconColor: const Color(0xFF255F86),
+          title: const Row(
+            children: [
+              Icon(Icons.add_circle_outline, color: Color(0xFF255F86)),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text("Añadir Tratamiento Manual",
+                    style: TextStyle(
+                        color: Color(0xFF255F86), fontWeight: FontWeight.w700)),
+              ),
+            ],
+          ),
           collapsedShape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-              side: BorderSide(color: Colors.grey.shade300)),
+              borderRadius: BorderRadius.circular(14),
+              side: BorderSide(color: Colors.blue.shade100)),
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-              side: BorderSide(color: Colors.grey.shade300)),
+              borderRadius: BorderRadius.circular(14),
+              side: BorderSide(color: Colors.blue.shade100)),
           children: [
             Padding(
               padding: const EdgeInsets.all(12),
@@ -4007,7 +4281,10 @@ class _BuscadorManual extends StatelessWidget {
                     isExpanded: true,
                     decoration: const InputDecoration(
                       labelText: "Grupo",
-                      border: OutlineInputBorder(),
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(12))),
                     ),
                     hint: const Text("Selecciona grupo"),
                     items: n1Options
@@ -4032,7 +4309,11 @@ class _BuscadorManual extends StatelessWidget {
                       isExpanded: true,
                       decoration: const InputDecoration(
                         labelText: "Subgrupo",
-                        border: OutlineInputBorder(),
+                        filled: true,
+                        fillColor: Colors.white,
+                        border: OutlineInputBorder(
+                            borderRadius:
+                                BorderRadius.all(Radius.circular(12))),
                       ),
                       hint: const Text("Selecciona subgrupo"),
                       items: n2Options
@@ -4056,7 +4337,11 @@ class _BuscadorManual extends StatelessWidget {
                       isExpanded: true,
                       decoration: const InputDecoration(
                         labelText: "Zona",
-                        border: OutlineInputBorder(),
+                        filled: true,
+                        fillColor: Colors.white,
+                        border: OutlineInputBorder(
+                            borderRadius:
+                                BorderRadius.all(Radius.circular(12))),
                       ),
                       hint: const Text("Selecciona zona"),
                       items: n3Options
@@ -4166,13 +4451,27 @@ class _BuscadorManual extends StatelessWidget {
       });
     }
     return ExpansionTile(
-      title: const Text("➕ Añadir Tratamiento Manual"),
+      backgroundColor: Colors.white70,
+      collapsedBackgroundColor: Colors.white70,
+      iconColor: const Color(0xFF255F86),
+      collapsedIconColor: const Color(0xFF255F86),
+      title: const Row(
+        children: [
+          Icon(Icons.add_circle_outline, color: Color(0xFF255F86)),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text("Añadir Tratamiento Manual",
+                style: TextStyle(
+                    color: Color(0xFF255F86), fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
       collapsedShape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-          side: BorderSide(color: Colors.grey.shade300)),
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(color: Colors.blue.shade100)),
       shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-          side: BorderSide(color: Colors.grey.shade300)),
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(color: Colors.blue.shade100)),
       children: [
         SizedBox(
           height: 300,
