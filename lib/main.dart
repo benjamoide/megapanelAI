@@ -2510,11 +2510,12 @@ class AppState extends ChangeNotifier {
         await Future.delayed(const Duration(milliseconds: 500));
 
         await _sendParameters(t, workMode: 0);
-        // Wake/run handshake for panels that stay idle until explicit power-on.
-        await _bleManager.write(BleProtocol.setPower(true));
-        await Future.delayed(const Duration(milliseconds: 220));
-        await _bleManager.write(BleProtocol.quickStart(mode: 0));
-        await Future.delayed(const Duration(milliseconds: 360));
+        // Robust wake/run handshake for panels coming from deep idle/screen-off.
+        await _sendStartHandshake(
+          workMode: 0,
+          useQuickStart: true,
+          phase: "catalogo",
+        );
 
         // Re-apply only values that are commonly ignored before run becomes active.
         await _sendTimeAndPulse(t, phase: "post-start");
@@ -2619,6 +2620,36 @@ class AppState extends ChangeNotifier {
     await _sendTimeAndPulse(t, phase: "pre-start");
   }
 
+  Future<void> _sendStartHandshake({
+    required int workMode,
+    required bool useQuickStart,
+    String phase = "",
+  }) async {
+    final phaseLabel = phase.isEmpty ? "" : "[$phase] ";
+    final strategy = useQuickStart ? "power+quickstart" : "power-only";
+    print("BLE: ${phaseLabel}Start handshake ($strategy)");
+
+    // First wake pulse.
+    await _bleManager.write(BleProtocol.setPower(true));
+    await Future.delayed(const Duration(milliseconds: 420));
+    await _bleManager.write(BleProtocol.getStatus());
+    await Future.delayed(const Duration(milliseconds: 220));
+
+    if (useQuickStart) {
+      await _bleManager.write(BleProtocol.quickStart(mode: workMode));
+      await Future.delayed(const Duration(milliseconds: 520));
+    }
+
+    // Second pulse to handle cold panels that ignore the first start edge.
+    await _bleManager.write(BleProtocol.setPower(true));
+    await Future.delayed(const Duration(milliseconds: 420));
+
+    if (useQuickStart) {
+      await _bleManager.write(BleProtocol.quickStart(mode: workMode));
+      await Future.delayed(const Duration(milliseconds: 420));
+    }
+  }
+
   /// Starts a manual treatment not in the catalog
   /// [sequenceMode]: 0=Params->Start, 1=Params only, 2=Start->Params, 3=Stop->Params->Start
   Future<void> iniciarCicloManual(Tratamiento t,
@@ -2649,17 +2680,24 @@ class AppState extends ChangeNotifier {
 
         Future<void> start() async {
           if (startCommand == 0x21) {
-            print("BLE: Sending Quick Start (0x21) with Mode: $workMode");
-            await _bleManager.write(BleProtocol.quickStart(mode: workMode));
+            print("BLE: Sending Quick Start handshake (0x21) Mode: $workMode");
+            await _sendStartHandshake(
+              workMode: workMode,
+              useQuickStart: true,
+              phase: "manual",
+            );
             started = true;
           } else if (startCommand == 0x20) {
-            print("BLE: Sending Power ON (0x20)");
-            await _bleManager.write(BleProtocol.setPower(true));
+            print("BLE: Sending Power ON handshake (0x20)");
+            await _sendStartHandshake(
+              workMode: workMode,
+              useQuickStart: false,
+              phase: "manual",
+            );
             started = true;
           } else {
             print("BLE: Skipping Start Command");
           }
-          await Future.delayed(const Duration(milliseconds: 200));
         }
 
         Future<void> sendParams() async {
