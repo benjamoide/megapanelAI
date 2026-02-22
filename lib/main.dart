@@ -2146,12 +2146,23 @@ class AppState extends ChangeNotifier {
   Map<String, dynamic>? _snapshotCicloPausado() {
     String? pausedId;
     Map<String, dynamic>? pausedMap;
+    int bestPauseEpoch = -1;
 
     for (final entry in ciclosActivos.entries) {
       final value = entry.value;
       if (value is Map && value['pausado'] == true) {
-        pausedId = entry.key;
-        pausedMap = Map<String, dynamic>.from(value);
+        final candidate = Map<String, dynamic>.from(value);
+        final remaining =
+            ((candidate['restanteSegundos'] as num?)?.toInt() ?? 0)
+                .clamp(0, 3600);
+        if (remaining <= 0) continue;
+
+        final pauseEpoch = (candidate['pausaEpochMs'] as num?)?.toInt() ?? 0;
+        if (pausedMap == null || pauseEpoch >= bestPauseEpoch) {
+          pausedId = entry.key;
+          pausedMap = candidate;
+          bestPauseEpoch = pauseEpoch;
+        }
       }
     }
 
@@ -2308,6 +2319,7 @@ class AppState extends ChangeNotifier {
       if (value is Map && value['pausado'] == true) {
         value['pausado'] = false;
         value['restanteSegundos'] = 0;
+        value.remove('pausaEpochMs');
       }
     }
   }
@@ -2357,6 +2369,7 @@ class AppState extends ChangeNotifier {
       raw['pausado'] = true;
       raw['restanteSegundos'] = remainingSeconds;
       raw['duracionSegundos'] = remainingSeconds;
+      raw['pausaEpochMs'] = DateTime.now().millisecondsSinceEpoch;
       raw.remove('fin');
     }
 
@@ -2390,11 +2403,7 @@ class AppState extends ChangeNotifier {
         workMode: workMode,
         countdownSeconds: remainingSeconds,
       );
-      await _sendStartHandshake(
-        workMode: workMode,
-        useQuickStart: true,
-        phase: "resume",
-      );
+      await _sendResumeHandshake(workMode: workMode);
 
       await _sendTimeAndPulse(
         treatment,
@@ -2683,12 +2692,12 @@ class AppState extends ChangeNotifier {
           useQuickStart: true,
           phase: "catalogo",
         );
-        _marcarInicioRealCiclo(id);
 
         // Re-apply only values that are commonly ignored before run becomes active.
         await _sendTimeAndPulse(t, phase: "post-start");
         await _sendBrightness(t, phase: "post-start");
         await _readBackRunState(reason: "after iniciarCiclo");
+        _marcarInicioRealCiclo(id);
         print("BLE: Configuration sent.");
       } catch (e) {
         print("BLE Error: $e");
@@ -2844,6 +2853,17 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  Future<void> _sendResumeHandshake({required int workMode}) async {
+    print("BLE: [resume] Start handshake (fast-resume)");
+    await _bleManager.write(BleProtocol.setPower(true));
+    await Future.delayed(const Duration(milliseconds: 280));
+    await _bleManager.write(BleProtocol.quickStart(mode: workMode));
+    await Future.delayed(const Duration(milliseconds: 320));
+    // Keep ON latched without triggering a second full quick-start edge.
+    await _bleManager.write(BleProtocol.setPower(true));
+    await Future.delayed(const Duration(milliseconds: 180));
+  }
+
   /// Starts a manual treatment not in the catalog
   /// [sequenceMode]: 0=Params->Start, 1=Params only, 2=Start->Params, 3=Stop->Params->Start
   Future<void> iniciarCicloManual(Tratamiento t,
@@ -2919,10 +2939,10 @@ class AppState extends ChangeNotifier {
         }
 
         if (started) {
-          _marcarInicioRealCiclo(tempId);
           await Future.delayed(const Duration(milliseconds: 260));
           await _sendTimeAndPulse(t, phase: "post-start");
           await _readBackRunState(reason: "after iniciarCicloManual");
+          _marcarInicioRealCiclo(tempId);
         }
       } catch (e) {
         print("BLE Manual Error: $e");
@@ -2939,6 +2959,7 @@ class AppState extends ChangeNotifier {
       ciclosActivos[id]!['activo'] = false;
       ciclosActivos[id]!['pausado'] = false;
       ciclosActivos[id]!['restanteSegundos'] = 0;
+      ciclosActivos[id]!.remove('pausaEpochMs');
       ciclosActivos[id]!['fin'] = DateFormat('HH:mm:ss').format(DateTime.now());
 
       if (isConnected) {

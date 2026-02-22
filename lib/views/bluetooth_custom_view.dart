@@ -455,9 +455,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
         ),
         SizedBox(height: _s(10)),
         _buildRunButton(
-          enabled: isConnected &&
-              appState.hayCicloPausado &&
-              !appState.hayCicloActivo,
+          enabled: isConnected && appState.hayCicloPausado,
           label: 'RESUME',
           onTap: () => _resumePausedTreatment(appState),
         ),
