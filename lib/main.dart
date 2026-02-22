@@ -2114,6 +2114,7 @@ class AppState extends ChangeNotifier {
   // BLE
   final BleManager _bleManager = BleManager();
   bool isConnected = false;
+  bool _bleStartBusy = false;
 
   bool get hasApiKey => _apiKey.isNotEmpty;
   Tratamiento? get tratamientoActivoActual => _tratamientoActivoActual;
@@ -2264,6 +2265,51 @@ class AppState extends ChangeNotifier {
     isConnected = _bleManager.isConnected;
   }
 
+  Future<void> _acquireBleStartLock() async {
+    while (_bleStartBusy) {
+      await Future.delayed(const Duration(milliseconds: 120));
+    }
+    _bleStartBusy = true;
+  }
+
+  void _releaseBleStartLock() {
+    _bleStartBusy = false;
+  }
+
+  Future<void> _wakePanelFromSleep({required int workMode}) async {
+    final canCheckRx = _bleManager.canObserveRx;
+    print("BLE: Wake preflight (mode=$workMode, rxCheck=$canCheckRx)");
+
+    for (var attempt = 1; attempt <= 3; attempt++) {
+      print("BLE: Wake attempt $attempt/3");
+      await _bleManager.write(BleProtocol.setPower(true));
+      await Future.delayed(const Duration(milliseconds: 360));
+      await _bleManager.write(BleProtocol.getStatus());
+      await Future.delayed(const Duration(milliseconds: 220));
+      await _bleManager.write(BleProtocol.getCountdown());
+      await Future.delayed(const Duration(milliseconds: 220));
+
+      if (!canCheckRx || _bleManager.hasRecentRx(const Duration(seconds: 2))) {
+        print("BLE: Wake preflight OK on attempt $attempt");
+        return;
+      }
+
+      await _bleManager.write(BleProtocol.quickStart(mode: workMode));
+      await Future.delayed(const Duration(milliseconds: 360));
+      await _bleManager.write(BleProtocol.setPower(true));
+      await Future.delayed(const Duration(milliseconds: 420));
+      await _bleManager.write(BleProtocol.getStatus());
+      await Future.delayed(const Duration(milliseconds: 260));
+
+      if (_bleManager.hasRecentRx(const Duration(seconds: 2))) {
+        print("BLE: Wake preflight OK (post-quickstart) attempt $attempt");
+        return;
+      }
+    }
+
+    print("BLE: Wake preflight timed out; continuing with start sequence.");
+  }
+
   void _actualizarTratamientoActivoDesdeCiclos() {
     String? activeId;
     Map<String, dynamic>? activeMap;
@@ -2394,9 +2440,11 @@ class AppState extends ChangeNotifier {
         .clamp(1, 60 * 60);
     final workMode = ((paused['workMode'] as num?)?.toInt() ?? 0).clamp(0, 3);
 
+    await _acquireBleStartLock();
     try {
       await _bleManager.write(BleProtocol.setPower(false));
       await Future.delayed(const Duration(milliseconds: 420));
+      await _wakePanelFromSleep(workMode: workMode);
 
       await _sendParameters(
         treatment,
@@ -2415,6 +2463,8 @@ class AppState extends ChangeNotifier {
     } catch (e) {
       print("BLE Resume Error: $e");
       return false;
+    } finally {
+      _releaseBleStartLock();
     }
 
     final now = DateTime.now();
@@ -2676,6 +2726,7 @@ class AppState extends ChangeNotifier {
     _tratamientoActivoActual = t;
 
     if (isConnected) {
+      await _acquireBleStartLock();
       try {
         print("BLE: Starting Treatment '${t.nombre}'");
         print(
@@ -2685,6 +2736,7 @@ class AppState extends ChangeNotifier {
         await _bleManager.write(BleProtocol.setPower(false));
         await Future.delayed(const Duration(milliseconds: 500));
 
+        await _wakePanelFromSleep(workMode: 0);
         await _sendParameters(t, workMode: 0);
         // Robust wake/run handshake for panels coming from deep idle/screen-off.
         await _sendStartHandshake(
@@ -2701,6 +2753,8 @@ class AppState extends ChangeNotifier {
         print("BLE: Configuration sent.");
       } catch (e) {
         print("BLE Error: $e");
+      } finally {
+        _releaseBleStartLock();
       }
     }
 
@@ -2886,6 +2940,7 @@ class AppState extends ChangeNotifier {
     _tratamientoActivoActual = t;
 
     if (isConnected) {
+      await _acquireBleStartLock();
       try {
         print(
             "BLE: Starting Manual Treatment (Seq: $sequenceMode, Cmd: $startCommand, Mode: $workMode)");
@@ -2923,6 +2978,8 @@ class AppState extends ChangeNotifier {
           await _sendParameters(t, workMode: workMode);
         }
 
+        await _wakePanelFromSleep(workMode: workMode);
+
         if (sequenceMode == 0) {
           await sendParams();
           await start();
@@ -2948,6 +3005,8 @@ class AppState extends ChangeNotifier {
         print("BLE Manual Error: $e");
         ciclosActivos.remove(tempId);
         _actualizarTratamientoActivoDesdeCiclos();
+      } finally {
+        _releaseBleStartLock();
       }
     }
     _actualizarTratamientoActivoDesdeCiclos();

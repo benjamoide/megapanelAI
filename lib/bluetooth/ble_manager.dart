@@ -14,11 +14,12 @@ class BleManager {
   BluetoothDevice? _connectedDevice;
   BluetoothCharacteristic? _writeCharacteristic;
   BluetoothCharacteristic? _notifyCharacteristic;
-  
+
   StreamSubscription<BluetoothConnectionState>? _connectionSubscription;
   StreamSubscription<List<int>>? _notifySubscription;
   Future<void> _pendingWrite = Future.value();
   bool _isReady = false;
+  DateTime? _lastRxAt;
 
   static const int _maxChunkSize = 20;
   static const int _maxWriteAttempts = 3;
@@ -26,8 +27,10 @@ class BleManager {
   static const Duration _retryDelay = Duration(milliseconds: 120);
 
   // Persistent stream controller for connection state
-  final _connectionStateController = StreamController<BluetoothConnectionState>.broadcast();
-  Stream<BluetoothConnectionState> get connectionState => _connectionStateController.stream;
+  final _connectionStateController =
+      StreamController<BluetoothConnectionState>.broadcast();
+  Stream<BluetoothConnectionState> get connectionState =>
+      _connectionStateController.stream;
 
   // Log stream
   final _logController = StreamController<String>.broadcast();
@@ -35,7 +38,8 @@ class BleManager {
 
   void log(String msg) {
     developer.log(msg, name: 'BleManager');
-    _logController.add("${DateFormat('HH:mm:ss').format(DateTime.now())}: $msg");
+    _logController
+        .add("${DateFormat('HH:mm:ss').format(DateTime.now())}: $msg");
   }
 
   // Expose current state synchronously
@@ -44,8 +48,15 @@ class BleManager {
       _connectedDevice!.isConnected &&
       _isReady &&
       _writeCharacteristic != null;
+  bool get canObserveRx => _notifyCharacteristic != null;
 
   BluetoothDevice? get connectedDevice => _connectedDevice;
+
+  bool hasRecentRx(Duration window) {
+    final rx = _lastRxAt;
+    if (rx == null) return false;
+    return DateTime.now().difference(rx) <= window;
+  }
 
   Future<void> init() async {
     // Request core BLE permissions early.
@@ -65,7 +76,8 @@ class BleManager {
     }
 
     final scanGranted = await Permission.bluetoothScan.request().isGranted;
-    final connectGranted = await Permission.bluetoothConnect.request().isGranted;
+    final connectGranted =
+        await Permission.bluetoothConnect.request().isGranted;
     final locationGranted = await Permission.location.request().isGranted ||
         await Permission.locationWhenInUse.request().isGranted;
 
@@ -120,7 +132,8 @@ class BleManager {
       // Stop scanning before connecting
       await stopScan();
 
-      if (_connectedDevice != null && _connectedDevice!.remoteId != device.remoteId) {
+      if (_connectedDevice != null &&
+          _connectedDevice!.remoteId != device.remoteId) {
         await _connectedDevice?.disconnect();
       }
 
@@ -146,7 +159,7 @@ class BleManager {
 
         _connectionStateController.add(state);
       });
-  
+
       // Stabilization delay
       await Future.delayed(const Duration(milliseconds: 500));
 
@@ -164,7 +177,9 @@ class BleManager {
       await _notifySubscription?.cancel();
       if (_notifyCharacteristic != null) {
         await _notifyCharacteristic!.setNotifyValue(true);
-        _notifySubscription = _notifyCharacteristic!.lastValueStream.listen((value) {
+        _notifySubscription =
+            _notifyCharacteristic!.lastValueStream.listen((value) {
+          _lastRxAt = DateTime.now();
           log("BLE RX: ${_hex(value)}");
         }, onError: (error) {
           log("Notify stream error: $error");
@@ -233,9 +248,10 @@ class BleManager {
       BluetoothCharacteristic? serviceWrite;
       BluetoothCharacteristic? serviceNotify;
       for (final characteristic in service.characteristics) {
-        final canWrite =
-            characteristic.properties.write || characteristic.properties.writeWithoutResponse;
-        final canNotify = characteristic.properties.notify || characteristic.properties.indicate;
+        final canWrite = characteristic.properties.write ||
+            characteristic.properties.writeWithoutResponse;
+        final canNotify = characteristic.properties.notify ||
+            characteristic.properties.indicate;
         final props = characteristic.properties;
         log(
           "  Char ${characteristic.uuid.str} "
@@ -281,6 +297,7 @@ class BleManager {
     _connectedDevice = null;
     _writeCharacteristic = null;
     _notifyCharacteristic = null;
+    _lastRxAt = null;
     _pendingWrite = Future.value();
     _isReady = false;
     _connectionStateController.add(BluetoothConnectionState.disconnected);
@@ -293,7 +310,9 @@ class BleManager {
     }
 
     final normalized = data.map((byte) => byte & 0xFF).toList(growable: false);
-    _pendingWrite = _pendingWrite.then((_) => _writeInternal(normalized)).catchError((error) {
+    _pendingWrite = _pendingWrite
+        .then((_) => _writeInternal(normalized))
+        .catchError((error) {
       log("Write queue error: $error");
     });
     return _pendingWrite;
@@ -327,7 +346,8 @@ class BleManager {
 
       try {
         log("BLE WRITE [$index/$total] try $attempt: ${_hex(chunk)}");
-        await characteristic.write(chunk, withoutResponse: _shouldUseWithoutResponse(characteristic));
+        await characteristic.write(chunk,
+            withoutResponse: _shouldUseWithoutResponse(characteristic));
         return;
       } catch (e) {
         if (attempt >= _maxWriteAttempts) {

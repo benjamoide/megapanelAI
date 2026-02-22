@@ -445,7 +445,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
         _buildRunButton(
           enabled: isConnected,
           label: 'RUN',
-          onTap: () => _runManualTreatment(context),
+          onTap: _runManualTreatment,
         ),
         SizedBox(height: _s(10)),
         _buildRunButton(
@@ -710,7 +710,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
         SizedBox(height: _s(16)),
         _buildRunButton(
           enabled: isConnected,
-          onTap: () => _runManualTreatment(context),
+          onTap: _runManualTreatment,
         ),
       ],
     );
@@ -740,7 +740,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
         SizedBox(height: _s(16)),
         _buildRunButton(
           enabled: isConnected,
-          onTap: () => _runManualTreatment(context),
+          onTap: _runManualTreatment,
         ),
       ],
     );
@@ -822,7 +822,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
         SizedBox(height: _s(16)),
         _buildRunButton(
           enabled: isConnected,
-          onTap: () => _runManualTreatment(context),
+          onTap: _runManualTreatment,
         ),
       ],
     );
@@ -882,7 +882,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
             Expanded(
               child: _buildRunButton(
                 enabled: isConnected,
-                onTap: () => _runManualTreatment(context),
+                onTap: _runManualTreatment,
               ),
             ),
             SizedBox(width: _s(10)),
@@ -1521,14 +1521,14 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
     );
   }
 
-  Future<void> _runManualTreatment(BuildContext context) async {
+  Future<void> _runManualTreatment() async {
     final state = context.read<AppState>();
     final activeBeforeStop = _snapshotFromActiveTreatment(state);
     if (activeBeforeStop != null) {
       _applySnapshotToEditor(activeBeforeStop);
     }
     await state.detenerPanelActivo();
-    if (!context.mounted) return;
+    if (!mounted) return;
 
     final manualT = Tratamiento(
       id: 'manual_${DateTime.now().millisecondsSinceEpoch}',
@@ -1546,15 +1546,14 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
       ],
     );
 
-    state.iniciarCicloManual(
+    await state.iniciarCicloManual(
       manualT,
       startCommand: _startCommand,
       sequenceMode: _sequenceMode,
       workMode: _workMode,
     );
-    if (mounted) {
-      setState(() => _section = _ManualSection.home);
-    }
+    if (!mounted) return;
+    setState(() => _section = _ManualSection.home);
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Enviando configuracion al dispositivo...')),
     );
@@ -1568,7 +1567,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
       );
       return;
     }
-    await _runManualTreatment(context);
+    await _runManualTreatment();
   }
 
   Future<void> _handleOffFromOnOff(AppState appState) async {
