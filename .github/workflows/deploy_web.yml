@@ -16,6 +16,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: deploy-web-android-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -66,6 +70,7 @@ jobs:
       # PASO 4: GUARDAR EL APK PARA QUE LO DESCARGUES
       # ---------------------------------------------------------
       - name: Upload APK
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: mega-panel-app-release
