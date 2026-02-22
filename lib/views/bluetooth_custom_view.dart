@@ -386,12 +386,18 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
   }) {
     final activeConfig = _snapshotFromActiveTreatment(appState);
     final shown = activeConfig ?? _currentSnapshot();
-    final remaining = appState.tiempoRestanteCicloActivo();
-    final hasLiveCountdown = appState.hayCicloActivo && remaining != null;
+    final activeRemaining = appState.tiempoRestanteCicloActivo();
+    final pausedRemaining = appState.tiempoRestanteCicloPausado();
+    final hasLiveCountdown = appState.hayCicloActivo && activeRemaining != null;
+    final hasPausedCountdown =
+        appState.hayCicloPausado && pausedRemaining != null;
     final timeLabel = hasLiveCountdown
-        ? _formatRemaining(remaining)
-        : shown.duration.toInt().toString();
-    final timeCaption = hasLiveCountdown ? 'MIN:SEG' : 'MIN';
+        ? _formatRemaining(activeRemaining)
+        : (hasPausedCountdown
+            ? _formatRemaining(pausedRemaining)
+            : shown.duration.toInt().toString());
+    final timeCaption =
+        hasLiveCountdown ? 'MIN:SEG' : (hasPausedCountdown ? 'PAUSADO' : 'MIN');
 
     return Column(
       children: [
@@ -443,9 +449,17 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
         ),
         SizedBox(height: _s(10)),
         _buildRunButton(
-          enabled: appState.hayCicloActivo || isConnected,
+          enabled: appState.hayCicloActivo,
           label: 'STOP',
           onTap: () => _stopActiveTreatmentFromHome(appState),
+        ),
+        SizedBox(height: _s(10)),
+        _buildRunButton(
+          enabled: isConnected &&
+              appState.hayCicloPausado &&
+              !appState.hayCicloActivo,
+          label: 'RESUME',
+          onTap: () => _resumePausedTreatment(appState),
         ),
       ],
     );
@@ -1559,15 +1573,42 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
   }
 
   Future<void> _stopActiveTreatmentFromHome(AppState appState) async {
+    if (!appState.hayCicloActivo) {
+      await appState.detenerPanelActivo();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No hay tratamiento activo.')),
+      );
+      return;
+    }
     final active = _snapshotFromActiveTreatment(appState);
     if (active != null) {
       _applySnapshotToEditor(active);
     }
-    await appState.detenerPanelActivo();
+    final paused = await appState.pausarPanelActivo();
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-          content: Text('Panel detenido. Pulsa RUN para continuar.')),
+      SnackBar(
+        content: Text(
+          paused
+              ? 'Tratamiento en pausa. Pulsa RESUME para continuar.'
+              : 'Panel detenido.',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _resumePausedTreatment(AppState appState) async {
+    final resumed = await appState.reanudarCicloPausado();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          resumed
+              ? 'Reanudando tratamiento desde el tiempo restante...'
+              : 'No se pudo reanudar. Verifica conexion y estado del panel.',
+        ),
+      ),
     );
   }
 

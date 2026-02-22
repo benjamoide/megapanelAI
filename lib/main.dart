@@ -2121,6 +2121,10 @@ class AppState extends ChangeNotifier {
   bool get hayCicloActivo =>
       _idCicloActivoActual != null &&
       ciclosActivos[_idCicloActivoActual]?['activo'] == true;
+  bool get hayCicloPausado {
+    final paused = tiempoRestanteCicloPausado();
+    return paused != null && paused.inSeconds > 0;
+  }
 
   Map<String, dynamic>? _snapshotCicloActivo() {
     String? activeId;
@@ -2137,6 +2141,23 @@ class AppState extends ChangeNotifier {
     if (activeId == null || activeMap == null) return null;
     activeMap['id'] = activeId;
     return activeMap;
+  }
+
+  Map<String, dynamic>? _snapshotCicloPausado() {
+    String? pausedId;
+    Map<String, dynamic>? pausedMap;
+
+    for (final entry in ciclosActivos.entries) {
+      final value = entry.value;
+      if (value is Map && value['pausado'] == true) {
+        pausedId = entry.key;
+        pausedMap = Map<String, dynamic>.from(value);
+      }
+    }
+
+    if (pausedId == null || pausedMap == null) return null;
+    pausedMap['id'] = pausedId;
+    return pausedMap;
   }
 
   DateTime? _inicioCicloDesdeSnapshot(Map<String, dynamic> cycle) {
@@ -2169,20 +2190,26 @@ class AppState extends ChangeNotifier {
     return null;
   }
 
-  int _duracionCicloMinutosDesdeSnapshot(Map<String, dynamic> cycle) {
+  int _duracionCicloSegundosDesdeSnapshot(Map<String, dynamic> cycle) {
+    final exactSeconds = (cycle['duracionSegundos'] as num?)?.toInt();
+    if (exactSeconds != null) {
+      if (exactSeconds < 1) return 1;
+      if (exactSeconds > 60 * 60) return 60 * 60;
+      return exactSeconds;
+    }
+
     final snapshot = cycle['tratamiento'];
     if (snapshot is Map) {
       final rawDuration = snapshot['duracion']?.toString() ?? '';
       final parsed = int.tryParse(rawDuration);
       if (parsed != null) {
-        if (parsed < 1) return 1;
-        if (parsed > 60) return 60;
-        return parsed;
+        final minutes = parsed.clamp(1, 60);
+        return minutes * 60;
       }
     }
     final t = _tratamientoActivoActual;
-    if (t != null) return _durationMinutesFromTratamiento(t);
-    return 10;
+    if (t != null) return _durationMinutesFromTratamiento(t) * 60;
+    return 10 * 60;
   }
 
   Duration? tiempoRestanteCicloActivo() {
@@ -2192,13 +2219,22 @@ class AppState extends ChangeNotifier {
     final start = _inicioCicloDesdeSnapshot(active);
     if (start == null) return null;
 
-    final total = Duration(
-      minutes: _duracionCicloMinutosDesdeSnapshot(active),
-    );
+    final total =
+        Duration(seconds: _duracionCicloSegundosDesdeSnapshot(active));
     final elapsed = DateTime.now().difference(start);
     final remaining = total - elapsed;
     if (remaining.isNegative) return Duration.zero;
     return remaining;
+  }
+
+  Duration? tiempoRestanteCicloPausado() {
+    final paused = _snapshotCicloPausado();
+    if (paused == null) return null;
+
+    final remainingSeconds = (paused['restanteSegundos'] as num?)?.toInt() ??
+        _duracionCicloSegundosDesdeSnapshot(paused);
+    if (remainingSeconds <= 0) return Duration.zero;
+    return Duration(seconds: remainingSeconds);
   }
 
   AppState() {
@@ -2251,6 +2287,31 @@ class AppState extends ChangeNotifier {
         fromCatalog.isNotEmpty ? fromCatalog.first : null;
   }
 
+  Tratamiento? _tratamientoDesdeSnapshot(Map<String, dynamic> cycle) {
+    final snapshot = cycle['tratamiento'];
+    if (snapshot is Map) {
+      try {
+        return Tratamiento.fromJson(Map<String, dynamic>.from(snapshot));
+      } catch (_) {}
+    }
+
+    final id = cycle['id']?.toString();
+    if (id == null || id.isEmpty) return null;
+    final fromCatalog = catalogo.where((t) => t.id == id).toList();
+    if (fromCatalog.isNotEmpty) return fromCatalog.first;
+    return null;
+  }
+
+  void _limpiarCiclosPausados() {
+    for (final entry in ciclosActivos.entries) {
+      final value = entry.value;
+      if (value is Map && value['pausado'] == true) {
+        value['pausado'] = false;
+        value['restanteSegundos'] = 0;
+      }
+    }
+  }
+
   Future<void> detenerPanelActivo() async {
     _actualizarTratamientoActivoDesdeCiclos();
     final activeId = _idCicloActivoActual;
@@ -2263,6 +2324,101 @@ class AppState extends ChangeNotifier {
     }
     _actualizarTratamientoActivoDesdeCiclos();
     notifyListeners();
+  }
+
+  Future<bool> pausarPanelActivo() async {
+    _actualizarTratamientoActivoDesdeCiclos();
+    final active = _snapshotCicloActivo();
+    if (active == null) return false;
+
+    final activeId = active['id']?.toString();
+    if (activeId == null || activeId.isEmpty) return false;
+    final remaining = tiempoRestanteCicloActivo();
+    final remainingSeconds = (remaining?.inSeconds ?? 0).clamp(0, 60 * 60);
+
+    if (remainingSeconds <= 0) {
+      await detenerCiclo(activeId);
+      return false;
+    }
+
+    if (isConnected) {
+      await _bleManager.write(BleProtocol.setPower(false));
+    }
+
+    final raw = ciclosActivos[activeId];
+    if (raw is Map) {
+      raw['activo'] = false;
+      raw['pausado'] = true;
+      raw['restanteSegundos'] = remainingSeconds;
+      raw['duracionSegundos'] = remainingSeconds;
+      raw.remove('fin');
+    }
+
+    _actualizarTratamientoActivoDesdeCiclos();
+    notifyListeners();
+    return true;
+  }
+
+  Future<bool> reanudarCicloPausado() async {
+    final paused = _snapshotCicloPausado();
+    if (paused == null) return false;
+    if (!isConnected) return false;
+
+    final cycleId = paused['id']?.toString();
+    if (cycleId == null || cycleId.isEmpty) return false;
+
+    final treatment = _tratamientoDesdeSnapshot(paused);
+    if (treatment == null) return false;
+
+    final remainingSeconds = ((paused['restanteSegundos'] as num?)?.toInt() ??
+            _duracionCicloSegundosDesdeSnapshot(paused))
+        .clamp(1, 60 * 60);
+    final workMode = ((paused['workMode'] as num?)?.toInt() ?? 0).clamp(0, 3);
+
+    try {
+      await _bleManager.write(BleProtocol.setPower(false));
+      await Future.delayed(const Duration(milliseconds: 420));
+
+      await _sendParameters(
+        treatment,
+        workMode: workMode,
+        countdownSeconds: remainingSeconds,
+      );
+      await _sendStartHandshake(
+        workMode: workMode,
+        useQuickStart: true,
+        phase: "resume",
+      );
+
+      await _sendTimeAndPulse(
+        treatment,
+        phase: "post-resume",
+        countdownSeconds: remainingSeconds,
+      );
+      await _sendBrightness(treatment, phase: "post-resume");
+      await _readBackRunState(reason: "after resume");
+    } catch (e) {
+      print("BLE Resume Error: $e");
+      return false;
+    }
+
+    final now = DateTime.now();
+    ciclosActivos[cycleId] = {
+      'activo': true,
+      'pausado': false,
+      'inicio': DateFormat('HH:mm:ss').format(now),
+      'inicioEpochMs': now.millisecondsSinceEpoch,
+      'duracionSegundos': remainingSeconds,
+      'restanteSegundos': remainingSeconds,
+      'workMode': workMode,
+      'origen': paused['origen'] ?? 'resume',
+      'tratamiento': treatment.toJson(),
+    };
+
+    _idCicloActivoActual = cycleId;
+    _tratamientoActivoActual = treatment;
+    notifyListeners();
+    return true;
   }
 
   Future<bool> connectToDevice(BluetoothDevice device) async {
@@ -2489,10 +2645,15 @@ class AppState extends ChangeNotifier {
 
   Future<void> iniciarCiclo(String id) async {
     final t = catalogo.firstWhere((e) => e.id == id);
+    _limpiarCiclosPausados();
     ciclosActivos[id] = {
       'activo': true,
+      'pausado': false,
       'inicio': DateFormat('HH:mm:ss').format(DateTime.now()),
       'inicioEpochMs': DateTime.now().millisecondsSinceEpoch,
+      'duracionSegundos': _durationMinutesFromTratamiento(t) * 60,
+      'restanteSegundos': _durationMinutesFromTratamiento(t) * 60,
+      'workMode': 0,
       'origen': 'catalogo',
       'tratamiento': t.toJson(),
     };
@@ -2516,6 +2677,7 @@ class AppState extends ChangeNotifier {
           useQuickStart: true,
           phase: "catalogo",
         );
+        _marcarInicioRealCiclo(id);
 
         // Re-apply only values that are commonly ignored before run becomes active.
         await _sendTimeAndPulse(t, phase: "post-start");
@@ -2570,14 +2732,19 @@ class AppState extends ChangeNotifier {
     return raw;
   }
 
-  Future<void> _sendTimeAndPulse(Tratamiento t, {String phase = ""}) async {
+  Future<void> _sendTimeAndPulse(
+    Tratamiento t, {
+    String phase = "",
+    int? countdownSeconds,
+  }) async {
     const commandDelay = Duration(milliseconds: 220);
-    final durationMinutes = _durationMinutesFromTratamiento(t);
+    final totalSeconds =
+        countdownSeconds ?? (_durationMinutesFromTratamiento(t) * 60);
     final pulseHz = _pulseFromTratamiento(t);
     final phaseLabel = phase.isEmpty ? "" : "[$phase] ";
 
-    print("BLE: ${phaseLabel}Sending Duration: $durationMinutes min");
-    await _bleManager.write(BleProtocol.setCountdown(durationMinutes));
+    print("BLE: ${phaseLabel}Sending Duration: $totalSeconds s");
+    await _bleManager.write(BleProtocol.setCountdownSeconds(totalSeconds));
     await Future.delayed(commandDelay);
 
     print("BLE: ${phaseLabel}Sending Pulse: $pulseHz Hz");
@@ -2609,7 +2776,11 @@ class AppState extends ChangeNotifier {
     await _bleManager.write(BleProtocol.getBrightness());
   }
 
-  Future<void> _sendParameters(Tratamiento t, {int workMode = 0}) async {
+  Future<void> _sendParameters(
+    Tratamiento t, {
+    int workMode = 0,
+    int? countdownSeconds,
+  }) async {
     const modeDelay = Duration(milliseconds: 200);
 
     print("BLE: Sending Work Mode: $workMode");
@@ -2617,7 +2788,24 @@ class AppState extends ChangeNotifier {
     await Future.delayed(modeDelay);
 
     await _sendBrightness(t);
-    await _sendTimeAndPulse(t, phase: "pre-start");
+    await _sendTimeAndPulse(
+      t,
+      phase: "pre-start",
+      countdownSeconds: countdownSeconds,
+    );
+  }
+
+  void _marcarInicioRealCiclo(String id) {
+    final cycle = ciclosActivos[id];
+    if (cycle is! Map) return;
+    final now = DateTime.now();
+    cycle['inicio'] = DateFormat('HH:mm:ss').format(now);
+    cycle['inicioEpochMs'] = now.millisecondsSinceEpoch;
+    cycle['pausado'] = false;
+    if ((cycle['restanteSegundos'] as num?)?.toInt() == null) {
+      cycle['restanteSegundos'] =
+          _duracionCicloSegundosDesdeSnapshot(Map<String, dynamic>.from(cycle));
+    }
   }
 
   Future<void> _sendStartHandshake({
@@ -2655,11 +2843,16 @@ class AppState extends ChangeNotifier {
   Future<void> iniciarCicloManual(Tratamiento t,
       {int startCommand = 0x21, int sequenceMode = 0, int workMode = 0}) async {
     final tempId = t.id;
+    _limpiarCiclosPausados();
 
     ciclosActivos[tempId] = {
       'activo': true,
+      'pausado': false,
       'inicio': DateFormat('HH:mm:ss').format(DateTime.now()),
       'inicioEpochMs': DateTime.now().millisecondsSinceEpoch,
+      'duracionSegundos': _durationMinutesFromTratamiento(t) * 60,
+      'restanteSegundos': _durationMinutesFromTratamiento(t) * 60,
+      'workMode': workMode,
       'origen': 'manual',
       'tratamiento': t.toJson(),
     };
@@ -2720,6 +2913,7 @@ class AppState extends ChangeNotifier {
         }
 
         if (started) {
+          _marcarInicioRealCiclo(tempId);
           await Future.delayed(const Duration(milliseconds: 260));
           await _sendTimeAndPulse(t, phase: "post-start");
           await _readBackRunState(reason: "after iniciarCicloManual");
@@ -2737,6 +2931,8 @@ class AppState extends ChangeNotifier {
   Future<void> detenerCiclo(String id) async {
     if (ciclosActivos.containsKey(id)) {
       ciclosActivos[id]!['activo'] = false;
+      ciclosActivos[id]!['pausado'] = false;
+      ciclosActivos[id]!['restanteSegundos'] = 0;
       ciclosActivos[id]!['fin'] = DateFormat('HH:mm:ss').format(DateTime.now());
 
       if (isConnected) {
@@ -3485,7 +3681,7 @@ class _ConfigurarTratamientosViewState
                 if (!inMenu) const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    _title,
+                    inMenu ? _title : "TRATAMIENTOS",
                     style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w700,

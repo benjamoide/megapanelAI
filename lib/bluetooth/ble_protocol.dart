@@ -12,8 +12,8 @@ class BleProtocol {
   static const int cmdSetCountdown = 0x31; // 49
   static const int cmdGetBrightness = 0x40;
   static const int cmdSetBrightness = 0x41; // 65
-  static const int cmdSetPulse = 0x42;      // 66
-  static const int cmdSetWorkMode = 0x50;  // 80
+  static const int cmdSetPulse = 0x42; // 66
+  static const int cmdSetWorkMode = 0x50; // 80
   static const int cmdGetWorkMode = 0x51;
 
   // --- PACKET STRUCTURE ---
@@ -73,12 +73,12 @@ class BleProtocol {
   }
 
   /// Helper to Turn On/Off (using Control command 0x20?)
-  /// Analysis says 0x20 is Basic Control. 
+  /// Analysis says 0x20 is Basic Control.
   /// Needs experimentation. Usually 0x01 = ON, 0x00 = OFF for payload.
   static List<int> setPower(bool on) {
     return buildPacket(cmdControl, [on ? 0x01 : 0x00]);
   }
-  
+
   /// Helper to Set Work Mode (0x50)
   /// Modes might be: 0=CW, 1=Pulse, etc.
   static List<int> setWorkMode(int mode) {
@@ -96,10 +96,19 @@ class BleProtocol {
   /// [minutes] Duration.
   /// Sends Total Seconds in Big Endian (2 bytes).
   static List<int> setCountdown(int minutes) {
-    int totalSeconds = minutes * 60;
-    return buildPacket(cmdSetCountdown, [(totalSeconds >> 8) & 0xFF, totalSeconds & 0xFF]);
+    final totalSeconds = minutes * 60;
+    return setCountdownSeconds(totalSeconds);
   }
-  
+
+  /// Helper to Set Countdown directly in seconds (0x31).
+  static List<int> setCountdownSeconds(int totalSeconds) {
+    final safeSeconds = totalSeconds.clamp(1, 60 * 60).toInt();
+    return buildPacket(
+      cmdSetCountdown,
+      [(safeSeconds >> 8) & 0xFF, safeSeconds & 0xFF],
+    );
+  }
+
   /// Helper for Quick Start (0x21)
   /// [mode] 0x01 = Preset 1?, 0x00 = Manual?
   static List<int> quickStart({int mode = 0x00}) {
