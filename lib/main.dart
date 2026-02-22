@@ -2297,27 +2297,27 @@ class AppState extends ChangeNotifier {
 
     for (var attempt = 1; attempt <= 3; attempt++) {
       print("BLE: Wake attempt $attempt/3");
-      await _bleManager.write(BleProtocol.setPower(true));
-      await Future.delayed(const Duration(milliseconds: 360));
+      // Keep panel OFF while probing so we do not briefly run stale settings.
+      await _bleManager.write(BleProtocol.setPower(false));
+      await Future.delayed(const Duration(milliseconds: 220));
       await _bleManager.write(BleProtocol.getStatus());
-      await Future.delayed(const Duration(milliseconds: 220));
+      await Future.delayed(const Duration(milliseconds: 180));
       await _bleManager.write(BleProtocol.getCountdown());
-      await Future.delayed(const Duration(milliseconds: 220));
+      await Future.delayed(const Duration(milliseconds: 180));
 
       if (!canCheckRx || _bleManager.hasRecentRx(const Duration(seconds: 2))) {
         print("BLE: Wake preflight OK on attempt $attempt");
         return;
       }
 
-      await _bleManager.write(BleProtocol.quickStart(mode: workMode));
-      await Future.delayed(const Duration(milliseconds: 360));
-      await _bleManager.write(BleProtocol.setPower(true));
-      await Future.delayed(const Duration(milliseconds: 420));
+      // Retry with a harmless mode re-assertion (no RUN edge).
+      await _bleManager.write(BleProtocol.setWorkMode(workMode));
+      await Future.delayed(const Duration(milliseconds: 200));
       await _bleManager.write(BleProtocol.getStatus());
-      await Future.delayed(const Duration(milliseconds: 260));
+      await Future.delayed(const Duration(milliseconds: 180));
 
       if (_bleManager.hasRecentRx(const Duration(seconds: 2))) {
-        print("BLE: Wake preflight OK (post-quickstart) attempt $attempt");
+        print("BLE: Wake preflight OK (post-mode probe) attempt $attempt");
         return;
       }
     }
@@ -2893,18 +2893,7 @@ class AppState extends ChangeNotifier {
     final strategy = useQuickStart ? "power+quickstart" : "power-only";
     print("BLE: ${phaseLabel}Start handshake ($strategy)");
 
-    // First wake pulse.
-    await _bleManager.write(BleProtocol.setPower(true));
-    await Future.delayed(const Duration(milliseconds: 420));
-    await _bleManager.write(BleProtocol.getStatus());
-    await Future.delayed(const Duration(milliseconds: 220));
-
-    if (useQuickStart) {
-      await _bleManager.write(BleProtocol.quickStart(mode: workMode));
-      await Future.delayed(const Duration(milliseconds: 520));
-    }
-
-    // Second pulse to handle cold panels that ignore the first start edge.
+    // Single start edge to avoid transient fallback presets before re-apply.
     await _bleManager.write(BleProtocol.setPower(true));
     await Future.delayed(const Duration(milliseconds: 420));
 
@@ -2912,6 +2901,9 @@ class AppState extends ChangeNotifier {
       await _bleManager.write(BleProtocol.quickStart(mode: workMode));
       await Future.delayed(const Duration(milliseconds: 420));
     }
+
+    await _bleManager.write(BleProtocol.getStatus());
+    await Future.delayed(const Duration(milliseconds: 180));
   }
 
   Future<void> _sendResumeHandshake({required int workMode}) async {
