@@ -2122,6 +2122,85 @@ class AppState extends ChangeNotifier {
       _idCicloActivoActual != null &&
       ciclosActivos[_idCicloActivoActual]?['activo'] == true;
 
+  Map<String, dynamic>? _snapshotCicloActivo() {
+    String? activeId;
+    Map<String, dynamic>? activeMap;
+
+    for (final entry in ciclosActivos.entries) {
+      final value = entry.value;
+      if (value is Map && value['activo'] == true) {
+        activeId = entry.key;
+        activeMap = Map<String, dynamic>.from(value);
+      }
+    }
+
+    if (activeId == null || activeMap == null) return null;
+    activeMap['id'] = activeId;
+    return activeMap;
+  }
+
+  DateTime? _inicioCicloDesdeSnapshot(Map<String, dynamic> cycle) {
+    final epochMs = (cycle['inicioEpochMs'] as num?)?.toInt();
+    if (epochMs != null && epochMs > 0) {
+      return DateTime.fromMillisecondsSinceEpoch(epochMs);
+    }
+
+    final rawInicio = cycle['inicio']?.toString() ?? '';
+    if (rawInicio.isEmpty) return null;
+
+    final now = DateTime.now();
+    for (final format in [DateFormat('HH:mm:ss'), DateFormat('HH:mm')]) {
+      try {
+        final parsed = format.parseStrict(rawInicio);
+        var start = DateTime(
+          now.year,
+          now.month,
+          now.day,
+          parsed.hour,
+          parsed.minute,
+          parsed.second,
+        );
+        if (start.isAfter(now.add(const Duration(minutes: 1)))) {
+          start = start.subtract(const Duration(days: 1));
+        }
+        return start;
+      } catch (_) {}
+    }
+    return null;
+  }
+
+  int _duracionCicloMinutosDesdeSnapshot(Map<String, dynamic> cycle) {
+    final snapshot = cycle['tratamiento'];
+    if (snapshot is Map) {
+      final rawDuration = snapshot['duracion']?.toString() ?? '';
+      final parsed = int.tryParse(rawDuration);
+      if (parsed != null) {
+        if (parsed < 1) return 1;
+        if (parsed > 60) return 60;
+        return parsed;
+      }
+    }
+    final t = _tratamientoActivoActual;
+    if (t != null) return _durationMinutesFromTratamiento(t);
+    return 10;
+  }
+
+  Duration? tiempoRestanteCicloActivo() {
+    final active = _snapshotCicloActivo();
+    if (active == null) return null;
+
+    final start = _inicioCicloDesdeSnapshot(active);
+    if (start == null) return null;
+
+    final total = Duration(
+      minutes: _duracionCicloMinutosDesdeSnapshot(active),
+    );
+    final elapsed = DateTime.now().difference(start);
+    final remaining = total - elapsed;
+    if (remaining.isNegative) return Duration.zero;
+    return remaining;
+  }
+
   AppState() {
     catalogo = _generarCatalogoCompleto();
     _initBle();
@@ -2168,7 +2247,8 @@ class AppState extends ChangeNotifier {
     }
 
     final fromCatalog = catalogo.where((t) => t.id == activeId).toList();
-    _tratamientoActivoActual = fromCatalog.isNotEmpty ? fromCatalog.first : null;
+    _tratamientoActivoActual =
+        fromCatalog.isNotEmpty ? fromCatalog.first : null;
   }
 
   Future<void> detenerPanelActivo() async {
@@ -2412,6 +2492,7 @@ class AppState extends ChangeNotifier {
     ciclosActivos[id] = {
       'activo': true,
       'inicio': DateFormat('HH:mm:ss').format(DateTime.now()),
+      'inicioEpochMs': DateTime.now().millisecondsSinceEpoch,
       'origen': 'catalogo',
       'tratamiento': t.toJson(),
     };
@@ -2537,6 +2618,7 @@ class AppState extends ChangeNotifier {
     await _sendBrightness(t);
     await _sendTimeAndPulse(t, phase: "pre-start");
   }
+
   /// Starts a manual treatment not in the catalog
   /// [sequenceMode]: 0=Params->Start, 1=Params only, 2=Start->Params, 3=Stop->Params->Start
   Future<void> iniciarCicloManual(Tratamiento t,
@@ -2546,6 +2628,7 @@ class AppState extends ChangeNotifier {
     ciclosActivos[tempId] = {
       'activo': true,
       'inicio': DateFormat('HH:mm:ss').format(DateTime.now()),
+      'inicioEpochMs': DateTime.now().millisecondsSinceEpoch,
       'origen': 'manual',
       'tratamiento': t.toJson(),
     };
@@ -3216,7 +3299,14 @@ class _SidebarItem extends StatelessWidget {
   }
 }
 
-enum _ConfigTratamientosPage { menu, diario, semanal, historial, clinica, control }
+enum _ConfigTratamientosPage {
+  menu,
+  diario,
+  semanal,
+  historial,
+  clinica,
+  control
+}
 
 class ConfigurarTratamientosView extends StatefulWidget {
   const ConfigurarTratamientosView({super.key});
@@ -3295,6 +3385,7 @@ class _ConfigurarTratamientosViewState
   void _openControlManualPage() {
     setState(() => _page = _ConfigTratamientosPage.control);
   }
+
   Widget _currentPage() {
     switch (_page) {
       case _ConfigTratamientosPage.diario:
@@ -3318,8 +3409,10 @@ class _ConfigurarTratamientosViewState
         return const SizedBox.shrink();
     }
   }
+
   @override
   Widget build(BuildContext context) {
+    final state = context.watch<AppState>();
     final inMenu = _page == _ConfigTratamientosPage.menu;
     final inControl = _page == _ConfigTratamientosPage.control;
     if (inControl) {
@@ -3373,6 +3466,11 @@ class _ConfigurarTratamientosViewState
                   ? ListView(
                       key: const ValueKey("submenu_config_tratamientos"),
                       children: [
+                        if (state.hayCicloActivo)
+                          _buildGradientMenuButton(
+                            label: "IR A TRATAMIENTO ACTIVO",
+                            onTap: _openControlManualPage,
+                          ),
                         _buildGradientMenuButton(
                             label: "PANEL DIARIO",
                             onTap: () => setState(
@@ -3598,6 +3696,14 @@ class PanelDiarioView extends StatelessWidget {
             subtitle: DateFormat('yyyy/MM/dd').format(hoyDt),
             icon: Icons.today,
           ),
+          if (state.hayCicloActivo && onOpenControlManual != null) ...[
+            const SizedBox(height: 10),
+            _TratamientosGradientButton(
+              icon: Icons.monitor_heart,
+              label: 'IR A TRATAMIENTO ACTIVO',
+              onTap: onOpenControlManual!,
+            ),
+          ],
           const SizedBox(height: 14),
           if (state.currentUser.toLowerCase() == 'benja') ...[
             const _TratamientosSectionTitle(
@@ -3729,6 +3835,7 @@ class PanelDiarioView extends StatelessWidget {
                     t: t,
                     isPlanned: true,
                     plannedMoment: planificadosMap[t.id],
+                    onGoToActiveTreatment: onOpenControlManual,
                     onDeletePlan: () async {
                       final confirm = await showDialog<bool>(
                             context: context,
@@ -3760,7 +3867,7 @@ class PanelDiarioView extends StatelessWidget {
                       }
                       if (state.isConnected) {
                         await state.iniciarCiclo(t.id);
-                onOpenControlManual?.call();
+                        onOpenControlManual?.call();
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                               content: Text('Iniciando ${t.nombre}...'),
@@ -4119,6 +4226,14 @@ class _PanelSemanalViewState extends State<PanelSemanalView>
           subtitle: 'Planificacion por dia',
           icon: Icons.calendar_month,
         ),
+        if (state.hayCicloActivo && widget.onOpenControlManual != null) ...[
+          const SizedBox(height: 10),
+          _TratamientosGradientButton(
+            icon: Icons.monitor_heart,
+            label: 'IR A TRATAMIENTO ACTIVO',
+            onTap: widget.onOpenControlManual!,
+          ),
+        ],
         const SizedBox(height: 10),
         Container(
           decoration: BoxDecoration(
@@ -4206,6 +4321,7 @@ class _PanelSemanalViewState extends State<PanelSemanalView>
                             t: t,
                             isPlanned: true,
                             plannedMoment: e.value,
+                            onGoToActiveTreatment: widget.onOpenControlManual,
                             onStart: () async {
                               if (!state.isConnected) {
                                 await showDialog(
@@ -4215,7 +4331,7 @@ class _PanelSemanalViewState extends State<PanelSemanalView>
                               }
                               if (state.isConnected) {
                                 await state.iniciarCiclo(t.id);
-                widget.onOpenControlManual?.call();
+                                widget.onOpenControlManual?.call();
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
@@ -4356,6 +4472,14 @@ class ClinicaView extends StatelessWidget {
           label: 'Tratamientos activos',
           icon: Icons.play_circle_fill,
         ),
+        if (state.hayCicloActivo && onOpenControlManual != null) ...[
+          const SizedBox(height: 8),
+          _TratamientosGradientButton(
+            icon: Icons.monitor_heart,
+            label: 'IR A TRATAMIENTO ACTIVO',
+            onTap: onOpenControlManual!,
+          ),
+        ],
         const SizedBox(height: 8),
         if (activos.isEmpty)
           const _TratamientosSurface(
@@ -4373,11 +4497,29 @@ class ClinicaView extends StatelessWidget {
                   subtitle:
                       Text('Iniciado: ${state.ciclosActivos[t.id]['inicio']}'),
                   trailing: SizedBox(
-                    width: 120,
-                    height: 36,
-                    child: _TratamientosGradientButton(
-                      label: 'FINALIZAR',
-                      onTap: () => state.detenerCiclo(t.id),
+                    width: 250,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: SizedBox(
+                            height: 36,
+                            child: _TratamientosGradientButton(
+                              label: 'IR CONTROL',
+                              onTap: onOpenControlManual,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: SizedBox(
+                            height: 36,
+                            child: _TratamientosGradientButton(
+                              label: 'FINALIZAR',
+                              onTap: () => state.detenerCiclo(t.id),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -4875,6 +5017,7 @@ class TreatmentCard extends StatefulWidget {
   final VoidCallback? onRegister;
   final VoidCallback? onDeletePlan;
   final VoidCallback? onStart;
+  final VoidCallback? onGoToActiveTreatment;
 
   const TreatmentCard(
       {super.key,
@@ -4884,7 +5027,8 @@ class TreatmentCard extends StatefulWidget {
       this.plannedMoment,
       this.onRegister,
       this.onDeletePlan,
-      this.onStart});
+      this.onStart,
+      this.onGoToActiveTreatment});
 
   @override
   State<TreatmentCard> createState() => _TreatmentCardState();
@@ -5003,6 +5147,13 @@ class _TreatmentCardState extends State<TreatmentCard> {
                   runSpacing: 8,
                   children: [
                     // STOP BUTTON
+                    if (isActive)
+                      FilledButton.icon(
+                        icon: const Icon(Icons.monitor_heart_outlined),
+                        label: const Text("Ir a tratamiento"),
+                        onPressed: widget.onGoToActiveTreatment,
+                      ),
+
                     if (isActive)
                       OutlinedButton.icon(
                         icon: const Icon(Icons.stop, color: Colors.red),
@@ -5275,4 +5426,3 @@ class _BluetoothScanDialogState extends State<BluetoothScanDialog> {
     );
   }
 }
-

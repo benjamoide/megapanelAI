@@ -100,6 +100,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
   bool _powerShouldBeOn = true;
   final List<String> _logs = [];
   StreamSubscription? _logSub;
+  Timer? _homeRefreshTimer;
 
   final List<_PresetSlot> _presetSlots = [
     _PresetSlot(
@@ -171,10 +172,18 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
         }
       });
     });
+    _homeRefreshTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      if (_section == _ManualSection.home &&
+          context.read<AppState>().hayCicloActivo) {
+        setState(() {});
+      }
+    });
   }
 
   @override
   void dispose() {
+    _homeRefreshTimer?.cancel();
     _logSub?.cancel();
     super.dispose();
   }
@@ -357,7 +366,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
       case _ManualSection.home:
         return _buildHomeContent(appState: appState, isConnected: isConnected);
       case _ManualSection.menu:
-        return _buildMainMenu();
+        return _buildMainMenu(appState);
       case _ManualSection.onOff:
         return _buildOnOffContent(appState: appState, isConnected: isConnected);
       case _ManualSection.time:
@@ -377,11 +386,18 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
   }) {
     final activeConfig = _snapshotFromActiveTreatment(appState);
     final shown = activeConfig ?? _currentSnapshot();
+    final remaining = appState.tiempoRestanteCicloActivo();
+    final hasLiveCountdown = appState.hayCicloActivo && remaining != null;
+    final timeLabel = hasLiveCountdown
+        ? _formatRemaining(remaining)
+        : shown.duration.toInt().toString();
+    final timeCaption = hasLiveCountdown ? 'MIN:SEG' : 'MIN';
 
     return Column(
       children: [
         _buildStatusCircle(
-          duration: shown.duration,
+          timeLabel: timeLabel,
+          timeCaption: timeCaption,
           pulseHz: shown.pulseHz,
           pulseEnabled: shown.pulseEnabled,
           w630: shown.w630,
@@ -435,8 +451,16 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
     );
   }
 
+  String _formatRemaining(Duration remaining) {
+    final secs = remaining.inSeconds.clamp(0, 359999);
+    final mm = (secs ~/ 60).toString().padLeft(2, '0');
+    final ss = (secs % 60).toString().padLeft(2, '0');
+    return '$mm:$ss';
+  }
+
   Widget _buildStatusCircle({
-    required double duration,
+    required String timeLabel,
+    required String timeCaption,
     required double pulseHz,
     required bool pulseEnabled,
     required double w630,
@@ -477,13 +501,23 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            duration.toInt().toString(),
+                            timeLabel,
                             style: TextStyle(
                               fontSize: _s(160),
                               fontFamily: 'monospace',
                               height: 0.8,
                               fontWeight: FontWeight.w500,
                               color: const Color(0xFF2E54E8),
+                            ),
+                          ),
+                          SizedBox(height: _s(2)),
+                          Text(
+                            timeCaption,
+                            style: TextStyle(
+                              fontSize: _s(24),
+                              color: const Color(0xFF2E54E8),
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.4,
                             ),
                           ),
                           SizedBox(height: _s(8)),
@@ -538,9 +572,16 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
     );
   }
 
-  Widget _buildMainMenu() {
+  Widget _buildMainMenu(AppState appState) {
     return Column(
       children: [
+        if (appState.hayCicloActivo) ...[
+          _buildMenuButton(
+            'TRATAMIENTO ACTIVO',
+            onTap: () => _openSection(_ManualSection.home),
+          ),
+          SizedBox(height: _s(13)),
+        ],
         _buildMenuButton('ON/OFF',
             onTap: () => _openSection(_ManualSection.onOff)),
         SizedBox(height: _s(13)),
