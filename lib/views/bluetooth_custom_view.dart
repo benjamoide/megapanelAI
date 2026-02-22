@@ -95,6 +95,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
   int _startCommand = 0x21;
   int _sequenceMode = 0;
   int _workMode = 0;
+  int _selectedPresetIndex = 0;
 
   _ManualSection _section = _ManualSection.menu;
   bool _powerShouldBeOn = true;
@@ -843,12 +844,21 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
             final slot = entry.value;
             return InkWell(
               borderRadius: BorderRadius.circular(_s(14)),
-              onTap: () => _applyPreset(index),
+              onTap: () async {
+                await _applyPreset(index, runAfterApply: isConnected);
+              },
               child: Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(_s(14)),
-                  color: const Color(0xFFF3F3F3),
-                  border: Border.all(color: Colors.black38),
+                  color: index == _selectedPresetIndex
+                      ? const Color(0xFFE6F6FF)
+                      : const Color(0xFFF3F3F3),
+                  border: Border.all(
+                    color: index == _selectedPresetIndex
+                        ? const Color(0xFF23BFE8)
+                        : Colors.black38,
+                    width: index == _selectedPresetIndex ? 2 : 1,
+                  ),
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -888,13 +898,10 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
             SizedBox(width: _s(10)),
             Expanded(
               flex: 2,
-              child: Opacity(
-                opacity: isConnected ? 1 : 0.45,
-                child: _buildMenuButton(
-                  'SAVE CURRENT AS PRESET',
-                  compact: true,
-                  onTap: isConnected ? _showSavePresetDialog : null,
-                ),
+              child: _buildMenuButton(
+                'SAVE CURRENT AS PRESET',
+                compact: true,
+                onTap: _showSavePresetDialog,
               ),
             ),
           ],
@@ -1349,10 +1356,14 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
     });
   }
 
-  void _applyPreset(int index) {
+  Future<void> _applyPreset(
+    int index, {
+    bool runAfterApply = false,
+  }) async {
     if (index < 0 || index >= _presetSlots.length) return;
     final slot = _presetSlots[index];
     setState(() {
+      _selectedPresetIndex = index;
       _duration = slot.duration;
       _pulseEnabled = slot.pulseEnabled;
       _pulseHz = slot.pulseHz;
@@ -1366,6 +1377,10 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text("Preset '${slot.name}' aplicado")),
     );
+
+    if (runAfterApply) {
+      await _runManualTreatment();
+    }
   }
 
   _ManualConfigSnapshot _currentSnapshot() {
@@ -1444,8 +1459,10 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
   }
 
   Future<void> _showSavePresetDialog() async {
-    int selectedIndex = 0;
-    final controller = TextEditingController(text: _presetSlots.first.name);
+    int selectedIndex = _selectedPresetIndex;
+    final controller = TextEditingController(
+      text: _presetSlots[selectedIndex].name,
+    );
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -1464,7 +1481,8 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
                       _presetSlots.length,
                       (i) => DropdownMenuItem(
                         value: i,
-                        child: Text('Preset ${i + 1}'),
+                        child:
+                            Text('Preset ${i + 1} - ${_presetSlots[i].name}'),
                       ),
                     ),
                     onChanged: (value) {
@@ -1506,6 +1524,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
     final nextName = rawName.isEmpty ? 'Preset ${selectedIndex + 1}' : rawName;
     final slot = _presetSlots[selectedIndex];
     setState(() {
+      _selectedPresetIndex = selectedIndex;
       slot.name = nextName;
       slot.duration = _duration;
       slot.pulseHz = _pulseEnabled ? _pulseHz : 0;
