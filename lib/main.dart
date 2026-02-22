@@ -2319,6 +2319,12 @@ class AppState extends ChangeNotifier {
       await detenerCiclo(activeId);
       return;
     }
+    final paused = _snapshotCicloPausado();
+    final pausedId = paused?['id']?.toString();
+    if (pausedId != null && pausedId.isNotEmpty) {
+      await detenerCiclo(pausedId);
+      return;
+    }
     if (isConnected) {
       await _bleManager.write(BleProtocol.setPower(false));
     }

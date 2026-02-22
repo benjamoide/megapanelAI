@@ -450,8 +450,8 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
         SizedBox(height: _s(10)),
         _buildRunButton(
           enabled: appState.hayCicloActivo,
-          label: 'STOP',
-          onTap: () => _stopActiveTreatmentFromHome(appState),
+          label: 'PAUSE',
+          onTap: () => _pauseActiveTreatmentFromHome(appState),
         ),
         SizedBox(height: _s(10)),
         _buildRunButton(
@@ -460,6 +460,12 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
               !appState.hayCicloActivo,
           label: 'RESUME',
           onTap: () => _resumePausedTreatment(appState),
+        ),
+        SizedBox(height: _s(10)),
+        _buildRunButton(
+          enabled: appState.hayCicloActivo || appState.hayCicloPausado,
+          label: 'STOP',
+          onTap: () => _stopActiveTreatmentFromHome(appState),
         ),
       ],
     );
@@ -517,7 +523,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
                           Text(
                             timeLabel,
                             style: TextStyle(
-                              fontSize: _s(160),
+                              fontSize: _s(132),
                               fontFamily: 'monospace',
                               height: 0.8,
                               fontWeight: FontWeight.w500,
@@ -1573,11 +1579,18 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
   }
 
   Future<void> _stopActiveTreatmentFromHome(AppState appState) async {
+    await appState.detenerPanelActivo();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Tratamiento detenido.')),
+    );
+  }
+
+  Future<void> _pauseActiveTreatmentFromHome(AppState appState) async {
     if (!appState.hayCicloActivo) {
-      await appState.detenerPanelActivo();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No hay tratamiento activo.')),
+        const SnackBar(content: Text('No hay tratamiento activo para pausar.')),
       );
       return;
     }
@@ -1592,7 +1605,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
         content: Text(
           paused
               ? 'Tratamiento en pausa. Pulsa RESUME para continuar.'
-              : 'Panel detenido.',
+              : 'No se pudo pausar el tratamiento.',
         ),
       ),
     );
