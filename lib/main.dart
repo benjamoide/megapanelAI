@@ -2045,17 +2045,21 @@ Tratamiento _aplicarActualizacionCientifica(Tratamiento t) {
   if (_idsPulso10.contains(t.id)) hz = "10Hz";
   if (t.id == "cab_brain") hz = "40Hz";
 
-  if (_idsRecuperacionPost.contains(t.id))
+  if (_idsRecuperacionPost.contains(t.id)) {
     frecuencias = _copyFrecuencias(_mixDolorMuscular);
-  if (_idsTendinopatia.contains(t.id))
+  }
+  if (_idsTendinopatia.contains(t.id)) {
     frecuencias = _copyFrecuencias(_mixDeepTendon);
-  if (_idsDolorMuscular.contains(t.id))
+  }
+  if (_idsDolorMuscular.contains(t.id)) {
     frecuencias = _copyFrecuencias(_mixDolorMuscular);
+  }
   if (_idsRodilla.contains(t.id)) frecuencias = _copyFrecuencias(_mixRodilla);
   if (t.id == "mun_tunel") frecuencias = _copyFrecuencias(_mixTunelCarpiano);
   if (_idsCefalea.contains(t.id)) frecuencias = _copyFrecuencias(_mixCefalea);
-  if (t.id == "cab_brain")
+  if (t.id == "cab_brain") {
     frecuencias = _copyFrecuencias(_mixNeuroExperimental);
+  }
   if (t.id == "sueno") frecuencias = _copyFrecuencias(_mixSueno);
   if (_idsPielRegenerativa.contains(t.id) || t.id == "boca_mucos") {
     frecuencias = _copyFrecuencias(_mixPielRegenerativa);
@@ -2065,8 +2069,9 @@ Tratamiento _aplicarActualizacionCientifica(Tratamiento t) {
   if (t.id == "cab_brain" || t.id == "cab_migr") duracion = "10";
   if (t.id == "boca_mucos") duracion = "8";
   if (t.id == "pie_ulc") duracion = "10";
-  if (_idsRendimientoPre.contains(t.id) || _idsSesionTipo.contains(t.id))
+  if (_idsRendimientoPre.contains(t.id) || _idsSesionTipo.contains(t.id)) {
     duracion = "8";
+  }
   if (_idsGrasaLocalizada.contains(t.id)) duracion = "18";
 
   return Tratamiento(
