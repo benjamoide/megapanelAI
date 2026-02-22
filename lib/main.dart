@@ -2119,9 +2119,14 @@ class AppState extends ChangeNotifier {
   bool get hasApiKey => _apiKey.isNotEmpty;
   Tratamiento? get tratamientoActivoActual => _tratamientoActivoActual;
   String? get idCicloActivoActual => _idCicloActivoActual;
-  bool get hayCicloActivo =>
-      _idCicloActivoActual != null &&
-      ciclosActivos[_idCicloActivoActual]?['activo'] == true;
+  bool get hayCicloActivo {
+    for (final entry in ciclosActivos.entries) {
+      final value = entry.value;
+      if (value is Map && value['activo'] == true) return true;
+    }
+    return false;
+  }
+
   bool get hayCicloPausado {
     final paused = tiempoRestanteCicloPausado();
     return paused != null && paused.inSeconds > 0;
@@ -2229,7 +2234,12 @@ class AppState extends ChangeNotifier {
     if (active == null) return null;
 
     final start = _inicioCicloDesdeSnapshot(active);
-    if (start == null) return null;
+    if (start == null) {
+      final fallbackSeconds = (active['restanteSegundos'] as num?)?.toInt() ??
+          _duracionCicloSegundosDesdeSnapshot(active);
+      final clamped = fallbackSeconds.clamp(0, 60 * 60);
+      return Duration(seconds: clamped);
+    }
 
     final total =
         Duration(seconds: _duracionCicloSegundosDesdeSnapshot(active));
@@ -2442,23 +2452,15 @@ class AppState extends ChangeNotifier {
 
     await _acquireBleStartLock();
     try {
-      await _bleManager.write(BleProtocol.setPower(false));
-      await Future.delayed(const Duration(milliseconds: 420));
-      await _wakePanelFromSleep(workMode: workMode);
+      await _sendResumeHandshake(workMode: workMode);
 
+      // Send full config after resume handshake so panel default values
+      // are immediately overwritten by the real treatment parameters.
       await _sendParameters(
         treatment,
         workMode: workMode,
         countdownSeconds: remainingSeconds,
       );
-      await _sendResumeHandshake(workMode: workMode);
-
-      await _sendTimeAndPulse(
-        treatment,
-        phase: "post-resume",
-        countdownSeconds: remainingSeconds,
-      );
-      await _sendBrightness(treatment, phase: "post-resume");
       await _readBackRunState(reason: "after resume");
     } catch (e) {
       print("BLE Resume Error: $e");
@@ -2910,12 +2912,11 @@ class AppState extends ChangeNotifier {
   Future<void> _sendResumeHandshake({required int workMode}) async {
     print("BLE: [resume] Start handshake (fast-resume)");
     await _bleManager.write(BleProtocol.setPower(true));
-    await Future.delayed(const Duration(milliseconds: 280));
+    await Future.delayed(const Duration(milliseconds: 260));
     await _bleManager.write(BleProtocol.quickStart(mode: workMode));
     await Future.delayed(const Duration(milliseconds: 320));
-    // Keep ON latched without triggering a second full quick-start edge.
-    await _bleManager.write(BleProtocol.setPower(true));
-    await Future.delayed(const Duration(milliseconds: 180));
+    await _bleManager.write(BleProtocol.getStatus());
+    await Future.delayed(const Duration(milliseconds: 160));
   }
 
   /// Starts a manual treatment not in the catalog

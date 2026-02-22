@@ -192,3 +192,102 @@ Replicate BlueLight APK BLE behavior in Flutter app (`mega_panel_ai`) to reliabl
    - run/stop and dimming update path.
 5. If BLE behavior is stable, move to phase 2:
    - fine-tune treatment wording/contraindications in UI text and publish v52 build.
+
+## Continuation update (2026-02-17 - CI policy decision + green pipeline)
+- Decision taken: **Option A** (keep strict `flutter analyze` and fix lints in code).
+- Implemented fixes:
+  - Removed unused import and applied `super.key` in `lib/views/bluetooth_custom_view.dart`.
+  - Replaced `print` logging with `developer.log` in `lib/bluetooth/ble_manager.dart`.
+  - Renamed BLE protocol command constants to lowerCamelCase in `lib/bluetooth/ble_protocol.dart`.
+  - Fixed `curly_braces_in_flow_control_structures`, `prefer_const_constructors`, and spread/toList issues in `lib/main.dart`.
+  - Added minimal smoke test `test/smoke_test.dart` because CI `flutter test` failed when no `test/` directory existed.
+- Push/CI sequence:
+  - Commit `e984b8c`: lint cleanup baseline.
+  - Commit `aa53026`: final `if` block analyzer fix.
+  - Commit `e90c420`: add smoke test for CI.
+  - `Flutter CI` final green run: `22102113155`
+    - URL: `https://github.com/benjamoide/megapanelAI/actions/runs/22102113155`
+  - `Deploy Web & Android` green run for same push: `22102113116`
+    - URL: `https://github.com/benjamoide/megapanelAI/actions/runs/22102113116`
+
+## New exact resume point
+1. Validate BLE on real hardware:
+   - scan visibility,
+   - connect,
+   - run/stop command behavior,
+   - dimming updates.
+2. If BLE behavior is stable, continue to final wording/protocol tuning for v52 publish.
+
+## Continuation update (2026-02-20 - hierarchy + deploy successful)
+- Requested UI/data change applied in `lib/main.dart`:
+  - Keep treatment groups 1-5 as previously organized.
+  - Reworked group 6 to zone-first hierarchy with treatment type inside each zone.
+  - Group 6 final structure now used in classification map:
+    - `6.2.1 Cara`
+    - `6.2.2 Cuello`
+    - `6.2.3 Manos`
+    - `6.2.4 Zonas con cicatriz especifica`
+    - Third level treatment types:
+      - `6.1.1 Antiaging / colageno`
+      - `6.1.2 Cicatrices recientes`
+      - `6.1.3 Cicatrices antiguas / fibrosis`
+      - `6.1.4 Acne / inflamacion cutanea`
+      - `6.1.5 Estrias`
+- Validation:
+  - `dart analyze lib/main.dart` passed with no issues before publish.
+
+## Publish state (2026-02-20)
+- Commit pushed to `main`:
+  - `cbef9be` - `Reorganize treatment hierarchy with zone-based skin sublevels`
+- Workflow results for this commit:
+  - `Deploy Web & Android`: `success`
+    - Run: `22233579214`
+    - URL: `https://github.com/benjamoide/megapanelAI/actions/runs/22233579214`
+  - `Flutter CI`: `success`
+    - Run: `22233579242`
+    - URL: `https://github.com/benjamoide/megapanelAI/actions/runs/22233579242`
+  - `pages-build-deployment`: `success`
+    - Run: `22233946509`
+    - URL: `https://github.com/benjamoide/megapanelAI/actions/runs/22233946509`
+- Outcome:
+  - GitHub Pages published correctly.
+  - Updated APK artifact generated (`mega-panel-app-release`) in deploy run.
+
+## Exact resume point
+1. Hardware validation for hierarchical selector UX:
+   - select level 1 -> level 2 -> level 3 and confirm final treatment selection maps correctly.
+2. Confirm start behavior on locked/screen-off device remains stable after hierarchy changes.
+3. If stable, tag/release build and archive tested APK externally if needed.
+
+## Continuation update (2026-02-21 - start flow rollback + APK deploy)
+- Reported issue:
+  - Treatments/manual showed applied settings but did not actually start until touching the screen again.
+- Fix applied (rollback to known-good start behavior from commit `74ae7f5`):
+  - `lib/main.dart`
+    - `iniciarCiclo`: restored direct start sequence after params:
+      - `setPower(true)` -> short delay -> `quickStart(mode: 0)`.
+    - `iniciarCicloManual`: restored original start behavior:
+      - `0x21` => `quickStart(mode)`
+      - `0x20` => `setPower(true)`
+    - Removed extra helper `_sendStartHandshake(...)` introduced later.
+  - `lib/views/bluetooth_custom_view.dart`
+    - `_runManualTreatment`: removed extra 320ms wait after stop.
+    - `_runManualTreatment`: call to `iniciarCicloManual(...)` returned to non-awaited behavior (as in `74ae7f5`).
+- Git state:
+  - Branch: `main`
+  - `HEAD`: `a7bc002`
+  - Commit: `a7bc002` - `Restore treatment start flow to 74ae7f5 behavior`
+- Deploy/APK workflows:
+  - `Deploy Web & Android` (manual): `success`
+    - Run: `22262040132`
+    - URL: `https://github.com/benjamoide/megapanelAI/actions/runs/22262040132`
+  - `Deploy Web & Android` (push-triggered): `success`
+    - Run: `22262038173`
+    - URL: `https://github.com/benjamoide/megapanelAI/actions/runs/22262038173`
+
+## Exact resume point
+1. Validate on physical device that RUN starts immediately without extra touch in:
+   - Manual flow (from control manual),
+   - Daily/weekly/clinic treatment launch flow.
+2. Confirm STOP/RUN resume behavior still works after rollback.
+3. If confirmed, keep this start sequence as baseline and continue UI refinements.

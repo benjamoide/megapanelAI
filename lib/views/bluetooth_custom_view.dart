@@ -389,9 +389,8 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
     final shown = activeConfig ?? _currentSnapshot();
     final activeRemaining = appState.tiempoRestanteCicloActivo();
     final pausedRemaining = appState.tiempoRestanteCicloPausado();
-    final hasLiveCountdown = appState.hayCicloActivo && activeRemaining != null;
-    final hasPausedCountdown =
-        appState.hayCicloPausado && pausedRemaining != null;
+    final hasLiveCountdown = activeRemaining != null;
+    final hasPausedCountdown = !hasLiveCountdown && pausedRemaining != null;
     final timeLabel = hasLiveCountdown
         ? _formatRemaining(activeRemaining)
         : (hasPausedCountdown
@@ -1397,11 +1396,45 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
   }
 
   _ManualConfigSnapshot? _snapshotFromActiveTreatment(AppState appState) {
-    final t = appState.tratamientoActivoActual;
+    Tratamiento? t = appState.tratamientoActivoActual;
+    if (t == null) {
+      Map<String, dynamic>? activeCycle;
+      int activeEpoch = -1;
+      Map<String, dynamic>? pausedCycle;
+      int pausedEpoch = -1;
+      for (final entry in appState.ciclosActivos.entries) {
+        final value = entry.value;
+        if (value is! Map) continue;
+        final cycle = Map<String, dynamic>.from(value);
+        if (cycle['activo'] == true) {
+          final epoch = (cycle['inicioEpochMs'] as num?)?.toInt() ?? 0;
+          if (activeCycle == null || epoch >= activeEpoch) {
+            activeCycle = cycle;
+            activeEpoch = epoch;
+          }
+          continue;
+        }
+        if (cycle['pausado'] == true) {
+          final epoch = (cycle['pausaEpochMs'] as num?)?.toInt() ?? 0;
+          if (pausedCycle == null || epoch >= pausedEpoch) {
+            pausedCycle = cycle;
+            pausedEpoch = epoch;
+          }
+        }
+      }
+      final cycle = activeCycle ?? pausedCycle;
+      final snapshot = cycle?['tratamiento'];
+      if (snapshot is Map) {
+        try {
+          t = Tratamiento.fromJson(Map<String, dynamic>.from(snapshot));
+        } catch (_) {}
+      }
+    }
     if (t == null) return null;
+    final activeT = t;
 
     double parseNm(int nm) {
-      for (final f in t.frecuencias) {
+      for (final f in activeT.frecuencias) {
         final fnm = (f['nm'] as num?)?.toInt();
         if (fnm == nm) {
           final value = ((f['p'] as num?)?.toDouble() ?? 0).clamp(0, 100);
@@ -1411,10 +1444,11 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
       return 0;
     }
 
-    final duration = (int.tryParse(t.duracion) ?? 10).clamp(1, 60).toDouble();
-    final hzMatch = RegExp(r'(\d+)').firstMatch(t.hz);
+    final duration =
+        (int.tryParse(activeT.duracion) ?? 10).clamp(1, 60).toDouble();
+    final hzMatch = RegExp(r'(\d+)').firstMatch(activeT.hz);
     final hz = hzMatch != null ? int.parse(hzMatch.group(1)!).toDouble() : 0.0;
-    final isPulse = hz > 0 && !t.hz.toUpperCase().contains('CW');
+    final isPulse = hz > 0 && !activeT.hz.toUpperCase().contains('CW');
 
     return _ManualConfigSnapshot(
       duration: duration,
