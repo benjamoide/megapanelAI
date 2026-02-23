@@ -2494,11 +2494,50 @@ class AppState extends ChangeNotifier {
   }
 
   Future<bool> connectToDevice(BluetoothDevice device) async {
-    return await _bleManager.connect(device);
+    final connected = await _bleManager.connect(device);
+    final nextIsConnected = _bleManager.isConnected;
+    final changed = isConnected != nextIsConnected;
+    isConnected = nextIsConnected;
+    if (changed) notifyListeners();
+    return connected && nextIsConnected;
   }
 
   Future<void> disconnectDevice() async {
     await _bleManager.disconnect();
+    if (isConnected) {
+      isConnected = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> waitForStableConnection({
+    Duration timeout = const Duration(seconds: 2),
+  }) async {
+    if (isConnected || _bleManager.isConnected) {
+      if (!isConnected && _bleManager.isConnected) {
+        isConnected = true;
+        notifyListeners();
+      }
+      return true;
+    }
+
+    final deadline = DateTime.now().add(timeout);
+    while (DateTime.now().isBefore(deadline)) {
+      await Future.delayed(const Duration(milliseconds: 120));
+      if (_bleManager.isConnected) {
+        if (!isConnected) {
+          isConnected = true;
+          notifyListeners();
+        }
+        return true;
+      }
+    }
+    final finalConnected = _bleManager.isConnected;
+    if (finalConnected && !isConnected) {
+      isConnected = true;
+      notifyListeners();
+    }
+    return finalConnected;
   }
 
   void setApiKey(String key) {
@@ -2752,9 +2791,9 @@ class AppState extends ChangeNotifier {
           phase: "catalogo",
         );
 
-        // Re-apply only values that are commonly ignored before run becomes active.
-        await _sendTimeAndPulse(t, phase: "post-start");
+        // Re-apply brightness first to shorten visible fallback flashes.
         await _sendBrightness(t, phase: "post-start");
+        await _sendTimeAndPulse(t, phase: "post-start");
         await _readBackRunState(reason: "after iniciarCiclo");
         _marcarInicioRealCiclo(id);
         print("BLE: Configuration sent.");
@@ -2874,10 +2913,13 @@ class AppState extends ChangeNotifier {
   void _marcarInicioRealCiclo(String id) {
     final cycle = ciclosActivos[id];
     if (cycle is! Map) return;
-    final now = DateTime.now();
-    cycle['inicio'] = DateFormat('HH:mm:ss').format(now);
-    cycle['inicioEpochMs'] = now.millisecondsSinceEpoch;
     cycle['pausado'] = false;
+    final existingStart = (cycle['inicioEpochMs'] as num?)?.toInt() ?? 0;
+    if (existingStart <= 0) {
+      final now = DateTime.now();
+      cycle['inicio'] = DateFormat('HH:mm:ss').format(now);
+      cycle['inicioEpochMs'] = now.millisecondsSinceEpoch;
+    }
     if ((cycle['restanteSegundos'] as num?)?.toInt() == null) {
       cycle['restanteSegundos'] =
           _duracionCicloSegundosDesdeSnapshot(Map<String, dynamic>.from(cycle));
@@ -2995,6 +3037,7 @@ class AppState extends ChangeNotifier {
 
         if (started) {
           await Future.delayed(const Duration(milliseconds: 260));
+          await _sendBrightness(t, phase: "post-start");
           await _sendTimeAndPulse(t, phase: "post-start");
           await _readBackRunState(reason: "after iniciarCicloManual");
           _marcarInicioRealCiclo(tempId);
@@ -4183,7 +4226,8 @@ class PanelDiarioView extends StatelessWidget {
                             context: context,
                             builder: (_) => const BluetoothScanDialog());
                       }
-                      if (state.isConnected) {
+                      final ready = await state.waitForStableConnection();
+                      if (ready) {
                         await state.iniciarCiclo(t.id);
                         onOpenControlManual?.call();
                         if (context.mounted) {
@@ -4647,7 +4691,9 @@ class _PanelSemanalViewState extends State<PanelSemanalView>
                                     builder: (_) =>
                                         const BluetoothScanDialog());
                               }
-                              if (state.isConnected) {
+                              final ready =
+                                  await state.waitForStableConnection();
+                              if (ready) {
                                 await state.iniciarCiclo(t.id);
                                 widget.onOpenControlManual?.call();
                                 if (context.mounted) {
@@ -4859,7 +4905,8 @@ class ClinicaView extends StatelessWidget {
                     context: context,
                     builder: (_) => const BluetoothScanDialog());
               }
-              if (state.isConnected) {
+              final ready = await state.waitForStableConnection();
+              if (ready) {
                 await state.iniciarCiclo(t.id);
                 onOpenControlManual?.call();
                 if (context.mounted) {

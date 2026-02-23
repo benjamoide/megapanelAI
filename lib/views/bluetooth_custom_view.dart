@@ -521,7 +521,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
                           Text(
                             timeLabel,
                             style: TextStyle(
-                              fontSize: _s(132),
+                              fontSize: _s(116),
                               fontFamily: 'monospace',
                               height: 0.8,
                               fontWeight: FontWeight.w500,
@@ -532,7 +532,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
                           Text(
                             timeCaption,
                             style: TextStyle(
-                              fontSize: _s(24),
+                              fontSize: _s(20),
                               color: const Color(0xFF2E54E8),
                               fontWeight: FontWeight.w700,
                               letterSpacing: 0.4,
