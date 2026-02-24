@@ -2305,10 +2305,17 @@ class AppState extends ChangeNotifier {
       await _bleManager.write(BleProtocol.getCountdown());
       await Future.delayed(const Duration(milliseconds: 180));
 
-      if (!canCheckRx || _bleManager.hasRecentRx(const Duration(seconds: 2))) {
+      if (canCheckRx && _bleManager.hasRecentRx(const Duration(seconds: 2))) {
         print("BLE: Wake preflight OK on attempt $attempt");
         return;
       }
+
+      // Cold-start wake pulse: some panels ignore first writes until they see
+      // a power edge after deep idle.
+      await _bleManager.write(BleProtocol.setPower(true));
+      await Future.delayed(const Duration(milliseconds: 320));
+      await _bleManager.write(BleProtocol.setPower(false));
+      await Future.delayed(const Duration(milliseconds: 260));
 
       // Retry with a harmless mode re-assertion (no RUN edge).
       await _bleManager.write(BleProtocol.setWorkMode(workMode));
@@ -2316,8 +2323,14 @@ class AppState extends ChangeNotifier {
       await _bleManager.write(BleProtocol.getStatus());
       await Future.delayed(const Duration(milliseconds: 180));
 
-      if (_bleManager.hasRecentRx(const Duration(seconds: 2))) {
+      if (canCheckRx && _bleManager.hasRecentRx(const Duration(seconds: 2))) {
         print("BLE: Wake preflight OK (post-mode probe) attempt $attempt");
+        return;
+      }
+
+      // If RX is not available, complete fixed wake attempts and continue.
+      if (!canCheckRx && attempt >= 2) {
+        print("BLE: Wake preflight completed fixed no-RX sequence.");
         return;
       }
     }
@@ -2946,6 +2959,21 @@ class AppState extends ChangeNotifier {
 
     await _bleManager.write(BleProtocol.getStatus());
     await Future.delayed(const Duration(milliseconds: 180));
+
+    final hasRecentFeedback =
+        _bleManager.hasRecentRx(const Duration(seconds: 2));
+    // Extra edge for cold-start panels when feedback is missing/unreliable.
+    if (!_bleManager.canObserveRx || !hasRecentFeedback) {
+      print("BLE: ${phaseLabel}No-feedback fallback: repeating start edge.");
+      await _bleManager.write(BleProtocol.setPower(true));
+      await Future.delayed(const Duration(milliseconds: 320));
+      if (useQuickStart) {
+        await _bleManager.write(BleProtocol.quickStart(mode: workMode));
+        await Future.delayed(const Duration(milliseconds: 320));
+      }
+      await _bleManager.write(BleProtocol.getStatus());
+      await Future.delayed(const Duration(milliseconds: 160));
+    }
   }
 
   Future<void> _sendResumeHandshake({required int workMode}) async {
