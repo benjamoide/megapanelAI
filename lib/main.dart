@@ -2511,15 +2511,12 @@ class AppState extends ChangeNotifier {
 
     await _acquireBleStartLock();
     try {
-      await _sendResumeHandshake(workMode: workMode);
-
-      // Send full config after resume handshake so panel default values
-      // are immediately overwritten by the real treatment parameters.
       await _sendParameters(
         treatment,
         workMode: workMode,
         countdownSeconds: remainingSeconds,
       );
+      await _sendResumeHandshake(workMode: workMode);
       await _readBackRunState(reason: "after resume");
     } catch (e) {
       print("BLE Resume Error: $e");
@@ -2844,10 +2841,6 @@ class AppState extends ChangeNotifier {
           useQuickStart: true,
           phase: "catalogo",
         );
-
-        // Re-apply brightness first to shorten visible fallback flashes.
-        await _sendBrightness(t, phase: "post-start");
-        await _sendTimeAndPulse(t, phase: "post-start");
         await _readBackRunState(reason: "after iniciarCiclo");
         _marcarInicioRealCiclo(id);
         print("BLE: Configuration sent.");
@@ -3105,9 +3098,6 @@ class AppState extends ChangeNotifier {
         }
 
         if (started) {
-          await Future.delayed(const Duration(milliseconds: 260));
-          await _sendBrightness(t, phase: "post-start");
-          await _sendTimeAndPulse(t, phase: "post-start");
           await _readBackRunState(reason: "after iniciarCicloManual");
           _marcarInicioRealCiclo(tempId);
         }
