@@ -2291,6 +2291,15 @@ class AppState extends ChangeNotifier {
     _bleStartBusy = false;
   }
 
+  Future<void> _sendPowerOffAndSettle({String phase = ""}) async {
+    final phaseLabel = phase.isEmpty ? "" : "[$phase] ";
+    print("BLE: ${phaseLabel}Sending Power OFF");
+    await _bleManager.write(BleProtocol.setPower(false));
+    await Future.delayed(const Duration(milliseconds: 260));
+    await _bleManager.write(BleProtocol.getStatus());
+    await Future.delayed(const Duration(milliseconds: 140));
+  }
+
   Future<void> _wakePanelFromSleep({required int workMode}) async {
     final canCheckRx = _bleManager.canObserveRx;
     print("BLE: Wake preflight (mode=$workMode, rxCheck=$canCheckRx)");
@@ -2398,58 +2407,90 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  Future<void> detenerPanelActivo() async {
-    _actualizarTratamientoActivoDesdeCiclos();
-    final activeId = _idCicloActivoActual;
-    if (activeId != null) {
-      await detenerCiclo(activeId);
-      return;
-    }
-    final paused = _snapshotCicloPausado();
-    final pausedId = paused?['id']?.toString();
-    if (pausedId != null && pausedId.isNotEmpty) {
-      await detenerCiclo(pausedId);
-      return;
-    }
+  Future<void> _detenerCicloInterno(String id) async {
+    if (!ciclosActivos.containsKey(id)) return;
+
+    ciclosActivos[id]!['activo'] = false;
+    ciclosActivos[id]!['pausado'] = false;
+    ciclosActivos[id]!['restanteSegundos'] = 0;
+    ciclosActivos[id]!.remove('pausaEpochMs');
+    ciclosActivos[id]!['fin'] = DateFormat('HH:mm:ss').format(DateTime.now());
+
     if (isConnected) {
-      await _bleManager.write(BleProtocol.setPower(false));
+      await _sendPowerOffAndSettle(phase: "stop-cycle");
+    }
+
+    final hoy = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    if (!historial.containsKey(hoy)) {
+      historial[hoy] = [];
+    }
+    historial[hoy]!.add(
+        {'id': id, 'hora': ciclosActivos[id]!['inicio'], 'momento': 'Clinica'});
+  }
+
+  Future<void> detenerPanelActivo() async {
+    await _acquireBleStartLock();
+    try {
+      _actualizarTratamientoActivoDesdeCiclos();
+      final activeId = _idCicloActivoActual;
+      if (activeId != null) {
+        await _detenerCicloInterno(activeId);
+      } else {
+        final paused = _snapshotCicloPausado();
+        final pausedId = paused?['id']?.toString();
+        if (pausedId != null && pausedId.isNotEmpty) {
+          await _detenerCicloInterno(pausedId);
+        } else if (isConnected) {
+          await _sendPowerOffAndSettle(phase: "stop-active-panel");
+        }
+      }
+    } finally {
+      _releaseBleStartLock();
     }
     _actualizarTratamientoActivoDesdeCiclos();
     notifyListeners();
   }
 
   Future<bool> pausarPanelActivo() async {
-    _actualizarTratamientoActivoDesdeCiclos();
-    final active = _snapshotCicloActivo();
-    if (active == null) return false;
+    await _acquireBleStartLock();
+    try {
+      _actualizarTratamientoActivoDesdeCiclos();
+      final active = _snapshotCicloActivo();
+      if (active == null) {
+        return false;
+      }
 
-    final activeId = active['id']?.toString();
-    if (activeId == null || activeId.isEmpty) return false;
-    final remaining = tiempoRestanteCicloActivo();
-    final remainingSeconds = (remaining?.inSeconds ?? 0).clamp(0, 60 * 60);
+      final activeId = active['id']?.toString();
+      if (activeId == null || activeId.isEmpty) {
+        return false;
+      }
+      final remaining = tiempoRestanteCicloActivo();
+      final remainingSeconds = (remaining?.inSeconds ?? 0).clamp(0, 60 * 60);
 
-    if (remainingSeconds <= 0) {
-      await detenerCiclo(activeId);
-      return false;
+      if (remainingSeconds <= 0) {
+        await _detenerCicloInterno(activeId);
+        return false;
+      }
+
+      if (isConnected) {
+        await _sendPowerOffAndSettle(phase: "pause");
+      }
+
+      final raw = ciclosActivos[activeId];
+      if (raw is Map) {
+        raw['activo'] = false;
+        raw['pausado'] = true;
+        raw['restanteSegundos'] = remainingSeconds;
+        raw['duracionSegundos'] = remainingSeconds;
+        raw['pausaEpochMs'] = DateTime.now().millisecondsSinceEpoch;
+        raw.remove('fin');
+      }
+      return true;
+    } finally {
+      _releaseBleStartLock();
+      _actualizarTratamientoActivoDesdeCiclos();
+      notifyListeners();
     }
-
-    if (isConnected) {
-      await _bleManager.write(BleProtocol.setPower(false));
-    }
-
-    final raw = ciclosActivos[activeId];
-    if (raw is Map) {
-      raw['activo'] = false;
-      raw['pausado'] = true;
-      raw['restanteSegundos'] = remainingSeconds;
-      raw['duracionSegundos'] = remainingSeconds;
-      raw['pausaEpochMs'] = DateTime.now().millisecondsSinceEpoch;
-      raw.remove('fin');
-    }
-
-    _actualizarTratamientoActivoDesdeCiclos();
-    notifyListeners();
-    return true;
   }
 
   Future<bool> reanudarCicloPausado() async {
@@ -3083,26 +3124,11 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> detenerCiclo(String id) async {
-    if (ciclosActivos.containsKey(id)) {
-      ciclosActivos[id]!['activo'] = false;
-      ciclosActivos[id]!['pausado'] = false;
-      ciclosActivos[id]!['restanteSegundos'] = 0;
-      ciclosActivos[id]!.remove('pausaEpochMs');
-      ciclosActivos[id]!['fin'] = DateFormat('HH:mm:ss').format(DateTime.now());
-
-      if (isConnected) {
-        await _bleManager.write(BleProtocol.setPower(false));
-      }
-
-      String hoy = DateFormat('yyyy-MM-dd').format(DateTime.now());
-      if (!historial.containsKey(hoy)) {
-        historial[hoy] = [];
-      }
-      historial[hoy]!.add({
-        'id': id,
-        'hora': ciclosActivos[id]!['inicio'],
-        'momento': 'Clinica'
-      });
+    await _acquireBleStartLock();
+    try {
+      await _detenerCicloInterno(id);
+    } finally {
+      _releaseBleStartLock();
     }
     _actualizarTratamientoActivoDesdeCiclos();
     notifyListeners();
