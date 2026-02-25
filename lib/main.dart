@@ -2301,50 +2301,13 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> _wakePanelFromSleep({required int workMode}) async {
-    final canCheckRx = _bleManager.canObserveRx;
-    print("BLE: Wake preflight (mode=$workMode, rxCheck=$canCheckRx)");
-
-    for (var attempt = 1; attempt <= 3; attempt++) {
-      print("BLE: Wake attempt $attempt/3");
-      // Keep panel OFF while probing so we do not briefly run stale settings.
-      await _bleManager.write(BleProtocol.setPower(false));
-      await Future.delayed(const Duration(milliseconds: 220));
-      await _bleManager.write(BleProtocol.getStatus());
-      await Future.delayed(const Duration(milliseconds: 180));
-      await _bleManager.write(BleProtocol.getCountdown());
-      await Future.delayed(const Duration(milliseconds: 180));
-
-      if (canCheckRx && _bleManager.hasRecentRx(const Duration(seconds: 2))) {
-        print("BLE: Wake preflight OK on attempt $attempt");
-        return;
-      }
-
-      // Cold-start wake pulse: some panels ignore first writes until they see
-      // a power edge after deep idle.
-      await _bleManager.write(BleProtocol.setPower(true));
-      await Future.delayed(const Duration(milliseconds: 320));
-      await _bleManager.write(BleProtocol.setPower(false));
-      await Future.delayed(const Duration(milliseconds: 260));
-
-      // Retry with a harmless mode re-assertion (no RUN edge).
-      await _bleManager.write(BleProtocol.setWorkMode(workMode));
-      await Future.delayed(const Duration(milliseconds: 200));
-      await _bleManager.write(BleProtocol.getStatus());
-      await Future.delayed(const Duration(milliseconds: 180));
-
-      if (canCheckRx && _bleManager.hasRecentRx(const Duration(seconds: 2))) {
-        print("BLE: Wake preflight OK (post-mode probe) attempt $attempt");
-        return;
-      }
-
-      // If RX is not available, complete fixed wake attempts and continue.
-      if (!canCheckRx && attempt >= 2) {
-        print("BLE: Wake preflight completed fixed no-RX sequence.");
-        return;
-      }
-    }
-
-    print("BLE: Wake preflight timed out; continuing with start sequence.");
+    print("BLE: Wake preflight (mode=$workMode)");
+    // Keep wake preflight read-only. Repeated ON/OFF pulses were causing
+    // some firmware revisions to remain in idle/ready instead of RUN.
+    await _bleManager.write(BleProtocol.getStatus());
+    await Future.delayed(const Duration(milliseconds: 180));
+    await _bleManager.write(BleProtocol.getCountdown());
+    await Future.delayed(const Duration(milliseconds: 180));
   }
 
   void _actualizarTratamientoActivoDesdeCiclos() {
@@ -2993,21 +2956,6 @@ class AppState extends ChangeNotifier {
 
     await _bleManager.write(BleProtocol.getStatus());
     await Future.delayed(const Duration(milliseconds: 180));
-
-    final hasRecentFeedback =
-        _bleManager.hasRecentRx(const Duration(seconds: 2));
-    // Extra edge for cold-start panels when feedback is missing/unreliable.
-    if (!_bleManager.canObserveRx || !hasRecentFeedback) {
-      print("BLE: ${phaseLabel}No-feedback fallback: repeating start edge.");
-      await _bleManager.write(BleProtocol.setPower(true));
-      await Future.delayed(const Duration(milliseconds: 320));
-      if (useQuickStart) {
-        await _bleManager.write(BleProtocol.quickStart(mode: workMode));
-        await Future.delayed(const Duration(milliseconds: 320));
-      }
-      await _bleManager.write(BleProtocol.getStatus());
-      await Future.delayed(const Duration(milliseconds: 160));
-    }
   }
 
   Future<void> _sendResumeHandshake({required int workMode}) async {
