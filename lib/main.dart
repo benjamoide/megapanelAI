@@ -2301,13 +2301,43 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> _wakePanelFromSleep({required int workMode}) async {
-    print("BLE: Wake preflight (mode=$workMode)");
-    // Keep wake preflight read-only. Repeated ON/OFF pulses were causing
-    // some firmware revisions to remain in idle/ready instead of RUN.
-    await _bleManager.write(BleProtocol.getStatus());
-    await Future.delayed(const Duration(milliseconds: 180));
-    await _bleManager.write(BleProtocol.getCountdown());
-    await Future.delayed(const Duration(milliseconds: 180));
+    final canCheckRx = _bleManager.canObserveRx;
+    print("BLE: Wake preflight (mode=$workMode, rxCheck=$canCheckRx)");
+
+    for (var attempt = 1; attempt <= 2; attempt++) {
+      await _bleManager.write(BleProtocol.getStatus());
+      await Future.delayed(const Duration(milliseconds: 160));
+      await _bleManager.write(BleProtocol.getCountdown());
+      await Future.delayed(const Duration(milliseconds: 160));
+
+      if (canCheckRx && _bleManager.hasRecentRx(const Duration(seconds: 2))) {
+        print("BLE: Wake preflight OK on attempt $attempt");
+        return;
+      }
+
+      // Cold-idle nudge: some units need an ON edge before they accept config.
+      await _bleManager.write(BleProtocol.setPower(true));
+      await Future.delayed(const Duration(milliseconds: 260));
+      await _bleManager.write(BleProtocol.getStatus());
+      await Future.delayed(const Duration(milliseconds: 160));
+
+      if (canCheckRx && _bleManager.hasRecentRx(const Duration(seconds: 2))) {
+        print("BLE: Wake preflight OK after ON nudge (attempt $attempt)");
+        return;
+      }
+    }
+
+    // Last-resort wake pulse: some firmware only wakes UI after quick-start.
+    // We immediately reset power to avoid staying in the 35s default preset.
+    if (canCheckRx) {
+      print("BLE: Wake fallback pulse (quickstart->off).");
+      await _bleManager.write(BleProtocol.quickStart(mode: workMode));
+      await Future.delayed(const Duration(milliseconds: 220));
+      await _bleManager.write(BleProtocol.setPower(false));
+      await Future.delayed(const Duration(milliseconds: 240));
+      await _bleManager.write(BleProtocol.getStatus());
+      await Future.delayed(const Duration(milliseconds: 160));
+    }
   }
 
   void _actualizarTratamientoActivoDesdeCiclos() {
@@ -2792,10 +2822,6 @@ class AppState extends ChangeNotifier {
         print(
             "BLE: Params -> duracion=${t.duracion} min, hz='${t.hz}', frecuencias=${t.frecuencias}");
 
-        // Force a clean baseline before applying parameters.
-        await _bleManager.write(BleProtocol.setPower(false));
-        await Future.delayed(const Duration(milliseconds: 500));
-
         await _wakePanelFromSleep(workMode: 0);
         // Mirror hardware UX: start first, then adjust parameters while running.
         await _sendStartHandshake(
@@ -2954,6 +2980,16 @@ class AppState extends ChangeNotifier {
 
     await _bleManager.write(BleProtocol.getStatus());
     await Future.delayed(const Duration(milliseconds: 180));
+
+    // Cold-start retry when no fresh feedback is observed.
+    if (_bleManager.canObserveRx &&
+        !_bleManager.hasRecentRx(const Duration(seconds: 2))) {
+      print("BLE: ${phaseLabel}No RX after start, retrying ON edge once.");
+      await _bleManager.write(BleProtocol.setPower(true));
+      await Future.delayed(const Duration(milliseconds: 280));
+      await _bleManager.write(BleProtocol.getStatus());
+      await Future.delayed(const Duration(milliseconds: 160));
+    }
   }
 
   Future<void> _sendResumeHandshake({
@@ -2968,6 +3004,15 @@ class AppState extends ChangeNotifier {
     await Future.delayed(const Duration(milliseconds: 260));
     await _bleManager.write(BleProtocol.getStatus());
     await Future.delayed(const Duration(milliseconds: 160));
+
+    if (_bleManager.canObserveRx &&
+        !_bleManager.hasRecentRx(const Duration(seconds: 2))) {
+      print("BLE: [resume] No RX after start, retrying ON edge once.");
+      await _bleManager.write(BleProtocol.setPower(true));
+      await Future.delayed(const Duration(milliseconds: 260));
+      await _bleManager.write(BleProtocol.getStatus());
+      await Future.delayed(const Duration(milliseconds: 140));
+    }
   }
 
   /// Starts a manual treatment not in the catalog
