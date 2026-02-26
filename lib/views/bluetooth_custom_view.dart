@@ -92,8 +92,8 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
   double _pulseHz = 0.0;
   bool _pulseEnabled = false;
   double _duration = 10.0;
-  int _startCommand = 0x21;
-  int _sequenceMode = 0;
+  int _startCommand = 0x20;
+  int _sequenceMode = 2;
   int _workMode = 0;
   int _selectedPresetIndex = 0;
 
@@ -1184,9 +1184,9 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
               isExpanded: true,
               items: const [
                 DropdownMenuItem(
-                    value: 0x21, child: Text('Cmd: Quick Start (0x21)')),
-                DropdownMenuItem(
                     value: 0x20, child: Text('Cmd: Power ON (0x20)')),
+                DropdownMenuItem(
+                    value: 0x21, child: Text('Cmd: Quick Start (0x21)')),
                 DropdownMenuItem(value: -1, child: Text('Cmd: None')),
               ],
               onChanged: (v) {
@@ -1200,11 +1200,12 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
               isExpanded: true,
               items: const [
                 DropdownMenuItem(
+                    value: 2,
+                    child: Text('Seq: Start -> Params (Recommended)')),
+                DropdownMenuItem(
                     value: 0, child: Text('Seq: Standard (Params -> Start)')),
                 DropdownMenuItem(
                     value: 1, child: Text('Seq: Live (Params only)')),
-                DropdownMenuItem(
-                    value: 2, child: Text('Seq: Inverse (Start -> Params)')),
                 DropdownMenuItem(
                     value: 3,
                     child: Text('Seq: Hard Reset (Stop -> Params -> Start)')),

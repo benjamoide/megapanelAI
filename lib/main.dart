@@ -2474,12 +2474,12 @@ class AppState extends ChangeNotifier {
 
     await _acquireBleStartLock();
     try {
+      await _sendResumeHandshake(workMode: workMode, useQuickStart: false);
       await _sendParameters(
         treatment,
         workMode: workMode,
         countdownSeconds: remainingSeconds,
       );
-      await _sendResumeHandshake(workMode: workMode);
       await _readBackRunState(reason: "after resume");
     } catch (e) {
       print("BLE Resume Error: $e");
@@ -2797,13 +2797,13 @@ class AppState extends ChangeNotifier {
         await Future.delayed(const Duration(milliseconds: 500));
 
         await _wakePanelFromSleep(workMode: 0);
-        await _sendParameters(t, workMode: 0);
-        // Robust wake/run handshake for panels coming from deep idle/screen-off.
+        // Mirror hardware UX: start first, then adjust parameters while running.
         await _sendStartHandshake(
           workMode: 0,
-          useQuickStart: true,
+          useQuickStart: false,
           phase: "catalogo",
         );
+        await _sendParameters(t, workMode: 0);
         await _readBackRunState(reason: "after iniciarCiclo");
         _marcarInicioRealCiclo(id);
         print("BLE: Configuration sent.");
@@ -2958,12 +2958,18 @@ class AppState extends ChangeNotifier {
     await Future.delayed(const Duration(milliseconds: 180));
   }
 
-  Future<void> _sendResumeHandshake({required int workMode}) async {
-    print("BLE: [resume] Start handshake (fast-resume)");
+  Future<void> _sendResumeHandshake({
+    required int workMode,
+    bool useQuickStart = false,
+  }) async {
+    final strategy = useQuickStart ? "power+quickstart" : "power-only";
+    print("BLE: [resume] Start handshake ($strategy)");
     await _bleManager.write(BleProtocol.setPower(true));
     await Future.delayed(const Duration(milliseconds: 260));
-    await _bleManager.write(BleProtocol.quickStart(mode: workMode));
-    await Future.delayed(const Duration(milliseconds: 320));
+    if (useQuickStart) {
+      await _bleManager.write(BleProtocol.quickStart(mode: workMode));
+      await Future.delayed(const Duration(milliseconds: 320));
+    }
     await _bleManager.write(BleProtocol.getStatus());
     await Future.delayed(const Duration(milliseconds: 160));
   }
@@ -2971,7 +2977,7 @@ class AppState extends ChangeNotifier {
   /// Starts a manual treatment not in the catalog
   /// [sequenceMode]: 0=Params->Start, 1=Params only, 2=Start->Params, 3=Stop->Params->Start
   Future<void> iniciarCicloManual(Tratamiento t,
-      {int startCommand = 0x21, int sequenceMode = 0, int workMode = 0}) async {
+      {int startCommand = 0x20, int sequenceMode = 2, int workMode = 0}) async {
     final tempId = t.id;
     _limpiarCiclosPausados();
 
