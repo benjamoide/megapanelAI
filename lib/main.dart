@@ -2942,17 +2942,15 @@ class AppState extends ChangeNotifier {
     String phase = "",
   }) async {
     final phaseLabel = phase.isEmpty ? "" : "[$phase] ";
-    final strategy = useQuickStart ? "power+quickstart" : "power-only";
+    // QuickStart (0x21) is intentionally disabled here because many firmware
+    // builds jump to the default preset (35s) immediately after receiving it.
+    const strategy = "power-only";
     print("BLE: ${phaseLabel}Start handshake ($strategy)");
+    _bleManager.log("APP START ${phaseLabel}strategy=$strategy");
 
     // Single start edge to avoid transient fallback presets before re-apply.
     await _bleManager.write(BleProtocol.setPower(true));
     await Future.delayed(const Duration(milliseconds: 420));
-
-    if (useQuickStart) {
-      await _bleManager.write(BleProtocol.quickStart(mode: workMode));
-      await Future.delayed(const Duration(milliseconds: 420));
-    }
 
     await _bleManager.write(BleProtocol.getStatus());
     await Future.delayed(const Duration(milliseconds: 180));
@@ -2962,14 +2960,12 @@ class AppState extends ChangeNotifier {
     required int workMode,
     bool useQuickStart = false,
   }) async {
-    final strategy = useQuickStart ? "power+quickstart" : "power-only";
+    // Keep resume on power-only to avoid fallback to the 35s preset.
+    const strategy = "power-only";
     print("BLE: [resume] Start handshake ($strategy)");
+    _bleManager.log("APP START [resume] strategy=$strategy");
     await _bleManager.write(BleProtocol.setPower(true));
     await Future.delayed(const Duration(milliseconds: 260));
-    if (useQuickStart) {
-      await _bleManager.write(BleProtocol.quickStart(mode: workMode));
-      await Future.delayed(const Duration(milliseconds: 320));
-    }
     await _bleManager.write(BleProtocol.getStatus());
     await Future.delayed(const Duration(milliseconds: 160));
   }
@@ -3010,10 +3006,11 @@ class AppState extends ChangeNotifier {
 
         Future<void> start() async {
           if (startCommand == 0x21) {
-            print("BLE: Sending Quick Start handshake (0x21) Mode: $workMode");
+            print(
+                "BLE: Quick Start (0x21) requested, using power-only for stability.");
             await _sendStartHandshake(
               workMode: workMode,
-              useQuickStart: true,
+              useQuickStart: false,
               phase: "manual",
             );
             started = true;
