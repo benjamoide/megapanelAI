@@ -2405,6 +2405,16 @@ class AppState extends ChangeNotifier {
     await Future.delayed(const Duration(milliseconds: 160));
   }
 
+  Future<void> _sendQuickWakePulse({int mode = 0, String phase = ""}) async {
+    final phaseLabel = phase.isEmpty ? "" : "[$phase] ";
+    final safeMode = mode.clamp(0, 3);
+    print("BLE: ${phaseLabel}Quick wake pulse (0x21 mode=$safeMode)");
+    await _bleManager.write(BleProtocol.quickStart(mode: safeMode));
+    await Future.delayed(const Duration(milliseconds: 320));
+    await _bleManager.write(BleProtocol.getStatus());
+    await Future.delayed(const Duration(milliseconds: 180));
+  }
+
   void _actualizarTratamientoActivoDesdeCiclos() {
     String? activeId;
     Map<String, dynamic>? activeMap;
@@ -2916,6 +2926,17 @@ class AppState extends ChangeNotifier {
           if (isConnected) {
             await runCatalogSequence("catalogo-retry");
           }
+        }
+
+        // Last-resort wake for stubborn cold boots:
+        // emulate the hardware wake behavior, then re-apply catalog sequence.
+        if (_bleManager.canObserveRx &&
+            !_bleManager.hasRecentRx(const Duration(seconds: 2)) &&
+            isConnected) {
+          print(
+              "BLE: [catalogo] No RX after retry, applying quick-wake fallback.");
+          await _sendQuickWakePulse(mode: 0, phase: "catalogo-quickwake");
+          await runCatalogSequence("catalogo-quickwake");
         }
 
         _marcarInicioRealCiclo(id);
