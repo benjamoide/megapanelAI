@@ -2300,6 +2300,54 @@ class AppState extends ChangeNotifier {
     await Future.delayed(const Duration(milliseconds: 140));
   }
 
+  Future<void> _recoverBleLink({String phase = ""}) async {
+    final phaseLabel = phase.isEmpty ? "" : "[$phase] ";
+    final device = _bleManager.connectedDevice;
+    if (device == null) {
+      print("BLE: ${phaseLabel}Recover skipped (no connected device ref).");
+      return;
+    }
+
+    print("BLE: ${phaseLabel}Recovering BLE link (disconnect/reconnect).");
+    try {
+      await _bleManager.disconnect();
+    } catch (e) {
+      print("BLE: ${phaseLabel}Disconnect during recover failed: $e");
+    }
+    await Future.delayed(const Duration(milliseconds: 480));
+
+    try {
+      final ok = await _bleManager.connect(device);
+      isConnected = ok && _bleManager.isConnected;
+      notifyListeners();
+      if (isConnected) {
+        await _bleManager.write(BleProtocol.getStatus());
+        await Future.delayed(const Duration(milliseconds: 220));
+      }
+      print("BLE: ${phaseLabel}Recover result -> connected=$isConnected");
+    } catch (e) {
+      print("BLE: ${phaseLabel}Reconnect failed: $e");
+    }
+  }
+
+  Future<void> _ensureBleResponsive({String phase = ""}) async {
+    final phaseLabel = phase.isEmpty ? "" : "[$phase] ";
+    if (!_bleManager.canObserveRx) {
+      print("BLE: ${phaseLabel}RX preflight skipped (notify unavailable).");
+      return;
+    }
+
+    await _bleManager.write(BleProtocol.getStatus());
+    await Future.delayed(const Duration(milliseconds: 180));
+    if (_bleManager.hasRecentRx(const Duration(seconds: 2))) {
+      print("BLE: ${phaseLabel}RX preflight OK.");
+      return;
+    }
+
+    print("BLE: ${phaseLabel}No RX in preflight, attempting link recover.");
+    await _recoverBleLink(phase: "${phase}recover");
+  }
+
   Future<void> _sendOfficialControlWakeEdge({String phase = ""}) async {
     final phaseLabel = phase.isEmpty ? "" : "[$phase] ";
     print("BLE: ${phaseLabel}Official wake edge (0x20:2->1)");
@@ -2840,19 +2888,36 @@ class AppState extends ChangeNotifier {
         print(
             "BLE: Params -> duracion=${t.duracion} min, hz='${t.hz}', frecuencias=${t.frecuencias}");
 
+        Future<void> runCatalogSequence(String phase) async {
+          await _wakePanelFromSleep(workMode: 0);
+          // Mirror hardware UX: start first, then adjust parameters while running.
+          await _sendStartHandshake(
+            workMode: 0,
+            useQuickStart: false,
+            phase: phase,
+            includeControlWakeEdge: true,
+          );
+          await _sendParameters(t, workMode: 0);
+          await _sendRunCommit(phase: phase);
+          await _readBackRunState(reason: "after iniciarCiclo ($phase)");
+        }
+
         // Keep catalog start aligned with manual start path (no forced OFF pre-reset).
         // Some cold-boot units stay stuck if we send OFF before the first wake edge.
-        await _wakePanelFromSleep(workMode: 0);
-        // Mirror hardware UX: start first, then adjust parameters while running.
-        await _sendStartHandshake(
-          workMode: 0,
-          useQuickStart: false,
-          phase: "catalogo",
-          includeControlWakeEdge: true,
-        );
-        await _sendParameters(t, workMode: 0);
-        await _sendRunCommit(phase: "catalogo");
-        await _readBackRunState(reason: "after iniciarCiclo");
+        await _ensureBleResponsive(phase: "catalogo-preflight");
+        await runCatalogSequence("catalogo");
+
+        // If writes complete but we still have no RX, recover and retry once.
+        if (_bleManager.canObserveRx &&
+            !_bleManager.hasRecentRx(const Duration(seconds: 2))) {
+          print(
+              "BLE: [catalogo] No RX after sequence, recovering and retrying.");
+          await _recoverBleLink(phase: "catalogo-retry");
+          if (isConnected) {
+            await runCatalogSequence("catalogo-retry");
+          }
+        }
+
         _marcarInicioRealCiclo(id);
         print("BLE: Configuration sent.");
       } catch (e) {
