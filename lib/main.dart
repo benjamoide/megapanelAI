@@ -2840,10 +2840,8 @@ class AppState extends ChangeNotifier {
         print(
             "BLE: Params -> duracion=${t.duracion} min, hz='${t.hz}', frecuencias=${t.frecuencias}");
 
-        // Force a deterministic OFF->ON edge before catalog starts.
-        // Cold boots may ignore the first RUN if the panel stays in its idle preset state.
-        await _sendPowerOffAndSettle(phase: "catalogo-reset");
-        await Future.delayed(const Duration(milliseconds: 180));
+        // Keep catalog start aligned with manual start path (no forced OFF pre-reset).
+        // Some cold-boot units stay stuck if we send OFF before the first wake edge.
         await _wakePanelFromSleep(workMode: 0);
         // Mirror hardware UX: start first, then adjust parameters while running.
         await _sendStartHandshake(
