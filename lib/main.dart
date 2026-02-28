@@ -2300,6 +2300,17 @@ class AppState extends ChangeNotifier {
     await Future.delayed(const Duration(milliseconds: 140));
   }
 
+  Future<void> _sendOfficialControlWakeEdge({String phase = ""}) async {
+    final phaseLabel = phase.isEmpty ? "" : "[$phase] ";
+    print("BLE: ${phaseLabel}Official wake edge (0x20:2->1)");
+    await _bleManager.write(BleProtocol.setControlMode(0x02));
+    await Future.delayed(const Duration(milliseconds: 180));
+    await _bleManager.write(BleProtocol.setControlMode(0x01));
+    await Future.delayed(const Duration(milliseconds: 220));
+    await _bleManager.write(BleProtocol.getStatus());
+    await Future.delayed(const Duration(milliseconds: 140));
+  }
+
   Future<void> _wakePanelFromSleep({required int workMode}) async {
     final canCheckRx = _bleManager.canObserveRx;
     print("BLE: Wake preflight (mode=$workMode, rxCheck=$canCheckRx)");
@@ -2315,14 +2326,12 @@ class AppState extends ChangeNotifier {
         return;
       }
 
-      // Cold-idle nudge: some units need an ON edge before they accept config.
-      await _bleManager.write(BleProtocol.setPower(true));
-      await Future.delayed(const Duration(milliseconds: 260));
-      await _bleManager.write(BleProtocol.getStatus());
-      await Future.delayed(const Duration(milliseconds: 160));
+      // Mirrors the official app: nudge with control edge 2->1 on cold-idle.
+      await _sendOfficialControlWakeEdge(phase: "wake");
 
       if (canCheckRx && _bleManager.hasRecentRx(const Duration(seconds: 2))) {
-        print("BLE: Wake preflight OK after ON nudge (attempt $attempt)");
+        print(
+            "BLE: Wake preflight OK after control wake edge (attempt $attempt)");
         return;
       }
     }
@@ -2822,12 +2831,17 @@ class AppState extends ChangeNotifier {
         print(
             "BLE: Params -> duracion=${t.duracion} min, hz='${t.hz}', frecuencias=${t.frecuencias}");
 
+        // Force a deterministic OFF->ON edge before catalog starts.
+        // Cold boots may ignore the first RUN if the panel stays in its idle preset state.
+        await _sendPowerOffAndSettle(phase: "catalogo-reset");
+        await Future.delayed(const Duration(milliseconds: 180));
         await _wakePanelFromSleep(workMode: 0);
         // Mirror hardware UX: start first, then adjust parameters while running.
         await _sendStartHandshake(
           workMode: 0,
           useQuickStart: false,
           phase: "catalogo",
+          includeControlWakeEdge: true,
         );
         await _sendParameters(t, workMode: 0);
         await _readBackRunState(reason: "after iniciarCiclo");
@@ -2966,11 +2980,13 @@ class AppState extends ChangeNotifier {
     required int workMode,
     required bool useQuickStart,
     String phase = "",
+    bool includeControlWakeEdge = false,
   }) async {
     final phaseLabel = phase.isEmpty ? "" : "[$phase] ";
     // QuickStart (0x21) is intentionally disabled here because many firmware
     // builds jump to the default preset (35s) immediately after receiving it.
-    const strategy = "power-only";
+    final strategy =
+        includeControlWakeEdge ? "power+control(2->1)" : "power-only";
     print("BLE: ${phaseLabel}Start handshake ($strategy)");
     _bleManager.log("APP START ${phaseLabel}strategy=$strategy");
 
@@ -2980,6 +2996,10 @@ class AppState extends ChangeNotifier {
 
     await _bleManager.write(BleProtocol.getStatus());
     await Future.delayed(const Duration(milliseconds: 180));
+
+    if (includeControlWakeEdge) {
+      await _sendOfficialControlWakeEdge(phase: "${phase}start");
+    }
 
     // Cold-start retry when no fresh feedback is observed.
     if (_bleManager.canObserveRx &&
@@ -3057,6 +3077,7 @@ class AppState extends ChangeNotifier {
               workMode: workMode,
               useQuickStart: false,
               phase: "manual",
+              includeControlWakeEdge: true,
             );
             started = true;
           } else if (startCommand == 0x20) {
@@ -3065,6 +3086,7 @@ class AppState extends ChangeNotifier {
               workMode: workMode,
               useQuickStart: false,
               phase: "manual",
+              includeControlWakeEdge: true,
             );
             started = true;
           } else {

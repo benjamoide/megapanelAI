@@ -75,8 +75,14 @@ class BleProtocol {
   /// Helper to Turn On/Off (using Control command 0x20?)
   /// Analysis says 0x20 is Basic Control.
   /// Needs experimentation. Usually 0x01 = ON, 0x00 = OFF for payload.
+  static List<int> setControlMode(int value) {
+    final mode = value.clamp(0, 255).toInt();
+    return buildPacket(cmdControl, [mode]);
+  }
+
+  /// Convenience wrapper around Basic Control (0x20) for ON/OFF.
   static List<int> setPower(bool on) {
-    return buildPacket(cmdControl, [on ? 0x01 : 0x00]);
+    return setControlMode(on ? 0x01 : 0x00);
   }
 
   /// Helper to Set Work Mode (0x50)
