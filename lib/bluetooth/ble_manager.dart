@@ -58,6 +58,13 @@ class BleManager {
     return DateTime.now().difference(rx) <= window;
   }
 
+  bool _isValidProtocolRx(List<int> value) {
+    if (value.length < 7) return false;
+    final head = value.first & 0xFF;
+    final tail = value.last & 0xFF;
+    return head == 0x2A && tail == 0x0A;
+  }
+
   Future<void> init() async {
     // Request core BLE permissions early.
     await Permission.bluetoothScan.request();
@@ -179,8 +186,18 @@ class BleManager {
         await _notifyCharacteristic!.setNotifyValue(true);
         _notifySubscription =
             _notifyCharacteristic!.lastValueStream.listen((value) {
-          _lastRxAt = DateTime.now();
-          log("BLE RX: ${_hex(value)}");
+          final normalized =
+              value.map((byte) => byte & 0xFF).toList(growable: false);
+          if (_isValidProtocolRx(normalized)) {
+            _lastRxAt = DateTime.now();
+            log("BLE RX: ${_hex(normalized)}");
+            return;
+          }
+          if (normalized.isEmpty) {
+            log("BLE RX: <empty>");
+            return;
+          }
+          log("BLE RX (ignored/non-protocol): ${_hex(normalized)}");
         }, onError: (error) {
           log("Notify stream error: $error");
         });
