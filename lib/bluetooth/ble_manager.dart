@@ -18,6 +18,7 @@ class BleManager {
   StreamSubscription<BluetoothConnectionState>? _connectionSubscription;
   StreamSubscription<List<int>>? _notifySubscription;
   Future<void> _pendingWrite = Future.value();
+  int _writeSession = 0;
   bool _isReady = false;
   DateTime? _lastRxAt;
 
@@ -316,6 +317,7 @@ class BleManager {
     _notifyCharacteristic = null;
     _lastRxAt = null;
     _pendingWrite = Future.value();
+    _writeSession++;
     _isReady = false;
     _connectionStateController.add(BluetoothConnectionState.disconnected);
   }
@@ -327,23 +329,31 @@ class BleManager {
     }
 
     final normalized = data.map((byte) => byte & 0xFF).toList(growable: false);
+    final sessionAtEnqueue = _writeSession;
     _pendingWrite = _pendingWrite
-        .then((_) => _writeInternal(normalized))
+        .then((_) => _writeInternal(normalized, sessionAtEnqueue))
         .catchError((error) {
       log("Write queue error: $error");
     });
     return _pendingWrite;
   }
 
-  Future<void> _writeInternal(List<int> data) async {
+  Future<void> _writeInternal(List<int> data, int sessionId) async {
     if (data.isEmpty) return;
+    if (sessionId != _writeSession) return;
     final totalChunks = (data.length / _maxChunkSize).ceil();
 
     for (int i = 0; i < totalChunks; i++) {
+      if (sessionId != _writeSession) return;
       final start = i * _maxChunkSize;
       final end = math.min(start + _maxChunkSize, data.length);
       final chunk = data.sublist(start, end);
-      await _writeChunkWithRetry(chunk, index: i + 1, total: totalChunks);
+      await _writeChunkWithRetry(
+        chunk,
+        index: i + 1,
+        total: totalChunks,
+        sessionId: sessionId,
+      );
       if (i < totalChunks - 1) {
         await Future.delayed(_chunkGap);
       }
@@ -354,8 +364,10 @@ class BleManager {
     List<int> chunk, {
     required int index,
     required int total,
+    required int sessionId,
   }) async {
     for (int attempt = 1; attempt <= _maxWriteAttempts; attempt++) {
+      if (sessionId != _writeSession) return;
       final characteristic = _writeCharacteristic;
       if (characteristic == null) {
         throw StateError("Write characteristic is no longer available");

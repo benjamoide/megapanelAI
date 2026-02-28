@@ -2305,10 +2305,12 @@ class AppState extends ChangeNotifier {
     final device = _bleManager.connectedDevice;
     if (device == null) {
       print("BLE: ${phaseLabel}Recover skipped (no connected device ref).");
+      _bleManager.log("RECOVER ${phaseLabel}skipped:no-device");
       return;
     }
 
     print("BLE: ${phaseLabel}Recovering BLE link (disconnect/reconnect).");
+    _bleManager.log("RECOVER ${phaseLabel}start");
     try {
       await _bleManager.disconnect();
     } catch (e) {
@@ -2325,8 +2327,10 @@ class AppState extends ChangeNotifier {
         await Future.delayed(const Duration(milliseconds: 220));
       }
       print("BLE: ${phaseLabel}Recover result -> connected=$isConnected");
+      _bleManager.log("RECOVER ${phaseLabel}done connected=$isConnected");
     } catch (e) {
       print("BLE: ${phaseLabel}Reconnect failed: $e");
+      _bleManager.log("RECOVER ${phaseLabel}failed:$e");
     }
   }
 
@@ -2341,10 +2345,12 @@ class AppState extends ChangeNotifier {
     await Future.delayed(const Duration(milliseconds: 180));
     if (_bleManager.hasRecentRx(const Duration(seconds: 2))) {
       print("BLE: ${phaseLabel}RX preflight OK.");
+      _bleManager.log("RX PREFLIGHT ${phaseLabel}ok");
       return;
     }
 
     print("BLE: ${phaseLabel}No RX in preflight, attempting link recover.");
+    _bleManager.log("RX PREFLIGHT ${phaseLabel}no-rx");
     await _recoverBleLink(phase: "${phase}recover");
   }
 
@@ -2922,6 +2928,7 @@ class AppState extends ChangeNotifier {
             !_bleManager.hasRecentRx(const Duration(seconds: 2))) {
           print(
               "BLE: [catalogo] No RX after sequence, recovering and retrying.");
+          _bleManager.log("CATALOGO no-rx -> retry-reconnect");
           await _recoverBleLink(phase: "catalogo-retry");
           if (isConnected) {
             await runCatalogSequence("catalogo-retry");
@@ -2935,6 +2942,7 @@ class AppState extends ChangeNotifier {
             isConnected) {
           print(
               "BLE: [catalogo] No RX after retry, applying quick-wake fallback.");
+          _bleManager.log("CATALOGO no-rx -> quickwake");
           await _sendQuickWakePulse(mode: 0, phase: "catalogo-quickwake");
           await runCatalogSequence("catalogo-quickwake");
         }
