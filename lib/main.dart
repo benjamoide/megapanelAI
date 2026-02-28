@@ -2336,17 +2336,25 @@ class AppState extends ChangeNotifier {
       }
     }
 
-    // Last-resort wake pulse: some firmware only wakes UI after quick-start.
-    // We immediately reset power to avoid staying in the 35s default preset.
+    // Avoid quickstart fallback here: some firmware drifts to a local preset.
+    // Keep using deterministic control edges only.
     if (canCheckRx) {
-      print("BLE: Wake fallback pulse (quickstart->off).");
-      await _bleManager.write(BleProtocol.quickStart(mode: workMode));
-      await Future.delayed(const Duration(milliseconds: 220));
+      print("BLE: Wake fallback (control edge + OFF settle).");
+      await _sendOfficialControlWakeEdge(phase: "wake-fallback");
       await _bleManager.write(BleProtocol.setPower(false));
       await Future.delayed(const Duration(milliseconds: 240));
       await _bleManager.write(BleProtocol.getStatus());
       await Future.delayed(const Duration(milliseconds: 160));
     }
+  }
+
+  Future<void> _sendRunCommit({String phase = ""}) async {
+    final phaseLabel = phase.isEmpty ? "" : "[$phase] ";
+    print("BLE: ${phaseLabel}Run commit (0x20:1)");
+    await _bleManager.write(BleProtocol.setControlMode(0x01));
+    await Future.delayed(const Duration(milliseconds: 240));
+    await _bleManager.write(BleProtocol.getStatus());
+    await Future.delayed(const Duration(milliseconds: 160));
   }
 
   void _actualizarTratamientoActivoDesdeCiclos() {
@@ -2519,6 +2527,7 @@ class AppState extends ChangeNotifier {
         workMode: workMode,
         countdownSeconds: remainingSeconds,
       );
+      await _sendRunCommit(phase: "resume");
       await _readBackRunState(reason: "after resume");
     } catch (e) {
       print("BLE Resume Error: $e");
@@ -2844,6 +2853,7 @@ class AppState extends ChangeNotifier {
           includeControlWakeEdge: true,
         );
         await _sendParameters(t, workMode: 0);
+        await _sendRunCommit(phase: "catalogo");
         await _readBackRunState(reason: "after iniciarCiclo");
         _marcarInicioRealCiclo(id);
         print("BLE: Configuration sent.");
@@ -3116,6 +3126,7 @@ class AppState extends ChangeNotifier {
         }
 
         if (started) {
+          await _sendRunCommit(phase: "manual");
           await _readBackRunState(reason: "after iniciarCicloManual");
           _marcarInicioRealCiclo(tempId);
         }
