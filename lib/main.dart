@@ -3163,64 +3163,95 @@ class AppState extends ChangeNotifier {
       try {
         print(
             "BLE: Starting Manual Treatment (Seq: $sequenceMode, Cmd: $startCommand, Mode: $workMode)");
-        bool started = false;
+        Future<bool> runManualSequence(String phase) async {
+          bool started = false;
 
-        Future<void> stop() async {
-          print("BLE: Sending Power OFF (Reset)");
-          await _bleManager.write(BleProtocol.setPower(false));
-          await Future.delayed(const Duration(milliseconds: 500));
+          Future<void> stop() async {
+            print("BLE: [$phase] Sending Power OFF (Reset)");
+            await _bleManager.write(BleProtocol.setPower(false));
+            await Future.delayed(const Duration(milliseconds: 500));
+          }
+
+          Future<void> start() async {
+            if (startCommand == 0x21) {
+              print(
+                  "BLE: [$phase] Quick Start (0x21) requested, using power-only for stability.");
+              await _sendStartHandshake(
+                workMode: workMode,
+                useQuickStart: false,
+                phase: phase,
+                includeControlWakeEdge: true,
+              );
+              started = true;
+            } else if (startCommand == 0x20) {
+              print("BLE: [$phase] Sending Power ON handshake (0x20)");
+              await _sendStartHandshake(
+                workMode: workMode,
+                useQuickStart: false,
+                phase: phase,
+                includeControlWakeEdge: true,
+              );
+              started = true;
+            } else {
+              print("BLE: [$phase] Skipping Start Command");
+            }
+          }
+
+          Future<void> sendParams() async {
+            await _sendParameters(t, workMode: workMode);
+          }
+
+          await _wakePanelFromSleep(workMode: workMode);
+
+          if (sequenceMode == 0) {
+            await sendParams();
+            await start();
+          } else if (sequenceMode == 1) {
+            await sendParams();
+          } else if (sequenceMode == 2) {
+            await start();
+            await sendParams();
+          } else if (sequenceMode == 3) {
+            await stop();
+            await Future.delayed(const Duration(milliseconds: 1000));
+            await sendParams();
+            await start();
+          }
+
+          if (started) {
+            await _sendRunCommit(phase: phase);
+            await _readBackRunState(
+                reason: "after iniciarCicloManual ($phase)");
+            _marcarInicioRealCiclo(tempId);
+          }
+          return started;
         }
 
-        Future<void> start() async {
-          if (startCommand == 0x21) {
-            print(
-                "BLE: Quick Start (0x21) requested, using power-only for stability.");
-            await _sendStartHandshake(
-              workMode: workMode,
-              useQuickStart: false,
-              phase: "manual",
-              includeControlWakeEdge: true,
-            );
-            started = true;
-          } else if (startCommand == 0x20) {
-            print("BLE: Sending Power ON handshake (0x20)");
-            await _sendStartHandshake(
-              workMode: workMode,
-              useQuickStart: false,
-              phase: "manual",
-              includeControlWakeEdge: true,
-            );
-            started = true;
-          } else {
-            print("BLE: Skipping Start Command");
+        await _ensureBleResponsive(phase: "manual-preflight");
+        var started = await runManualSequence("manual");
+
+        if (_bleManager.canObserveRx &&
+            !_bleManager.hasRecentRx(const Duration(seconds: 2))) {
+          print("BLE: [manual] No RX after sequence, recovering and retrying.");
+          _bleManager.log("MANUAL no-rx -> retry-reconnect");
+          await _recoverBleLink(phase: "manual-retry");
+          if (isConnected) {
+            started = (await runManualSequence("manual-retry")) || started;
           }
         }
 
-        Future<void> sendParams() async {
-          await _sendParameters(t, workMode: workMode);
+        if (_bleManager.canObserveRx &&
+            !_bleManager.hasRecentRx(const Duration(seconds: 2)) &&
+            isConnected) {
+          print(
+              "BLE: [manual] No RX after retry, applying quick-wake fallback.");
+          _bleManager.log("MANUAL no-rx -> quickwake");
+          await _sendQuickWakePulse(mode: workMode, phase: "manual-quickwake");
+          started = (await runManualSequence("manual-quickwake")) || started;
         }
 
-        await _wakePanelFromSleep(workMode: workMode);
-
-        if (sequenceMode == 0) {
-          await sendParams();
-          await start();
-        } else if (sequenceMode == 1) {
-          await sendParams();
-        } else if (sequenceMode == 2) {
-          await start();
-          await sendParams();
-        } else if (sequenceMode == 3) {
-          await stop();
-          await Future.delayed(const Duration(milliseconds: 1000));
-          await sendParams();
-          await start();
-        }
-
-        if (started) {
-          await _sendRunCommit(phase: "manual");
-          await _readBackRunState(reason: "after iniciarCicloManual");
-          _marcarInicioRealCiclo(tempId);
+        if (!started) {
+          print("BLE: [manual] Sequence completed without start command.");
         }
       } catch (e) {
         print("BLE Manual Error: $e");
