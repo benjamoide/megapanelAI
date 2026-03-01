@@ -2411,16 +2411,6 @@ class AppState extends ChangeNotifier {
     await Future.delayed(const Duration(milliseconds: 160));
   }
 
-  Future<void> _sendQuickWakePulse({int mode = 0, String phase = ""}) async {
-    final phaseLabel = phase.isEmpty ? "" : "[$phase] ";
-    final safeMode = mode.clamp(0, 3);
-    print("BLE: ${phaseLabel}Quick wake pulse (0x21 mode=$safeMode)");
-    await _bleManager.write(BleProtocol.quickStart(mode: safeMode));
-    await Future.delayed(const Duration(milliseconds: 320));
-    await _bleManager.write(BleProtocol.getStatus());
-    await Future.delayed(const Duration(milliseconds: 180));
-  }
-
   void _actualizarTratamientoActivoDesdeCiclos() {
     String? activeId;
     Map<String, dynamic>? activeMap;
@@ -2935,22 +2925,37 @@ class AppState extends ChangeNotifier {
           }
         }
 
-        // Last-resort wake for stubborn cold boots:
-        // emulate the hardware wake behavior, then re-apply catalog sequence.
+        // Deterministic cold-start fallback (avoid 0x21 quickstart because
+        // some firmware revives stale local presets after deep sleep).
         if (_bleManager.canObserveRx &&
             !_bleManager.hasRecentRx(const Duration(seconds: 2)) &&
             isConnected) {
           print(
-              "BLE: [catalogo] No RX after retry, applying quick-wake fallback.");
-          _bleManager.log("CATALOGO no-rx -> quickwake");
-          await _sendQuickWakePulse(mode: 0, phase: "catalogo-quickwake");
-          await runCatalogSequence("catalogo-quickwake");
+              "BLE: [catalogo] No RX after retry, forcing OFF+wake deterministic fallback.");
+          _bleManager.log("CATALOGO no-rx -> hardwake");
+          await _sendPowerOffAndSettle(phase: "catalogo-hardwake");
+          await Future.delayed(const Duration(milliseconds: 700));
+          await _sendOfficialControlWakeEdge(phase: "catalogo-hardwake");
+          await runCatalogSequence("catalogo-hardwake");
+        }
+
+        // Safety: if the panel never acknowledges RX, do not leave it armed.
+        if (_bleManager.canObserveRx &&
+            !_bleManager.hasRecentRx(const Duration(seconds: 2)) &&
+            isConnected) {
+          print(
+              "BLE: [catalogo] No RX after hard fallback, sending OFF and aborting start.");
+          _bleManager.log("CATALOGO no-rx -> abort-off");
+          await _sendPowerOffAndSettle(phase: "catalogo-abort-no-rx");
+          throw Exception("Catalog start aborted (no BLE RX after retries)");
         }
 
         _marcarInicioRealCiclo(id);
         print("BLE: Configuration sent.");
       } catch (e) {
         print("BLE Error: $e");
+        ciclosActivos.remove(id);
+        _actualizarTratamientoActivoDesdeCiclos();
       } finally {
         _releaseBleStartLock();
       }
@@ -3244,10 +3249,22 @@ class AppState extends ChangeNotifier {
             !_bleManager.hasRecentRx(const Duration(seconds: 2)) &&
             isConnected) {
           print(
-              "BLE: [manual] No RX after retry, applying quick-wake fallback.");
-          _bleManager.log("MANUAL no-rx -> quickwake");
-          await _sendQuickWakePulse(mode: workMode, phase: "manual-quickwake");
-          started = (await runManualSequence("manual-quickwake")) || started;
+              "BLE: [manual] No RX after retry, forcing OFF+wake deterministic fallback.");
+          _bleManager.log("MANUAL no-rx -> hardwake");
+          await _sendPowerOffAndSettle(phase: "manual-hardwake");
+          await Future.delayed(const Duration(milliseconds: 700));
+          await _sendOfficialControlWakeEdge(phase: "manual-hardwake");
+          started = (await runManualSequence("manual-hardwake")) || started;
+        }
+
+        if (_bleManager.canObserveRx &&
+            !_bleManager.hasRecentRx(const Duration(seconds: 2)) &&
+            isConnected) {
+          print(
+              "BLE: [manual] No RX after hard fallback, sending OFF and aborting start.");
+          _bleManager.log("MANUAL no-rx -> abort-off");
+          await _sendPowerOffAndSettle(phase: "manual-abort-no-rx");
+          throw Exception("Manual start aborted (no BLE RX after retries)");
         }
 
         if (!started) {
