@@ -21,6 +21,7 @@ class BleManager {
   int _writeSession = 0;
   bool _isReady = false;
   DateTime? _lastRxAt;
+  bool _hadProtocolRxSinceConnect = false;
 
   static const int _maxChunkSize = 20;
   static const int _maxWriteAttempts = 3;
@@ -50,6 +51,7 @@ class BleManager {
       _isReady &&
       _writeCharacteristic != null;
   bool get canObserveRx => _notifyCharacteristic != null;
+  bool get hasSeenProtocolRx => _hadProtocolRxSinceConnect;
 
   BluetoothDevice? get connectedDevice => _connectedDevice;
 
@@ -148,6 +150,8 @@ class BleManager {
       await _connectWithRetry(device);
       _connectedDevice = device;
       _isReady = false;
+      _lastRxAt = null;
+      _hadProtocolRxSinceConnect = false;
 
       // Listen to connection state
       await _connectionSubscription?.cancel();
@@ -191,6 +195,7 @@ class BleManager {
               value.map((byte) => byte & 0xFF).toList(growable: false);
           if (_isValidProtocolRx(normalized)) {
             _lastRxAt = DateTime.now();
+            _hadProtocolRxSinceConnect = true;
             log("BLE RX: ${_hex(normalized)}");
             return;
           }
@@ -316,6 +321,7 @@ class BleManager {
     _writeCharacteristic = null;
     _notifyCharacteristic = null;
     _lastRxAt = null;
+    _hadProtocolRxSinceConnect = false;
     _pendingWrite = Future.value();
     _writeSession++;
     _isReady = false;

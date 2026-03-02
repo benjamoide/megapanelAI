@@ -2334,24 +2334,138 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  Future<void> _ensureBleResponsive({String phase = ""}) async {
+  bool _hasFreshBleRx([Duration window = const Duration(seconds: 4)]) {
+    return _bleManager.hasRecentRx(window);
+  }
+
+  Future<void> _probeBleRx({
+    String phase = "",
+    bool includeBrightness = false,
+  }) async {
+    final phaseLabel = phase.isEmpty ? "" : "[$phase] ";
+    print("BLE: ${phaseLabel}RX probe");
+    await _bleManager.write(BleProtocol.getStatus());
+    await Future.delayed(const Duration(milliseconds: 180));
+    await _bleManager.write(BleProtocol.getWorkMode());
+    await Future.delayed(const Duration(milliseconds: 180));
+    await _bleManager.write(BleProtocol.getCountdown());
+    await Future.delayed(const Duration(milliseconds: 180));
+    if (includeBrightness) {
+      await _bleManager.write(BleProtocol.getBrightness());
+      await Future.delayed(const Duration(milliseconds: 180));
+    }
+  }
+
+  Future<bool> _waitForBleRx({
+    String phase = "",
+    Duration timeout = const Duration(seconds: 6),
+    bool allowWakeEdge = false,
+    bool allowRecover = false,
+  }) async {
+    if (!_bleManager.canObserveRx) return true;
+    if (_hasFreshBleRx()) return true;
+
+    final phaseLabel = phase.isEmpty ? "" : "[$phase] ";
+    final deadline = DateTime.now().add(timeout);
+    var attempt = 0;
+
+    while (DateTime.now().isBefore(deadline)) {
+      attempt++;
+      _bleManager.log("RX WAIT ${phaseLabel}probe#$attempt");
+      await _probeBleRx(
+        phase: phase.isEmpty ? "rx-wait-$attempt" : "$phase-rx-$attempt",
+        includeBrightness: attempt % 2 == 0,
+      );
+      if (_hasFreshBleRx()) {
+        _bleManager.log("RX WAIT ${phaseLabel}ok#$attempt");
+        return true;
+      }
+
+      if (allowWakeEdge && isConnected && attempt % 2 == 0) {
+        await _sendOfficialControlWakeEdge(
+          phase: phase.isEmpty ? "rx-wake-$attempt" : "$phase-wake-$attempt",
+        );
+        if (_hasFreshBleRx()) {
+          _bleManager.log("RX WAIT ${phaseLabel}ok-after-wake#$attempt");
+          return true;
+        }
+      }
+
+      if (allowRecover && isConnected && attempt % 3 == 0) {
+        await _recoverBleLink(
+          phase:
+              phase.isEmpty ? "rx-recover-$attempt" : "$phase-recover-$attempt",
+        );
+        if (!isConnected) break;
+        if (_hasFreshBleRx()) {
+          _bleManager.log("RX WAIT ${phaseLabel}ok-after-recover#$attempt");
+          return true;
+        }
+      }
+
+      await Future.delayed(const Duration(milliseconds: 220));
+    }
+
+    final ok = _hasFreshBleRx();
+    if (!ok) {
+      _bleManager.log("RX WAIT ${phaseLabel}timeout");
+    }
+    return ok;
+  }
+
+  Future<bool> _ensureBleResponsive({String phase = ""}) async {
     final phaseLabel = phase.isEmpty ? "" : "[$phase] ";
     if (!_bleManager.canObserveRx) {
       print("BLE: ${phaseLabel}RX preflight skipped (notify unavailable).");
-      return;
+      return true;
     }
 
-    await _bleManager.write(BleProtocol.getStatus());
-    await Future.delayed(const Duration(milliseconds: 180));
-    if (_bleManager.hasRecentRx(const Duration(seconds: 2))) {
+    final preflightOk = await _waitForBleRx(
+      phase: phase.isEmpty ? "preflight" : "$phase-preflight",
+      timeout: const Duration(seconds: 4),
+      allowWakeEdge: false,
+      allowRecover: false,
+    );
+    if (preflightOk) {
       print("BLE: ${phaseLabel}RX preflight OK.");
       _bleManager.log("RX PREFLIGHT ${phaseLabel}ok");
-      return;
+      return true;
     }
 
-    print("BLE: ${phaseLabel}No RX in preflight, attempting link recover.");
+    print("BLE: ${phaseLabel}No RX in preflight.");
     _bleManager.log("RX PREFLIGHT ${phaseLabel}no-rx");
+
+    // Cold-link bootstrap: if we never observed protocol RX after connect,
+    // spend extra probes before forcing the reconnect path.
+    if (!_bleManager.hasSeenProtocolRx) {
+      print(
+          "BLE: ${phaseLabel}Cold link detected (no protocol RX yet), running bootstrap.");
+      final bootstrapOk = await _waitForBleRx(
+        phase: phase.isEmpty ? "bootstrap" : "$phase-bootstrap",
+        timeout: const Duration(seconds: 12),
+        allowWakeEdge: true,
+        allowRecover: true,
+      );
+      if (bootstrapOk) {
+        _bleManager.log("RX PREFLIGHT ${phaseLabel}bootstrap-ok");
+        return true;
+      }
+    }
+
+    print("BLE: ${phaseLabel}Attempting link recover.");
     await _recoverBleLink(phase: "${phase}recover");
+    if (!isConnected) return false;
+
+    final recoverOk = await _waitForBleRx(
+      phase: phase.isEmpty ? "post-recover" : "$phase-post-recover",
+      timeout: const Duration(seconds: 8),
+      allowWakeEdge: true,
+      allowRecover: false,
+    );
+    if (recoverOk) {
+      _bleManager.log("RX PREFLIGHT ${phaseLabel}recover-ok");
+    }
+    return recoverOk;
   }
 
   Future<void> _sendOfficialControlWakeEdge({String phase = ""}) async {
@@ -2375,7 +2489,7 @@ class AppState extends ChangeNotifier {
       await _bleManager.write(BleProtocol.getCountdown());
       await Future.delayed(const Duration(milliseconds: 160));
 
-      if (canCheckRx && _bleManager.hasRecentRx(const Duration(seconds: 2))) {
+      if (canCheckRx && _hasFreshBleRx()) {
         print("BLE: Wake preflight OK on attempt $attempt");
         return;
       }
@@ -2383,7 +2497,7 @@ class AppState extends ChangeNotifier {
       // Mirrors the official app: nudge with control edge 2->1 on cold-idle.
       await _sendOfficialControlWakeEdge(phase: "wake");
 
-      if (canCheckRx && _bleManager.hasRecentRx(const Duration(seconds: 2))) {
+      if (canCheckRx && _hasFreshBleRx()) {
         print(
             "BLE: Wake preflight OK after control wake edge (attempt $attempt)");
         return;
@@ -2611,8 +2725,22 @@ class AppState extends ChangeNotifier {
 
   Future<bool> connectToDevice(BluetoothDevice device) async {
     final connected = await _bleManager.connect(device);
-    final nextIsConnected = _bleManager.isConnected;
-    final changed = isConnected != nextIsConnected;
+    var nextIsConnected = _bleManager.isConnected;
+    var changed = isConnected != nextIsConnected;
+    isConnected = nextIsConnected;
+    if (changed) notifyListeners();
+
+    final ready = connected && nextIsConnected;
+    if (!ready) return false;
+
+    final warmed = await _ensureBleResponsive(phase: "connect");
+    if (!warmed) {
+      print("BLE: [connect] Connected but RX is still stale after warmup.");
+      _bleManager.log("CONNECT warmup -> no-rx");
+    }
+
+    nextIsConnected = _bleManager.isConnected;
+    changed = isConnected != nextIsConnected;
     isConnected = nextIsConnected;
     if (changed) notifyListeners();
     return connected && nextIsConnected;
@@ -2914,8 +3042,13 @@ class AppState extends ChangeNotifier {
         await runCatalogSequence("catalogo");
 
         // If writes complete but we still have no RX, recover and retry once.
-        if (_bleManager.canObserveRx &&
-            !_bleManager.hasRecentRx(const Duration(seconds: 2))) {
+        final catalogRxAfterPrimary = await _waitForBleRx(
+          phase: "catalogo-post-primary",
+          timeout: const Duration(seconds: 6),
+          allowWakeEdge: false,
+          allowRecover: false,
+        );
+        if (_bleManager.canObserveRx && !catalogRxAfterPrimary) {
           print(
               "BLE: [catalogo] No RX after sequence, recovering and retrying.");
           _bleManager.log("CATALOGO no-rx -> retry-reconnect");
@@ -2927,9 +3060,13 @@ class AppState extends ChangeNotifier {
 
         // Deterministic cold-start fallback (avoid 0x21 quickstart because
         // some firmware revives stale local presets after deep sleep).
-        if (_bleManager.canObserveRx &&
-            !_bleManager.hasRecentRx(const Duration(seconds: 2)) &&
-            isConnected) {
+        final catalogRxAfterRetry = await _waitForBleRx(
+          phase: "catalogo-post-retry",
+          timeout: const Duration(seconds: 8),
+          allowWakeEdge: true,
+          allowRecover: false,
+        );
+        if (_bleManager.canObserveRx && !catalogRxAfterRetry && isConnected) {
           print(
               "BLE: [catalogo] No RX after retry, forcing OFF+wake deterministic fallback.");
           _bleManager.log("CATALOGO no-rx -> hardwake");
@@ -2940,8 +3077,14 @@ class AppState extends ChangeNotifier {
         }
 
         // Safety: if the panel never acknowledges RX, do not leave it armed.
+        final catalogRxAfterHardWake = await _waitForBleRx(
+          phase: "catalogo-post-hardwake",
+          timeout: const Duration(seconds: 12),
+          allowWakeEdge: true,
+          allowRecover: true,
+        );
         if (_bleManager.canObserveRx &&
-            !_bleManager.hasRecentRx(const Duration(seconds: 2)) &&
+            !catalogRxAfterHardWake &&
             isConnected) {
           print(
               "BLE: [catalogo] No RX after hard fallback, sending OFF and aborting start.");
@@ -3235,8 +3378,13 @@ class AppState extends ChangeNotifier {
         await _ensureBleResponsive(phase: "manual-preflight");
         var started = await runManualSequence("manual");
 
-        if (_bleManager.canObserveRx &&
-            !_bleManager.hasRecentRx(const Duration(seconds: 2))) {
+        final manualRxAfterPrimary = await _waitForBleRx(
+          phase: "manual-post-primary",
+          timeout: const Duration(seconds: 6),
+          allowWakeEdge: false,
+          allowRecover: false,
+        );
+        if (_bleManager.canObserveRx && !manualRxAfterPrimary) {
           print("BLE: [manual] No RX after sequence, recovering and retrying.");
           _bleManager.log("MANUAL no-rx -> retry-reconnect");
           await _recoverBleLink(phase: "manual-retry");
@@ -3245,9 +3393,13 @@ class AppState extends ChangeNotifier {
           }
         }
 
-        if (_bleManager.canObserveRx &&
-            !_bleManager.hasRecentRx(const Duration(seconds: 2)) &&
-            isConnected) {
+        final manualRxAfterRetry = await _waitForBleRx(
+          phase: "manual-post-retry",
+          timeout: const Duration(seconds: 8),
+          allowWakeEdge: true,
+          allowRecover: false,
+        );
+        if (_bleManager.canObserveRx && !manualRxAfterRetry && isConnected) {
           print(
               "BLE: [manual] No RX after retry, forcing OFF+wake deterministic fallback.");
           _bleManager.log("MANUAL no-rx -> hardwake");
@@ -3257,9 +3409,13 @@ class AppState extends ChangeNotifier {
           started = (await runManualSequence("manual-hardwake")) || started;
         }
 
-        if (_bleManager.canObserveRx &&
-            !_bleManager.hasRecentRx(const Duration(seconds: 2)) &&
-            isConnected) {
+        final manualRxAfterHardWake = await _waitForBleRx(
+          phase: "manual-post-hardwake",
+          timeout: const Duration(seconds: 12),
+          allowWakeEdge: true,
+          allowRecover: true,
+        );
+        if (_bleManager.canObserveRx && !manualRxAfterHardWake && isConnected) {
           print(
               "BLE: [manual] No RX after hard fallback, sending OFF and aborting start.");
           _bleManager.log("MANUAL no-rx -> abort-off");
