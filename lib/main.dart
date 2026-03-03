@@ -2827,6 +2827,26 @@ class AppState extends ChangeNotifier {
     return true;
   }
 
+  void _runConnectWarmupNonBlocking() {
+    unawaited(() async {
+      try {
+        final ok = await _waitForBleRx(
+          phase: "connect-passive",
+          timeout: const Duration(seconds: 3),
+          allowWakeEdge: false,
+          allowRecover: false,
+        );
+        if (ok) {
+          _bleManager.log("CONNECT warmup -> ok");
+        } else {
+          _bleManager.log("CONNECT warmup -> no-rx (non-blocking)");
+        }
+      } catch (e) {
+        _bleManager.log("CONNECT warmup -> skipped:$e");
+      }
+    }());
+  }
+
   Future<bool> connectToDevice(BluetoothDevice device) async {
     _bleManager.setPreferWriteWithoutResponse(false, reason: "new-connection");
     final connected = await _bleManager.connect(device);
@@ -2837,19 +2857,8 @@ class AppState extends ChangeNotifier {
 
     final ready = connected && nextIsConnected;
     if (!ready) return false;
-
-    final warmed = await _ensureBleResponsive(phase: "connect");
-    if (!warmed) {
-      print("BLE: [connect] Connected but RX is still stale after warmup.");
-      _bleManager.log("CONNECT warmup -> no-rx");
-      await _bleManager.disconnect();
-    }
-
-    nextIsConnected = _bleManager.isConnected;
-    changed = isConnected != nextIsConnected;
-    isConnected = nextIsConnected;
-    if (changed) notifyListeners();
-    return connected && nextIsConnected;
+    _runConnectWarmupNonBlocking();
+    return true;
   }
 
   Future<void> disconnectDevice() async {
