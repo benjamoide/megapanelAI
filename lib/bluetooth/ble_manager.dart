@@ -257,45 +257,112 @@ class BleManager {
         message.contains("connection is already");
   }
 
+  bool _looksLikeVendorBleUuid(String uuid) {
+    final normalized = uuid.toLowerCase();
+    return normalized.contains("fff") ||
+        normalized.contains("ffe") ||
+        normalized.contains("ff0");
+  }
+
+  int _scoreCharacteristicPair({
+    required String serviceUuid,
+    required String writeUuid,
+    required String notifyUuid,
+  }) {
+    var score = 0;
+    if (_looksLikeVendorBleUuid(serviceUuid)) score += 120;
+    if (_looksLikeVendorBleUuid(writeUuid)) score += 70;
+    if (_looksLikeVendorBleUuid(notifyUuid)) score += 70;
+    if (writeUuid == notifyUuid) score += 20;
+    return score;
+  }
+
+  int _scoreSingleCharacteristic({
+    required String serviceUuid,
+    required String characteristicUuid,
+  }) {
+    var score = 0;
+    if (_looksLikeVendorBleUuid(serviceUuid)) score += 100;
+    if (_looksLikeVendorBleUuid(characteristicUuid)) score += 60;
+    return score;
+  }
+
   void _selectCharacteristics(List<BluetoothService> services) {
     BluetoothCharacteristic? pairedWrite;
     BluetoothCharacteristic? pairedNotify;
+    int pairedScore = -1;
     BluetoothCharacteristic? fallbackWrite;
     BluetoothCharacteristic? fallbackNotify;
+    int fallbackWriteScore = -1;
+    int fallbackNotifyScore = -1;
 
     _writeCharacteristic = null;
     _notifyCharacteristic = null;
 
     for (final service in services) {
-      log("BleManager: Service ${service.uuid.str}");
+      final serviceUuid = service.uuid.str;
+      final serviceUuidNorm = serviceUuid.toLowerCase();
+      log("BleManager: Service $serviceUuid");
       BluetoothCharacteristic? serviceWrite;
       BluetoothCharacteristic? serviceNotify;
+      int serviceWriteScore = -1;
+      int serviceNotifyScore = -1;
       for (final characteristic in service.characteristics) {
+        final charUuid = characteristic.uuid.str;
+        final charUuidNorm = charUuid.toLowerCase();
         final canWrite = characteristic.properties.write ||
             characteristic.properties.writeWithoutResponse;
         final canNotify = characteristic.properties.notify ||
             characteristic.properties.indicate;
         final props = characteristic.properties;
         log(
-          "  Char ${characteristic.uuid.str} "
+          "  Char $charUuid "
           "[write=${props.write}, wnr=${props.writeWithoutResponse}, "
           "notify=${props.notify}, indicate=${props.indicate}]",
         );
 
         if (canWrite) {
-          serviceWrite = characteristic;
-          fallbackWrite = characteristic;
+          final score = _scoreSingleCharacteristic(
+            serviceUuid: serviceUuidNorm,
+            characteristicUuid: charUuidNorm,
+          );
+          if (serviceWrite == null || score >= serviceWriteScore) {
+            serviceWrite = characteristic;
+            serviceWriteScore = score;
+          }
+          if (fallbackWrite == null || score >= fallbackWriteScore) {
+            fallbackWrite = characteristic;
+            fallbackWriteScore = score;
+          }
         }
         if (canNotify) {
-          serviceNotify = characteristic;
-          fallbackNotify = characteristic;
+          final score = _scoreSingleCharacteristic(
+            serviceUuid: serviceUuidNorm,
+            characteristicUuid: charUuidNorm,
+          );
+          if (serviceNotify == null || score >= serviceNotifyScore) {
+            serviceNotify = characteristic;
+            serviceNotifyScore = score;
+          }
+          if (fallbackNotify == null || score >= fallbackNotifyScore) {
+            fallbackNotify = characteristic;
+            fallbackNotifyScore = score;
+          }
         }
       }
 
-      // Mirrors the APK behavior: keep the latest service that has both.
+      // Prefer the strongest vendor-looking write+notify pair.
       if (serviceWrite != null && serviceNotify != null) {
-        pairedWrite = serviceWrite;
-        pairedNotify = serviceNotify;
+        final candidateScore = _scoreCharacteristicPair(
+          serviceUuid: serviceUuidNorm,
+          writeUuid: serviceWrite.uuid.str.toLowerCase(),
+          notifyUuid: serviceNotify.uuid.str.toLowerCase(),
+        );
+        if (pairedWrite == null || candidateScore >= pairedScore) {
+          pairedWrite = serviceWrite;
+          pairedNotify = serviceNotify;
+          pairedScore = candidateScore;
+        }
       }
     }
 
@@ -304,7 +371,9 @@ class BleManager {
     log(
       "BleManager: Characteristic selection "
       "write=${_writeCharacteristic?.uuid.str ?? 'none'} "
-      "notify=${_notifyCharacteristic?.uuid.str ?? 'none'}",
+      "notify=${_notifyCharacteristic?.uuid.str ?? 'none'} "
+      "(pairScore=$pairedScore, fallbackWriteScore=$fallbackWriteScore, "
+      "fallbackNotifyScore=$fallbackNotifyScore)",
     );
   }
 

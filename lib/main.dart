@@ -2099,6 +2099,14 @@ Tratamiento _aplicarActualizacionCientifica(Tratamiento t) {
 // 4. GESTOR DE ESTADO
 // ==============================================================================
 
+class _BleOperationAborted implements Exception {
+  const _BleOperationAborted(this.phase);
+  final String phase;
+
+  @override
+  String toString() => "BLE operation aborted [$phase]";
+}
+
 class AppState extends ChangeNotifier {
   String currentUser = "";
   bool isGuest = false;
@@ -2120,6 +2128,8 @@ class AppState extends ChangeNotifier {
   final BleManager _bleManager = BleManager();
   bool isConnected = false;
   bool _bleStartBusy = false;
+  bool _bleAbortRequested = false;
+  bool _bleAbortAckLogged = false;
 
   bool get hasApiKey => _apiKey.isNotEmpty;
   Tratamiento? get tratamientoActivoActual => _tratamientoActivoActual;
@@ -2291,6 +2301,29 @@ class AppState extends ChangeNotifier {
     _bleStartBusy = false;
   }
 
+  void _requestBleAbort({String reason = ""}) {
+    if (_bleAbortRequested) return;
+    _bleAbortRequested = true;
+    _bleAbortAckLogged = false;
+    final phaseLabel = reason.isEmpty ? "" : " [$reason]";
+    _bleManager.log("BLE ABORT requested$phaseLabel");
+  }
+
+  void _clearBleAbort() {
+    _bleAbortRequested = false;
+    _bleAbortAckLogged = false;
+  }
+
+  void _throwIfBleAbortRequested({String phase = ""}) {
+    if (!_bleAbortRequested) return;
+    final label = phase.isEmpty ? "generic" : phase;
+    if (!_bleAbortAckLogged) {
+      _bleManager.log("BLE ABORT acknowledged [$label]");
+      _bleAbortAckLogged = true;
+    }
+    throw _BleOperationAborted(label);
+  }
+
   Future<void> _sendPowerOffAndSettle({String phase = ""}) async {
     final phaseLabel = phase.isEmpty ? "" : "[$phase] ";
     print("BLE: ${phaseLabel}Sending Power OFF");
@@ -2301,6 +2334,9 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> _recoverBleLink({String phase = ""}) async {
+    _throwIfBleAbortRequested(
+      phase: phase.isEmpty ? "recover-link" : "$phase-recover-link",
+    );
     final phaseLabel = phase.isEmpty ? "" : "[$phase] ";
     final device = _bleManager.connectedDevice;
     if (device == null) {
@@ -2317,6 +2353,9 @@ class AppState extends ChangeNotifier {
       print("BLE: ${phaseLabel}Disconnect during recover failed: $e");
     }
     await Future.delayed(const Duration(milliseconds: 480));
+    _throwIfBleAbortRequested(
+      phase: phase.isEmpty ? "recover-link" : "$phase-recover-link",
+    );
 
     try {
       final ok = await _bleManager.connect(device);
@@ -2342,15 +2381,27 @@ class AppState extends ChangeNotifier {
     String phase = "",
     bool includeBrightness = false,
   }) async {
+    _throwIfBleAbortRequested(
+      phase: phase.isEmpty ? "rx-probe" : "$phase-rx-probe",
+    );
     final phaseLabel = phase.isEmpty ? "" : "[$phase] ";
     print("BLE: ${phaseLabel}RX probe");
     await _bleManager.write(BleProtocol.getStatus());
     await Future.delayed(const Duration(milliseconds: 180));
+    _throwIfBleAbortRequested(
+      phase: phase.isEmpty ? "rx-probe" : "$phase-rx-probe",
+    );
     await _bleManager.write(BleProtocol.getWorkMode());
     await Future.delayed(const Duration(milliseconds: 180));
+    _throwIfBleAbortRequested(
+      phase: phase.isEmpty ? "rx-probe" : "$phase-rx-probe",
+    );
     await _bleManager.write(BleProtocol.getCountdown());
     await Future.delayed(const Duration(milliseconds: 180));
     if (includeBrightness) {
+      _throwIfBleAbortRequested(
+        phase: phase.isEmpty ? "rx-probe" : "$phase-rx-probe",
+      );
       await _bleManager.write(BleProtocol.getBrightness());
       await Future.delayed(const Duration(milliseconds: 180));
     }
@@ -2362,6 +2413,8 @@ class AppState extends ChangeNotifier {
     bool allowWakeEdge = false,
     bool allowRecover = false,
   }) async {
+    _throwIfBleAbortRequested(phase: phase.isEmpty ? "rx-wait" : phase);
+    if (!_bleManager.isConnected) return false;
     if (!_bleManager.canObserveRx) return true;
     if (_hasFreshBleRx()) return true;
 
@@ -2370,33 +2423,39 @@ class AppState extends ChangeNotifier {
     var attempt = 0;
 
     while (DateTime.now().isBefore(deadline)) {
+      _throwIfBleAbortRequested(phase: phase.isEmpty ? "rx-wait" : phase);
+      if (!_bleManager.isConnected) return false;
       attempt++;
       _bleManager.log("RX WAIT ${phaseLabel}probe#$attempt");
       await _probeBleRx(
         phase: phase.isEmpty ? "rx-wait-$attempt" : "$phase-rx-$attempt",
         includeBrightness: attempt % 2 == 0,
       );
+      if (!_bleManager.isConnected) return false;
       if (_hasFreshBleRx()) {
         _bleManager.log("RX WAIT ${phaseLabel}ok#$attempt");
         return true;
       }
 
-      if (allowWakeEdge && isConnected && attempt % 2 == 0) {
+      if (allowWakeEdge && _bleManager.isConnected && attempt % 2 == 0) {
+        _throwIfBleAbortRequested(phase: phase.isEmpty ? "rx-wait" : phase);
         await _sendOfficialControlWakeEdge(
           phase: phase.isEmpty ? "rx-wake-$attempt" : "$phase-wake-$attempt",
         );
+        if (!_bleManager.isConnected) return false;
         if (_hasFreshBleRx()) {
           _bleManager.log("RX WAIT ${phaseLabel}ok-after-wake#$attempt");
           return true;
         }
       }
 
-      if (allowRecover && isConnected && attempt % 3 == 0) {
+      if (allowRecover && _bleManager.isConnected && attempt % 3 == 0) {
+        _throwIfBleAbortRequested(phase: phase.isEmpty ? "rx-wait" : phase);
         await _recoverBleLink(
           phase:
               phase.isEmpty ? "rx-recover-$attempt" : "$phase-recover-$attempt",
         );
-        if (!isConnected) break;
+        if (!isConnected || !_bleManager.isConnected) break;
         if (_hasFreshBleRx()) {
           _bleManager.log("RX WAIT ${phaseLabel}ok-after-recover#$attempt");
           return true;
@@ -2414,7 +2473,11 @@ class AppState extends ChangeNotifier {
   }
 
   Future<bool> _ensureBleResponsive({String phase = ""}) async {
+    _throwIfBleAbortRequested(
+      phase: phase.isEmpty ? "responsive-check" : "$phase-responsive-check",
+    );
     final phaseLabel = phase.isEmpty ? "" : "[$phase] ";
+    if (!_bleManager.isConnected) return false;
     if (!_bleManager.canObserveRx) {
       print("BLE: ${phaseLabel}RX preflight skipped (notify unavailable).");
       return true;
@@ -2452,9 +2515,12 @@ class AppState extends ChangeNotifier {
       }
     }
 
+    _throwIfBleAbortRequested(
+      phase: phase.isEmpty ? "responsive-check" : "$phase-responsive-check",
+    );
     print("BLE: ${phaseLabel}Attempting link recover.");
     await _recoverBleLink(phase: "${phase}recover");
-    if (!isConnected) return false;
+    if (!isConnected || !_bleManager.isConnected) return false;
 
     final recoverOk = await _waitForBleRx(
       phase: phase.isEmpty ? "post-recover" : "$phase-post-recover",
@@ -2469,6 +2535,9 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> _sendOfficialControlWakeEdge({String phase = ""}) async {
+    _throwIfBleAbortRequested(
+      phase: phase.isEmpty ? "wake-edge" : "$phase-wake-edge",
+    );
     final phaseLabel = phase.isEmpty ? "" : "[$phase] ";
     print("BLE: ${phaseLabel}Official wake edge (0x20:2->1)");
     await _bleManager.write(BleProtocol.setControlMode(0x02));
@@ -2480,10 +2549,12 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> _wakePanelFromSleep({required int workMode}) async {
+    _throwIfBleAbortRequested(phase: "wake-panel");
     final canCheckRx = _bleManager.canObserveRx;
     print("BLE: Wake preflight (mode=$workMode, rxCheck=$canCheckRx)");
 
     for (var attempt = 1; attempt <= 2; attempt++) {
+      _throwIfBleAbortRequested(phase: "wake-panel");
       await _bleManager.write(BleProtocol.getStatus());
       await Future.delayed(const Duration(milliseconds: 160));
       await _bleManager.write(BleProtocol.getCountdown());
@@ -2517,6 +2588,9 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> _sendRunCommit({String phase = ""}) async {
+    _throwIfBleAbortRequested(
+      phase: phase.isEmpty ? "run-commit" : "$phase-run-commit",
+    );
     final phaseLabel = phase.isEmpty ? "" : "[$phase] ";
     print("BLE: ${phaseLabel}Run commit (0x20:1)");
     await _bleManager.write(BleProtocol.setControlMode(0x01));
@@ -2607,6 +2681,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> detenerPanelActivo() async {
+    _requestBleAbort(reason: "stop-panel");
     await _acquireBleStartLock();
     try {
       _actualizarTratamientoActivoDesdeCiclos();
@@ -2623,6 +2698,7 @@ class AppState extends ChangeNotifier {
         }
       }
     } finally {
+      _clearBleAbort();
       _releaseBleStartLock();
     }
     _actualizarTratamientoActivoDesdeCiclos();
@@ -2737,6 +2813,7 @@ class AppState extends ChangeNotifier {
     if (!warmed) {
       print("BLE: [connect] Connected but RX is still stale after warmup.");
       _bleManager.log("CONNECT warmup -> no-rx");
+      await _bleManager.disconnect();
     }
 
     nextIsConnected = _bleManager.isConnected;
@@ -3018,12 +3095,15 @@ class AppState extends ChangeNotifier {
     if (isConnected) {
       await _acquireBleStartLock();
       try {
+        _clearBleAbort();
         print("BLE: Starting Treatment '${t.nombre}'");
         print(
             "BLE: Params -> duracion=${t.duracion} min, hz='${t.hz}', frecuencias=${t.frecuencias}");
 
         Future<void> runCatalogSequence(String phase) async {
+          _throwIfBleAbortRequested(phase: "$phase-run-seq");
           await _wakePanelFromSleep(workMode: 0);
+          _throwIfBleAbortRequested(phase: "$phase-run-seq");
           // Mirror hardware UX: start first, then adjust parameters while running.
           await _sendStartHandshake(
             workMode: 0,
@@ -3031,14 +3111,20 @@ class AppState extends ChangeNotifier {
             phase: phase,
             includeControlWakeEdge: true,
           );
+          _throwIfBleAbortRequested(phase: "$phase-run-seq");
           await _sendParameters(t, workMode: 0);
+          _throwIfBleAbortRequested(phase: "$phase-run-seq");
           await _sendRunCommit(phase: phase);
           await _readBackRunState(reason: "after iniciarCiclo ($phase)");
         }
 
         // Keep catalog start aligned with manual start path (no forced OFF pre-reset).
         // Some cold-boot units stay stuck if we send OFF before the first wake edge.
-        await _ensureBleResponsive(phase: "catalogo-preflight");
+        final preflightOk =
+            await _ensureBleResponsive(phase: "catalogo-preflight");
+        if (!preflightOk) {
+          throw Exception("Catalog preflight failed (BLE link not responsive)");
+        }
         await runCatalogSequence("catalogo");
 
         // If writes complete but we still have no RX, recover and retry once.
@@ -3048,13 +3134,15 @@ class AppState extends ChangeNotifier {
           allowWakeEdge: false,
           allowRecover: false,
         );
-        if (_bleManager.canObserveRx && !catalogRxAfterPrimary) {
+        if (!catalogRxAfterPrimary) {
           print(
               "BLE: [catalogo] No RX after sequence, recovering and retrying.");
           _bleManager.log("CATALOGO no-rx -> retry-reconnect");
           await _recoverBleLink(phase: "catalogo-retry");
-          if (isConnected) {
+          if (isConnected && _bleManager.isConnected) {
             await runCatalogSequence("catalogo-retry");
+          } else {
+            throw Exception("Catalog start failed (BLE link lost after retry)");
           }
         }
 
@@ -3066,7 +3154,7 @@ class AppState extends ChangeNotifier {
           allowWakeEdge: true,
           allowRecover: false,
         );
-        if (_bleManager.canObserveRx && !catalogRxAfterRetry && isConnected) {
+        if (!catalogRxAfterRetry && isConnected && _bleManager.isConnected) {
           print(
               "BLE: [catalogo] No RX after retry, forcing OFF+wake deterministic fallback.");
           _bleManager.log("CATALOGO no-rx -> hardwake");
@@ -3083,18 +3171,23 @@ class AppState extends ChangeNotifier {
           allowWakeEdge: true,
           allowRecover: true,
         );
-        if (_bleManager.canObserveRx &&
-            !catalogRxAfterHardWake &&
-            isConnected) {
+        if (!catalogRxAfterHardWake) {
           print(
               "BLE: [catalogo] No RX after hard fallback, sending OFF and aborting start.");
           _bleManager.log("CATALOGO no-rx -> abort-off");
-          await _sendPowerOffAndSettle(phase: "catalogo-abort-no-rx");
+          if (_bleManager.isConnected) {
+            await _sendPowerOffAndSettle(phase: "catalogo-abort-no-rx");
+          }
           throw Exception("Catalog start aborted (no BLE RX after retries)");
         }
 
         _marcarInicioRealCiclo(id);
         print("BLE: Configuration sent.");
+      } on _BleOperationAborted catch (e) {
+        print("BLE: Catalog start aborted by user action: $e");
+        _bleManager.log("CATALOGO abort-request -> cleanup");
+        ciclosActivos.remove(id);
+        _actualizarTratamientoActivoDesdeCiclos();
       } catch (e) {
         print("BLE Error: $e");
         ciclosActivos.remove(id);
@@ -3152,6 +3245,9 @@ class AppState extends ChangeNotifier {
     String phase = "",
     int? countdownSeconds,
   }) async {
+    _throwIfBleAbortRequested(
+      phase: phase.isEmpty ? "time-pulse" : "$phase-time-pulse",
+    );
     const commandDelay = Duration(milliseconds: 220);
     final totalSeconds =
         countdownSeconds ?? (_durationMinutesFromTratamiento(t) * 60);
@@ -3168,11 +3264,17 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> _sendBrightness(Tratamiento t, {String phase = ""}) async {
+    _throwIfBleAbortRequested(
+      phase: phase.isEmpty ? "brightness" : "$phase-brightness",
+    );
     const dimmingDelay = Duration(milliseconds: 120);
     final brightness = _brightnessByChannel(t);
     final phaseLabel = phase.isEmpty ? "" : "[$phase] ";
 
     for (final channel in [0, 1, 2, 3, 4]) {
+      _throwIfBleAbortRequested(
+        phase: phase.isEmpty ? "brightness" : "$phase-brightness",
+      );
       final value = brightness[channel] ?? 0;
       print("BLE: ${phaseLabel}Dimming Ch$channel -> $value%");
       await _bleManager.write(BleProtocol.setBrightnessChannel(channel, value));
@@ -3181,6 +3283,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> _readBackRunState({String reason = ""}) async {
+    _throwIfBleAbortRequested(phase: reason.isEmpty ? "readback" : reason);
     const readDelay = Duration(milliseconds: 180);
     final suffix = reason.isEmpty ? "" : " ($reason)";
     print("BLE: Reading state$suffix...");
@@ -3196,6 +3299,7 @@ class AppState extends ChangeNotifier {
     int workMode = 0,
     int? countdownSeconds,
   }) async {
+    _throwIfBleAbortRequested(phase: "send-parameters");
     const modeDelay = Duration(milliseconds: 200);
 
     print("BLE: Sending Work Mode: $workMode");
@@ -3232,6 +3336,9 @@ class AppState extends ChangeNotifier {
     String phase = "",
     bool includeControlWakeEdge = false,
   }) async {
+    _throwIfBleAbortRequested(
+      phase: phase.isEmpty ? "start-handshake" : "$phase-start-handshake",
+    );
     final phaseLabel = phase.isEmpty ? "" : "[$phase] ";
     // QuickStart (0x21) is intentionally disabled here because many firmware
     // builds jump to the default preset (35s) immediately after receiving it.
@@ -3266,6 +3373,7 @@ class AppState extends ChangeNotifier {
     required int workMode,
     bool useQuickStart = false,
   }) async {
+    _throwIfBleAbortRequested(phase: "resume-handshake");
     // Keep resume on power-only to avoid fallback to the 35s preset.
     const strategy = "power-only";
     print("BLE: [resume] Start handshake ($strategy)");
@@ -3309,18 +3417,22 @@ class AppState extends ChangeNotifier {
     if (isConnected) {
       await _acquireBleStartLock();
       try {
+        _clearBleAbort();
         print(
             "BLE: Starting Manual Treatment (Seq: $sequenceMode, Cmd: $startCommand, Mode: $workMode)");
         Future<bool> runManualSequence(String phase) async {
+          _throwIfBleAbortRequested(phase: "$phase-run-seq");
           bool started = false;
 
           Future<void> stop() async {
+            _throwIfBleAbortRequested(phase: "$phase-run-seq");
             print("BLE: [$phase] Sending Power OFF (Reset)");
             await _bleManager.write(BleProtocol.setPower(false));
             await Future.delayed(const Duration(milliseconds: 500));
           }
 
           Future<void> start() async {
+            _throwIfBleAbortRequested(phase: "$phase-run-seq");
             if (startCommand == 0x21) {
               print(
                   "BLE: [$phase] Quick Start (0x21) requested, using power-only for stability.");
@@ -3346,6 +3458,7 @@ class AppState extends ChangeNotifier {
           }
 
           Future<void> sendParams() async {
+            _throwIfBleAbortRequested(phase: "$phase-run-seq");
             await _sendParameters(t, workMode: workMode);
           }
 
@@ -3367,6 +3480,7 @@ class AppState extends ChangeNotifier {
           }
 
           if (started) {
+            _throwIfBleAbortRequested(phase: "$phase-run-seq");
             await _sendRunCommit(phase: phase);
             await _readBackRunState(
                 reason: "after iniciarCicloManual ($phase)");
@@ -3375,7 +3489,11 @@ class AppState extends ChangeNotifier {
           return started;
         }
 
-        await _ensureBleResponsive(phase: "manual-preflight");
+        final preflightOk =
+            await _ensureBleResponsive(phase: "manual-preflight");
+        if (!preflightOk) {
+          throw Exception("Manual preflight failed (BLE link not responsive)");
+        }
         var started = await runManualSequence("manual");
 
         final manualRxAfterPrimary = await _waitForBleRx(
@@ -3384,12 +3502,14 @@ class AppState extends ChangeNotifier {
           allowWakeEdge: false,
           allowRecover: false,
         );
-        if (_bleManager.canObserveRx && !manualRxAfterPrimary) {
+        if (!manualRxAfterPrimary) {
           print("BLE: [manual] No RX after sequence, recovering and retrying.");
           _bleManager.log("MANUAL no-rx -> retry-reconnect");
           await _recoverBleLink(phase: "manual-retry");
-          if (isConnected) {
+          if (isConnected && _bleManager.isConnected) {
             started = (await runManualSequence("manual-retry")) || started;
+          } else {
+            throw Exception("Manual start failed (BLE link lost after retry)");
           }
         }
 
@@ -3399,7 +3519,7 @@ class AppState extends ChangeNotifier {
           allowWakeEdge: true,
           allowRecover: false,
         );
-        if (_bleManager.canObserveRx && !manualRxAfterRetry && isConnected) {
+        if (!manualRxAfterRetry && isConnected && _bleManager.isConnected) {
           print(
               "BLE: [manual] No RX after retry, forcing OFF+wake deterministic fallback.");
           _bleManager.log("MANUAL no-rx -> hardwake");
@@ -3415,17 +3535,24 @@ class AppState extends ChangeNotifier {
           allowWakeEdge: true,
           allowRecover: true,
         );
-        if (_bleManager.canObserveRx && !manualRxAfterHardWake && isConnected) {
+        if (!manualRxAfterHardWake) {
           print(
               "BLE: [manual] No RX after hard fallback, sending OFF and aborting start.");
           _bleManager.log("MANUAL no-rx -> abort-off");
-          await _sendPowerOffAndSettle(phase: "manual-abort-no-rx");
+          if (_bleManager.isConnected) {
+            await _sendPowerOffAndSettle(phase: "manual-abort-no-rx");
+          }
           throw Exception("Manual start aborted (no BLE RX after retries)");
         }
 
         if (!started) {
           print("BLE: [manual] Sequence completed without start command.");
         }
+      } on _BleOperationAborted catch (e) {
+        print("BLE: Manual start aborted by user action: $e");
+        _bleManager.log("MANUAL abort-request -> cleanup");
+        ciclosActivos.remove(tempId);
+        _actualizarTratamientoActivoDesdeCiclos();
       } catch (e) {
         print("BLE Manual Error: $e");
         ciclosActivos.remove(tempId);
@@ -3439,10 +3566,12 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> detenerCiclo(String id) async {
+    _requestBleAbort(reason: "stop-cycle:$id");
     await _acquireBleStartLock();
     try {
       await _detenerCicloInterno(id);
     } finally {
+      _clearBleAbort();
       _releaseBleStartLock();
     }
     _actualizarTratamientoActivoDesdeCiclos();
