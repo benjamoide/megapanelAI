@@ -22,6 +22,7 @@ class BleManager {
   bool _isReady = false;
   DateTime? _lastRxAt;
   bool _hadProtocolRxSinceConnect = false;
+  bool _preferWriteWithoutResponse = false;
 
   static const int _maxChunkSize = 20;
   static const int _maxWriteAttempts = 3;
@@ -52,8 +53,18 @@ class BleManager {
       _writeCharacteristic != null;
   bool get canObserveRx => _notifyCharacteristic != null;
   bool get hasSeenProtocolRx => _hadProtocolRxSinceConnect;
+  bool get prefersWriteWithoutResponse => _preferWriteWithoutResponse;
 
   BluetoothDevice? get connectedDevice => _connectedDevice;
+
+  void setPreferWriteWithoutResponse(bool enabled, {String reason = ""}) {
+    if (_preferWriteWithoutResponse == enabled) return;
+    _preferWriteWithoutResponse = enabled;
+    final reasonSuffix = reason.isEmpty ? "" : " ($reason)";
+    log(
+      "BLE WRITE MODE -> ${enabled ? 'withoutResponse' : 'withResponse'}$reasonSuffix",
+    );
+  }
 
   bool hasRecentRx(Duration window) {
     final rx = _lastRxAt;
@@ -394,6 +405,7 @@ class BleManager {
     _pendingWrite = Future.value();
     _writeSession++;
     _isReady = false;
+    _preferWriteWithoutResponse = false;
     _connectionStateController.add(BluetoothConnectionState.disconnected);
   }
 
@@ -449,9 +461,12 @@ class BleManager {
       }
 
       try {
-        log("BLE WRITE [$index/$total] try $attempt: ${_hex(chunk)}");
-        await characteristic.write(chunk,
-            withoutResponse: _shouldUseWithoutResponse(characteristic));
+        final withoutResponse = _shouldUseWithoutResponse(characteristic);
+        log(
+          "BLE WRITE [$index/$total] try $attempt "
+          "(wnr=${withoutResponse ? '1' : '0'}): ${_hex(chunk)}",
+        );
+        await characteristic.write(chunk, withoutResponse: withoutResponse);
         return;
       } catch (e) {
         if (attempt >= _maxWriteAttempts) {
@@ -464,7 +479,11 @@ class BleManager {
   }
 
   bool _shouldUseWithoutResponse(BluetoothCharacteristic characteristic) {
-    // Prefer write-with-response when available, matching APK behavior.
+    if (characteristic.properties.writeWithoutResponse &&
+        (!characteristic.properties.write || _preferWriteWithoutResponse)) {
+      return true;
+    }
+    // Default path: write with response when available.
     if (characteristic.properties.write) return false;
     return characteristic.properties.writeWithoutResponse;
   }
