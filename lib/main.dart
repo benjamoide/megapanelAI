@@ -2939,6 +2939,14 @@ class AppState extends ChangeNotifier {
       label: "get-mode-channels",
       timeout: const Duration(seconds: 2),
     );
+    if (_bleManager.canObserveRx &&
+        modeFrame == null &&
+        !_bleManager.hasSeenProtocolRx) {
+      _bleManager.log(
+        "BLE INIT ${phaseLabel}fail-fast:no-ack-on-first-step",
+      );
+      return false;
+    }
     final channelCount = _channelCountFromModeFrame(modeFrame);
 
     for (var i = 0; i < _defaultPresetInitNames.length; i++) {
@@ -3015,21 +3023,6 @@ class AppState extends ChangeNotifier {
     return _bleInitDoneForLink;
   }
 
-  void _runBleInitNonBlocking() {
-    unawaited(() async {
-      try {
-        final ok = await _ensureBleInitialized(phase: "connect");
-        if (ok) {
-          _bleManager.log("CONNECT init -> ok");
-        } else {
-          _bleManager.log("CONNECT init -> incomplete (non-blocking)");
-        }
-      } catch (e) {
-        _bleManager.log("CONNECT init -> failed:$e");
-      }
-    }());
-  }
-
   Future<bool> connectToDevice(BluetoothDevice device) async {
     _bleManager.setPreferWriteWithoutResponse(false, reason: "new-connection");
     _bleInitDoneForLink = false;
@@ -3042,7 +3035,6 @@ class AppState extends ChangeNotifier {
 
     final ready = connected && nextIsConnected;
     if (!ready) return false;
-    _runBleInitNonBlocking();
     _runConnectWarmupNonBlocking();
     return true;
   }
@@ -3307,7 +3299,7 @@ class AppState extends ChangeNotifier {
     _limpiarCiclosPausados();
     var started = false;
     ciclosActivos[id] = {
-      'activo': true,
+      'activo': false,
       'pausado': false,
       'inicio': DateFormat('HH:mm:ss').format(DateTime.now()),
       'inicioEpochMs': DateTime.now().millisecondsSinceEpoch,
@@ -3317,14 +3309,17 @@ class AppState extends ChangeNotifier {
       'origen': 'catalogo',
       'tratamiento': t.toJson(),
     };
-    _idCicloActivoActual = id;
-    _tratamientoActivoActual = t;
 
     if (isConnected) {
       await _acquireBleStartLock();
       try {
         _clearBleAbort();
-        await _ensureBleInitialized(phase: "catalogo");
+        final initOk = await _ensureBleInitialized(phase: "catalogo");
+        if (!initOk) {
+          _bleManager.log(
+            "CATALOGO init-incomplete -> continue-start-with-rx-guard",
+          );
+        }
         print("BLE: Starting Treatment '${t.nombre}'");
         print(
             "BLE: Params -> duracion=${t.duracion} min, hz='${t.hz}', frecuencias=${t.frecuencias}");
@@ -3353,14 +3348,14 @@ class AppState extends ChangeNotifier {
           phase: "catalogo-preflight",
           allowRecover: false,
         );
-        final strictRxValidation = preflightOk;
         if (!preflightOk) {
           _bleManager.log("CATALOGO preflight-no-rx -> forced-start");
         }
         await runCatalogSequence(
-            strictRxValidation ? "catalogo" : "catalogo-forced");
+          preflightOk ? "catalogo" : "catalogo-forced",
+        );
 
-        if (strictRxValidation) {
+        if (_bleManager.canObserveRx) {
           // If writes complete but we still have no RX, recover and retry once.
           final catalogRxAfterPrimary = await _waitForBleRx(
             phase: "catalogo-post-primary",
@@ -3409,10 +3404,12 @@ class AppState extends ChangeNotifier {
             throw Exception("Catalog start aborted (no BLE RX after retries)");
           }
         } else {
-          _bleManager.log("CATALOGO forced-start -> unverified-no-rx");
+          _bleManager.log("CATALOGO no-notify -> skip-rx-validation");
         }
 
         _marcarInicioRealCiclo(id);
+        _idCicloActivoActual = id;
+        _tratamientoActivoActual = t;
         started = true;
         print("BLE: Configuration sent.");
       } on _BleOperationAborted catch (e) {
@@ -3555,6 +3552,7 @@ class AppState extends ChangeNotifier {
   void _marcarInicioRealCiclo(String id) {
     final cycle = ciclosActivos[id];
     if (cycle is! Map) return;
+    cycle['activo'] = true;
     cycle['pausado'] = false;
     final existingStart = (cycle['inicioEpochMs'] as num?)?.toInt() ?? 0;
     if (existingStart <= 0) {
@@ -3640,7 +3638,7 @@ class AppState extends ChangeNotifier {
     var startedOk = false;
 
     ciclosActivos[tempId] = {
-      'activo': true,
+      'activo': false,
       'pausado': false,
       'inicio': DateFormat('HH:mm:ss').format(DateTime.now()),
       'inicioEpochMs': DateTime.now().millisecondsSinceEpoch,
@@ -3650,14 +3648,17 @@ class AppState extends ChangeNotifier {
       'origen': 'manual',
       'tratamiento': t.toJson(),
     };
-    _idCicloActivoActual = tempId;
-    _tratamientoActivoActual = t;
 
     if (isConnected) {
       await _acquireBleStartLock();
       try {
         _clearBleAbort();
-        await _ensureBleInitialized(phase: "manual");
+        final initOk = await _ensureBleInitialized(phase: "manual");
+        if (!initOk) {
+          _bleManager.log(
+            "MANUAL init-incomplete -> continue-start-with-rx-guard",
+          );
+        }
         print(
             "BLE: Starting Manual Treatment (Seq: $sequenceMode, Cmd: $startCommand, Mode: $workMode)");
         Future<bool> runManualSequence(String phase) async {
@@ -3733,14 +3734,14 @@ class AppState extends ChangeNotifier {
           phase: "manual-preflight",
           allowRecover: false,
         );
-        final strictRxValidation = preflightOk;
         if (!preflightOk) {
           _bleManager.log("MANUAL preflight-no-rx -> forced-start");
         }
         var started = await runManualSequence(
-            strictRxValidation ? "manual" : "manual-forced");
+          preflightOk ? "manual" : "manual-forced",
+        );
 
-        if (strictRxValidation) {
+        if (_bleManager.canObserveRx) {
           final manualRxAfterPrimary = await _waitForBleRx(
             phase: "manual-post-primary",
             timeout: const Duration(seconds: 6),
@@ -3785,11 +3786,15 @@ class AppState extends ChangeNotifier {
             throw Exception("Manual start aborted (no BLE RX after retries)");
           }
         } else {
-          _bleManager.log("MANUAL forced-start -> unverified-no-rx");
+          _bleManager.log("MANUAL no-notify -> skip-rx-validation");
         }
 
         if (!started) {
           print("BLE: [manual] Sequence completed without start command.");
+        }
+        if (started) {
+          _idCicloActivoActual = tempId;
+          _tratamientoActivoActual = t;
         }
         startedOk = started;
       } on _BleOperationAborted catch (e) {
