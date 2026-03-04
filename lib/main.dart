@@ -2535,6 +2535,12 @@ class AppState extends ChangeNotifier {
         _bleManager.log("RX PREFLIGHT ${phaseLabel}ok-after-wnr");
         return true;
       }
+      _bleManager.setPreferWriteWithoutResponse(
+        false,
+        reason: phase.isEmpty
+            ? "preflight-wnr-failed"
+            : "$phase-preflight-wnr-failed",
+      );
     }
 
     // Cold-link bootstrap: if we never observed protocol RX after connect,
@@ -3004,6 +3010,10 @@ class AppState extends ChangeNotifier {
 
     _bleInitInProgress = true;
     final phaseLabel = phase.isEmpty ? "connect" : phase;
+    _bleManager.setPreferWriteWithoutResponse(
+      false,
+      reason: "$phaseLabel-init-default-transport",
+    );
     _bleManager.setReadCommandGate(true, reason: "$phaseLabel-init");
     var ok = false;
     try {
@@ -3314,6 +3324,10 @@ class AppState extends ChangeNotifier {
       await _acquireBleStartLock();
       try {
         _clearBleAbort();
+        _bleManager.setPreferWriteWithoutResponse(
+          false,
+          reason: "catalogo-start-default-transport",
+        );
         final initOk = await _ensureBleInitialized(phase: "catalogo");
         if (!initOk) {
           _bleManager.log(
@@ -3346,7 +3360,7 @@ class AppState extends ChangeNotifier {
         // Some cold-boot units stay stuck if we send OFF before the first wake edge.
         final preflightOk = await _ensureBleResponsive(
           phase: "catalogo-preflight",
-          allowRecover: false,
+          allowRecover: true,
         );
         if (!preflightOk) {
           _bleManager.log("CATALOGO preflight-no-rx -> forced-start");
@@ -3653,6 +3667,10 @@ class AppState extends ChangeNotifier {
       await _acquireBleStartLock();
       try {
         _clearBleAbort();
+        _bleManager.setPreferWriteWithoutResponse(
+          false,
+          reason: "manual-start-default-transport",
+        );
         final initOk = await _ensureBleInitialized(phase: "manual");
         if (!initOk) {
           _bleManager.log(
@@ -3732,7 +3750,7 @@ class AppState extends ChangeNotifier {
 
         final preflightOk = await _ensureBleResponsive(
           phase: "manual-preflight",
-          allowRecover: false,
+          allowRecover: true,
         );
         if (!preflightOk) {
           _bleManager.log("MANUAL preflight-no-rx -> forced-start");
