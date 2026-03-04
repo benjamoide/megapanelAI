@@ -23,6 +23,8 @@ class BleManager {
   DateTime? _lastRxAt;
   bool _hadProtocolRxSinceConnect = false;
   bool _preferWriteWithoutResponse = false;
+  bool _suspendReadCommands = false;
+  List<int> _rxBuffer = <int>[];
 
   static const int _maxChunkSize = 20;
   static const int _maxWriteAttempts = 3;
@@ -38,6 +40,8 @@ class BleManager {
   // Log stream
   final _logController = StreamController<String>.broadcast();
   Stream<String> get logs => _logController.stream;
+  final _protocolFrameController = StreamController<List<int>>.broadcast();
+  Stream<List<int>> get protocolFrames => _protocolFrameController.stream;
 
   void log(String msg) {
     developer.log(msg, name: 'BleManager');
@@ -54,6 +58,7 @@ class BleManager {
   bool get canObserveRx => _notifyCharacteristic != null;
   bool get hasSeenProtocolRx => _hadProtocolRxSinceConnect;
   bool get prefersWriteWithoutResponse => _preferWriteWithoutResponse;
+  bool get readCommandGateActive => _suspendReadCommands;
 
   BluetoothDevice? get connectedDevice => _connectedDevice;
 
@@ -66,17 +71,163 @@ class BleManager {
     );
   }
 
+  void setReadCommandGate(bool enabled, {String reason = ""}) {
+    if (_suspendReadCommands == enabled) return;
+    _suspendReadCommands = enabled;
+    final reasonSuffix = reason.isEmpty ? "" : " ($reason)";
+    log(
+      "BLE READ GATE -> ${enabled ? 'enabled' : 'disabled'}$reasonSuffix",
+    );
+  }
+
   bool hasRecentRx(Duration window) {
     final rx = _lastRxAt;
     if (rx == null) return false;
     return DateTime.now().difference(rx) <= window;
   }
 
-  bool _isValidProtocolRx(List<int> value) {
-    if (value.length < 7) return false;
-    final head = value.first & 0xFF;
-    final tail = value.last & 0xFF;
-    return head == 0x2A && tail == 0x0A;
+  Future<List<int>?> waitForFrame(
+    bool Function(List<int> frame) predicate, {
+    Duration timeout = const Duration(seconds: 2),
+  }) async {
+    if (!canObserveRx) return null;
+    final completer = Completer<List<int>?>();
+    late final StreamSubscription<List<int>> subscription;
+    subscription = protocolFrames.listen((frame) {
+      if (completer.isCompleted) return;
+      bool matched = false;
+      try {
+        matched = predicate(frame);
+      } catch (_) {
+        matched = false;
+      }
+      if (matched) {
+        completer.complete(frame);
+      }
+    });
+
+    try {
+      return await completer.future.timeout(timeout);
+    } on TimeoutException {
+      return null;
+    } finally {
+      await subscription.cancel();
+    }
+  }
+
+  Future<List<int>?> writeAndWaitForAck(
+    List<int> data, {
+    required int ackCommand,
+    Duration timeout = const Duration(seconds: 2),
+  }) async {
+    if (!canObserveRx) {
+      await write(data);
+      return null;
+    }
+    final waitFuture = waitForFrame(
+      (frame) => frame.length > 2 && (frame[2] & 0xFF) == (ackCommand & 0xFF),
+      timeout: timeout,
+    );
+    await write(data);
+    return waitFuture;
+  }
+
+  int? _extractProtocolCommand(List<int> data) {
+    if (data.length < 3) return null;
+    if ((data[0] & 0xFF) != 0x3A) return null;
+    return data[2] & 0xFF;
+  }
+
+  bool _isReadCommand(int command) {
+    return command == 0x10 || // getStatus
+        command == 0x30 || // getCountdown
+        command == 0x40 || // getBrightness
+        command == 0x51; // getWorkMode
+  }
+
+  void _ingestNotifyBytes(List<int> value) {
+    if (value.isEmpty) {
+      log("BLE RX: <empty>");
+      return;
+    }
+    _rxBuffer.addAll(value);
+    _drainRxBuffer();
+  }
+
+  int _findFrameStart(List<int> data) {
+    for (var i = 0; i < data.length - 1; i++) {
+      if ((data[i] & 0xFF) == 0x2A && (data[i + 1] & 0xFF) == 0x01) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  void _drainRxBuffer() {
+    while (true) {
+      if (_rxBuffer.isEmpty) return;
+      final start = _findFrameStart(_rxBuffer);
+      if (start < 0) {
+        final keepTrailingHead =
+            (_rxBuffer.last & 0xFF) == 0x2A ? <int>[0x2A] : <int>[];
+        if (_rxBuffer.length > keepTrailingHead.length) {
+          log("BLE RX (ignored/non-protocol): ${_hex(_rxBuffer)}");
+        }
+        _rxBuffer = keepTrailingHead;
+        return;
+      }
+
+      if (start > 0) {
+        final dropped = _rxBuffer.sublist(0, start);
+        log("BLE RX (dropped-prefix): ${_hex(dropped)}");
+        _rxBuffer.removeRange(0, start);
+      }
+
+      if (_rxBuffer.length < 7) return;
+      final payloadLength =
+          ((_rxBuffer[3] & 0xFF) << 8) | (_rxBuffer[4] & 0xFF);
+      final frameLength = payloadLength + 7;
+      if (frameLength <= 0) {
+        _rxBuffer.removeAt(0);
+        continue;
+      }
+      if (_rxBuffer.length < frameLength) return;
+
+      final frame = _rxBuffer.sublist(0, frameLength);
+      _rxBuffer.removeRange(0, frameLength);
+      _handleProtocolFrame(frame);
+    }
+  }
+
+  void _handleProtocolFrame(List<int> frame) {
+    if (frame.length < 7) {
+      log("BLE RX (ignored/short-frame): ${_hex(frame)}");
+      return;
+    }
+    final tail = frame.last & 0xFF;
+    if (tail != 0x0A) {
+      log("BLE RX (ignored/bad-tail): ${_hex(frame)}");
+      return;
+    }
+
+    var checksum = 0;
+    for (var i = 1; i < frame.length - 2; i++) {
+      checksum += frame[i] & 0xFF;
+    }
+    checksum &= 0xFF;
+    final expected = frame[frame.length - 2] & 0xFF;
+    if (checksum != expected) {
+      log(
+        "BLE RX checksum mismatch "
+        "(calc=${checksum.toRadixString(16).padLeft(2, '0')} "
+        "pkt=${expected.toRadixString(16).padLeft(2, '0')}): ${_hex(frame)}",
+      );
+    }
+
+    _lastRxAt = DateTime.now();
+    _hadProtocolRxSinceConnect = true;
+    log("BLE RX: ${_hex(frame)}");
+    _protocolFrameController.add(frame);
   }
 
   Future<void> init() async {
@@ -163,6 +314,7 @@ class BleManager {
       _isReady = false;
       _lastRxAt = null;
       _hadProtocolRxSinceConnect = false;
+      _rxBuffer.clear();
 
       // Listen to connection state
       await _connectionSubscription?.cancel();
@@ -204,17 +356,7 @@ class BleManager {
             _notifyCharacteristic!.lastValueStream.listen((value) {
           final normalized =
               value.map((byte) => byte & 0xFF).toList(growable: false);
-          if (_isValidProtocolRx(normalized)) {
-            _lastRxAt = DateTime.now();
-            _hadProtocolRxSinceConnect = true;
-            log("BLE RX: ${_hex(normalized)}");
-            return;
-          }
-          if (normalized.isEmpty) {
-            log("BLE RX: <empty>");
-            return;
-          }
-          log("BLE RX (ignored/non-protocol): ${_hex(normalized)}");
+          _ingestNotifyBytes(normalized);
         }, onError: (error) {
           log("Notify stream error: $error");
         });
@@ -402,10 +544,12 @@ class BleManager {
     _notifyCharacteristic = null;
     _lastRxAt = null;
     _hadProtocolRxSinceConnect = false;
+    _rxBuffer.clear();
     _pendingWrite = Future.value();
     _writeSession++;
     _isReady = false;
     _preferWriteWithoutResponse = false;
+    _suspendReadCommands = false;
     _connectionStateController.add(BluetoothConnectionState.disconnected);
   }
 
@@ -416,6 +560,12 @@ class BleManager {
     }
 
     final normalized = data.map((byte) => byte & 0xFF).toList(growable: false);
+    final command = _extractProtocolCommand(normalized);
+    if (_suspendReadCommands && command != null && _isReadCommand(command)) {
+      final cmdHex = command.toRadixString(16).padLeft(2, '0');
+      log("BLE WRITE skipped by read-gate: cmd=0x$cmdHex");
+      return;
+    }
     final sessionAtEnqueue = _writeSession;
     _pendingWrite = _pendingWrite
         .then((_) => _writeInternal(normalized, sessionAtEnqueue))

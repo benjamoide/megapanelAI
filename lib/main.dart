@@ -2130,6 +2130,8 @@ class AppState extends ChangeNotifier {
   bool _bleStartBusy = false;
   bool _bleAbortRequested = false;
   bool _bleAbortAckLogged = false;
+  bool _bleInitInProgress = false;
+  bool _bleInitDoneForLink = false;
 
   bool get hasApiKey => _apiKey.isNotEmpty;
   Tratamiento? get tratamientoActivoActual => _tratamientoActivoActual;
@@ -2283,7 +2285,13 @@ class AppState extends ChangeNotifier {
     _bleManager.init();
     // Subscribe to state changes
     _bleManager.connectionState.listen((state) {
-      isConnected = state == BluetoothConnectionState.connected;
+      final connected = state == BluetoothConnectionState.connected;
+      if (!connected) {
+        _bleInitInProgress = false;
+        _bleInitDoneForLink = false;
+        _bleManager.setReadCommandGate(false, reason: "state-disconnected");
+      }
+      isConnected = connected;
       notifyListeners();
     });
     // Check initial state
@@ -2381,6 +2389,10 @@ class AppState extends ChangeNotifier {
     String phase = "",
     bool includeBrightness = false,
   }) async {
+    if (_bleInitInProgress) {
+      _bleManager.log("RX PROBE skipped (init in progress)");
+      return;
+    }
     _throwIfBleAbortRequested(
       phase: phase.isEmpty ? "rx-probe" : "$phase-rx-probe",
     );
@@ -2406,6 +2418,10 @@ class AppState extends ChangeNotifier {
     _throwIfBleAbortRequested(phase: phase.isEmpty ? "rx-wait" : phase);
     if (!_bleManager.isConnected) return false;
     if (!_bleManager.canObserveRx) return true;
+    if (_bleInitInProgress) {
+      _bleManager.log("RX WAIT skipped (init in progress)");
+      return false;
+    }
     if (_hasFreshBleRx()) return true;
 
     final phaseLabel = phase.isEmpty ? "" : "[$phase] ";
@@ -2847,8 +2863,177 @@ class AppState extends ChangeNotifier {
     }());
   }
 
+  static const List<String> _defaultPresetInitNames = <String>[
+    "Custom 1",
+    "Custom 2",
+    "Custom 3",
+    "Custom 4",
+  ];
+
+  Future<bool> _waitForBleInitToFinish({
+    Duration timeout = const Duration(seconds: 10),
+  }) async {
+    final deadline = DateTime.now().add(timeout);
+    while (_bleInitInProgress && DateTime.now().isBefore(deadline)) {
+      await Future.delayed(const Duration(milliseconds: 120));
+    }
+    return _bleInitDoneForLink;
+  }
+
+  int _channelCountFromModeFrame(List<int>? frame) {
+    if (frame == null || frame.length < 7) return 5;
+    final payloadLength = ((frame[3] & 0xFF) << 8) | (frame[4] & 0xFF);
+    if (payloadLength <= 0) return 5;
+    return payloadLength.clamp(5, 7).toInt();
+  }
+
+  Future<List<int>?> _sendInitStepAndAwaitAck({
+    required List<int> packet,
+    required int ackCommand,
+    required String phase,
+    Duration timeout = const Duration(milliseconds: 1600),
+  }) async {
+    _throwIfBleAbortRequested(phase: "$phase-init-step");
+    if (!_bleManager.isConnected) return null;
+    return _bleManager.writeAndWaitForAck(
+      packet,
+      ackCommand: ackCommand,
+      timeout: timeout,
+    );
+  }
+
+  Future<bool> _runOfficialInitSequence({String phase = ""}) async {
+    _throwIfBleAbortRequested(phase: "$phase-init-sequence");
+    final phaseLabel = phase.isEmpty ? "" : "[$phase] ";
+
+    var expectedAcks = 0;
+    var receivedAcks = 0;
+
+    Future<List<int>?> sendStep({
+      required List<int> packet,
+      required int ackCommand,
+      required String label,
+      Duration timeout = const Duration(milliseconds: 1600),
+    }) async {
+      final canAwaitAck = _bleManager.canObserveRx;
+      if (canAwaitAck) expectedAcks++;
+      print("BLE: ${phaseLabel}Init step -> $label");
+      final frame = await _sendInitStepAndAwaitAck(
+        packet: packet,
+        ackCommand: ackCommand,
+        phase: phase.isEmpty ? label : "$phase-$label",
+        timeout: timeout,
+      );
+      if (frame != null) {
+        receivedAcks++;
+      } else if (canAwaitAck) {
+        final cmdHex = ackCommand.toRadixString(16).padLeft(2, '0');
+        _bleManager.log("BLE INIT ${phaseLabel}ack-timeout cmd=0x$cmdHex");
+      }
+      return frame;
+    }
+
+    final modeFrame = await sendStep(
+      packet: BleProtocol.getModeChannels(0),
+      ackCommand: BleProtocol.cmdGetModeChannels,
+      label: "get-mode-channels",
+      timeout: const Duration(seconds: 2),
+    );
+    final channelCount = _channelCountFromModeFrame(modeFrame);
+
+    for (var i = 0; i < _defaultPresetInitNames.length; i++) {
+      await sendStep(
+        packet: BleProtocol.renamePreset(i, _defaultPresetInitNames[i]),
+        ackCommand: BleProtocol.cmdRenamePreset,
+        label: "rename-preset-$i",
+      );
+    }
+
+    await sendStep(
+      packet: BleProtocol.setCountdownSeconds(1200),
+      ackCommand: BleProtocol.cmdSetCountdown,
+      label: "set-countdown-1200",
+      timeout: const Duration(seconds: 2),
+    );
+
+    for (var channel = 0; channel < channelCount; channel++) {
+      await sendStep(
+        packet: BleProtocol.setBrightnessChannel(channel, 100),
+        ackCommand: BleProtocol.cmdSetBrightness,
+        label: "set-brightness-$channel",
+      );
+    }
+
+    await sendStep(
+      packet: BleProtocol.getCurrentPreset(),
+      ackCommand: BleProtocol.cmdGetCurrentPreset,
+      label: "get-current-preset",
+    );
+
+    await sendStep(
+      packet: BleProtocol.setPulse(0),
+      ackCommand: BleProtocol.cmdSetPulse,
+      label: "set-pulse-0",
+      timeout: const Duration(seconds: 2),
+    );
+
+    final initOk = !_bleManager.canObserveRx ||
+        expectedAcks == 0 ||
+        receivedAcks >= (expectedAcks ~/ 2);
+    _bleManager.log(
+      "BLE INIT ${phaseLabel}summary "
+      "acks=$receivedAcks/$expectedAcks channels=$channelCount ok=$initOk",
+    );
+    return initOk;
+  }
+
+  Future<bool> _ensureBleInitialized({String phase = ""}) async {
+    if (!_bleManager.isConnected) return false;
+    if (_bleInitDoneForLink) return true;
+    if (_bleInitInProgress) {
+      return _waitForBleInitToFinish();
+    }
+
+    _bleInitInProgress = true;
+    final phaseLabel = phase.isEmpty ? "connect" : phase;
+    _bleManager.setReadCommandGate(true, reason: "$phaseLabel-init");
+    var ok = false;
+    try {
+      _bleManager.log("BLE INIT [$phaseLabel] start");
+      ok = await _runOfficialInitSequence(phase: phaseLabel);
+      _bleInitDoneForLink = ok;
+      if (!ok) {
+        _bleManager.log("BLE INIT [$phaseLabel] incomplete -> fallback path");
+      }
+    } catch (e) {
+      _bleInitDoneForLink = false;
+      _bleManager.log("BLE INIT [$phaseLabel] failed: $e");
+    } finally {
+      _bleInitInProgress = false;
+      _bleManager.setReadCommandGate(false, reason: "$phaseLabel-init-done");
+    }
+    return _bleInitDoneForLink;
+  }
+
+  void _runBleInitNonBlocking() {
+    unawaited(() async {
+      try {
+        final ok = await _ensureBleInitialized(phase: "connect");
+        if (ok) {
+          _bleManager.log("CONNECT init -> ok");
+        } else {
+          _bleManager.log("CONNECT init -> incomplete (non-blocking)");
+        }
+      } catch (e) {
+        _bleManager.log("CONNECT init -> failed:$e");
+      }
+    }());
+  }
+
   Future<bool> connectToDevice(BluetoothDevice device) async {
     _bleManager.setPreferWriteWithoutResponse(false, reason: "new-connection");
+    _bleInitDoneForLink = false;
+    _bleInitInProgress = false;
     final connected = await _bleManager.connect(device);
     var nextIsConnected = _bleManager.isConnected;
     var changed = isConnected != nextIsConnected;
@@ -2857,11 +3042,15 @@ class AppState extends ChangeNotifier {
 
     final ready = connected && nextIsConnected;
     if (!ready) return false;
+    _runBleInitNonBlocking();
     _runConnectWarmupNonBlocking();
     return true;
   }
 
   Future<void> disconnectDevice() async {
+    _bleInitDoneForLink = false;
+    _bleInitInProgress = false;
+    _bleManager.setReadCommandGate(false, reason: "manual-disconnect");
     await _bleManager.disconnect();
     if (isConnected) {
       isConnected = false;
@@ -3113,9 +3302,10 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> iniciarCiclo(String id) async {
+  Future<bool> iniciarCiclo(String id) async {
     final t = catalogo.firstWhere((e) => e.id == id);
     _limpiarCiclosPausados();
+    var started = false;
     ciclosActivos[id] = {
       'activo': true,
       'pausado': false,
@@ -3134,6 +3324,7 @@ class AppState extends ChangeNotifier {
       await _acquireBleStartLock();
       try {
         _clearBleAbort();
+        await _ensureBleInitialized(phase: "catalogo");
         print("BLE: Starting Treatment '${t.nombre}'");
         print(
             "BLE: Params -> duracion=${t.duracion} min, hz='${t.hz}', frecuencias=${t.frecuencias}");
@@ -3162,77 +3353,90 @@ class AppState extends ChangeNotifier {
           phase: "catalogo-preflight",
           allowRecover: false,
         );
+        final strictRxValidation = preflightOk;
         if (!preflightOk) {
-          throw Exception("Catalog preflight failed (BLE link not responsive)");
+          _bleManager.log("CATALOGO preflight-no-rx -> forced-start");
         }
-        await runCatalogSequence("catalogo");
+        await runCatalogSequence(
+            strictRxValidation ? "catalogo" : "catalogo-forced");
 
-        // If writes complete but we still have no RX, recover and retry once.
-        final catalogRxAfterPrimary = await _waitForBleRx(
-          phase: "catalogo-post-primary",
-          timeout: const Duration(seconds: 6),
-          allowWakeEdge: false,
-          allowRecover: false,
-        );
-        if (!catalogRxAfterPrimary && _bleManager.isConnected) {
-          print(
-              "BLE: [catalogo] No RX after sequence, keep link and continue deterministic fallback.");
-          _bleManager.log("CATALOGO no-rx -> continue-no-reconnect");
-        }
-
-        // Deterministic cold-start fallback (avoid 0x21 quickstart because
-        // some firmware revives stale local presets after deep sleep).
-        final catalogRxAfterRetry = await _waitForBleRx(
-          phase: "catalogo-post-retry",
-          timeout: const Duration(seconds: 8),
-          allowWakeEdge: true,
-          allowRecover: false,
-        );
-        if (!catalogRxAfterRetry && isConnected && _bleManager.isConnected) {
-          print(
-              "BLE: [catalogo] No RX after retry, forcing OFF+wake deterministic fallback.");
-          _bleManager.log("CATALOGO no-rx -> hardwake");
-          await _sendPowerOffAndSettle(phase: "catalogo-hardwake");
-          await Future.delayed(const Duration(milliseconds: 700));
-          await _sendOfficialControlWakeEdge(phase: "catalogo-hardwake");
-          await runCatalogSequence("catalogo-hardwake");
-        }
-
-        // Safety: if the panel never acknowledges RX, do not leave it armed.
-        final catalogRxAfterHardWake = await _waitForBleRx(
-          phase: "catalogo-post-hardwake",
-          timeout: const Duration(seconds: 12),
-          allowWakeEdge: true,
-          allowRecover: false,
-        );
-        if (!catalogRxAfterHardWake) {
-          print(
-              "BLE: [catalogo] No RX after hard fallback, sending OFF and aborting start.");
-          _bleManager.log("CATALOGO no-rx -> abort-off");
-          if (_bleManager.isConnected) {
-            await _sendPowerOffAndSettle(phase: "catalogo-abort-no-rx");
+        if (strictRxValidation) {
+          // If writes complete but we still have no RX, recover and retry once.
+          final catalogRxAfterPrimary = await _waitForBleRx(
+            phase: "catalogo-post-primary",
+            timeout: const Duration(seconds: 6),
+            allowWakeEdge: false,
+            allowRecover: false,
+          );
+          if (!catalogRxAfterPrimary && _bleManager.isConnected) {
+            print(
+                "BLE: [catalogo] No RX after sequence, keep link and continue deterministic fallback.");
+            _bleManager.log("CATALOGO no-rx -> continue-no-reconnect");
           }
-          throw Exception("Catalog start aborted (no BLE RX after retries)");
+
+          // Deterministic cold-start fallback (avoid 0x21 quickstart because
+          // some firmware revives stale local presets after deep sleep).
+          final catalogRxAfterRetry = await _waitForBleRx(
+            phase: "catalogo-post-retry",
+            timeout: const Duration(seconds: 8),
+            allowWakeEdge: true,
+            allowRecover: false,
+          );
+          if (!catalogRxAfterRetry && isConnected && _bleManager.isConnected) {
+            print(
+                "BLE: [catalogo] No RX after retry, forcing OFF+wake deterministic fallback.");
+            _bleManager.log("CATALOGO no-rx -> hardwake");
+            await _sendPowerOffAndSettle(phase: "catalogo-hardwake");
+            await Future.delayed(const Duration(milliseconds: 700));
+            await _sendOfficialControlWakeEdge(phase: "catalogo-hardwake");
+            await runCatalogSequence("catalogo-hardwake");
+          }
+
+          // Safety: if the panel never acknowledges RX, do not leave it armed.
+          final catalogRxAfterHardWake = await _waitForBleRx(
+            phase: "catalogo-post-hardwake",
+            timeout: const Duration(seconds: 12),
+            allowWakeEdge: true,
+            allowRecover: false,
+          );
+          if (!catalogRxAfterHardWake) {
+            print(
+                "BLE: [catalogo] No RX after hard fallback, sending OFF and aborting start.");
+            _bleManager.log("CATALOGO no-rx -> abort-off");
+            if (_bleManager.isConnected) {
+              await _sendPowerOffAndSettle(phase: "catalogo-abort-no-rx");
+            }
+            throw Exception("Catalog start aborted (no BLE RX after retries)");
+          }
+        } else {
+          _bleManager.log("CATALOGO forced-start -> unverified-no-rx");
         }
 
         _marcarInicioRealCiclo(id);
+        started = true;
         print("BLE: Configuration sent.");
       } on _BleOperationAborted catch (e) {
         print("BLE: Catalog start aborted by user action: $e");
         _bleManager.log("CATALOGO abort-request -> cleanup");
         ciclosActivos.remove(id);
+        started = false;
         _actualizarTratamientoActivoDesdeCiclos();
       } catch (e) {
         print("BLE Error: $e");
         ciclosActivos.remove(id);
+        started = false;
         _actualizarTratamientoActivoDesdeCiclos();
       } finally {
         _releaseBleStartLock();
       }
+    } else {
+      ciclosActivos.remove(id);
+      _actualizarTratamientoActivoDesdeCiclos();
     }
 
     _actualizarTratamientoActivoDesdeCiclos();
     notifyListeners();
+    return started;
   }
 
   Map<int, int> _brightnessByChannel(Tratamiento t) {
@@ -3429,10 +3633,11 @@ class AppState extends ChangeNotifier {
 
   /// Starts a manual treatment not in the catalog
   /// [sequenceMode]: 0=Params->Start, 1=Params only, 2=Start->Params, 3=Stop->Params->Start
-  Future<void> iniciarCicloManual(Tratamiento t,
+  Future<bool> iniciarCicloManual(Tratamiento t,
       {int startCommand = 0x20, int sequenceMode = 2, int workMode = 0}) async {
     final tempId = t.id;
     _limpiarCiclosPausados();
+    var startedOk = false;
 
     ciclosActivos[tempId] = {
       'activo': true,
@@ -3452,6 +3657,7 @@ class AppState extends ChangeNotifier {
       await _acquireBleStartLock();
       try {
         _clearBleAbort();
+        await _ensureBleInitialized(phase: "manual");
         print(
             "BLE: Starting Manual Treatment (Seq: $sequenceMode, Cmd: $startCommand, Mode: $workMode)");
         Future<bool> runManualSequence(String phase) async {
@@ -3527,73 +3733,86 @@ class AppState extends ChangeNotifier {
           phase: "manual-preflight",
           allowRecover: false,
         );
+        final strictRxValidation = preflightOk;
         if (!preflightOk) {
-          throw Exception("Manual preflight failed (BLE link not responsive)");
+          _bleManager.log("MANUAL preflight-no-rx -> forced-start");
         }
-        var started = await runManualSequence("manual");
+        var started = await runManualSequence(
+            strictRxValidation ? "manual" : "manual-forced");
 
-        final manualRxAfterPrimary = await _waitForBleRx(
-          phase: "manual-post-primary",
-          timeout: const Duration(seconds: 6),
-          allowWakeEdge: false,
-          allowRecover: false,
-        );
-        if (!manualRxAfterPrimary && _bleManager.isConnected) {
-          print(
-              "BLE: [manual] No RX after sequence, keep link and continue deterministic fallback.");
-          _bleManager.log("MANUAL no-rx -> continue-no-reconnect");
-        }
-
-        final manualRxAfterRetry = await _waitForBleRx(
-          phase: "manual-post-retry",
-          timeout: const Duration(seconds: 8),
-          allowWakeEdge: true,
-          allowRecover: false,
-        );
-        if (!manualRxAfterRetry && isConnected && _bleManager.isConnected) {
-          print(
-              "BLE: [manual] No RX after retry, forcing OFF+wake deterministic fallback.");
-          _bleManager.log("MANUAL no-rx -> hardwake");
-          await _sendPowerOffAndSettle(phase: "manual-hardwake");
-          await Future.delayed(const Duration(milliseconds: 700));
-          await _sendOfficialControlWakeEdge(phase: "manual-hardwake");
-          started = (await runManualSequence("manual-hardwake")) || started;
-        }
-
-        final manualRxAfterHardWake = await _waitForBleRx(
-          phase: "manual-post-hardwake",
-          timeout: const Duration(seconds: 12),
-          allowWakeEdge: true,
-          allowRecover: false,
-        );
-        if (!manualRxAfterHardWake) {
-          print(
-              "BLE: [manual] No RX after hard fallback, sending OFF and aborting start.");
-          _bleManager.log("MANUAL no-rx -> abort-off");
-          if (_bleManager.isConnected) {
-            await _sendPowerOffAndSettle(phase: "manual-abort-no-rx");
+        if (strictRxValidation) {
+          final manualRxAfterPrimary = await _waitForBleRx(
+            phase: "manual-post-primary",
+            timeout: const Duration(seconds: 6),
+            allowWakeEdge: false,
+            allowRecover: false,
+          );
+          if (!manualRxAfterPrimary && _bleManager.isConnected) {
+            print(
+                "BLE: [manual] No RX after sequence, keep link and continue deterministic fallback.");
+            _bleManager.log("MANUAL no-rx -> continue-no-reconnect");
           }
-          throw Exception("Manual start aborted (no BLE RX after retries)");
+
+          final manualRxAfterRetry = await _waitForBleRx(
+            phase: "manual-post-retry",
+            timeout: const Duration(seconds: 8),
+            allowWakeEdge: true,
+            allowRecover: false,
+          );
+          if (!manualRxAfterRetry && isConnected && _bleManager.isConnected) {
+            print(
+                "BLE: [manual] No RX after retry, forcing OFF+wake deterministic fallback.");
+            _bleManager.log("MANUAL no-rx -> hardwake");
+            await _sendPowerOffAndSettle(phase: "manual-hardwake");
+            await Future.delayed(const Duration(milliseconds: 700));
+            await _sendOfficialControlWakeEdge(phase: "manual-hardwake");
+            started = (await runManualSequence("manual-hardwake")) || started;
+          }
+
+          final manualRxAfterHardWake = await _waitForBleRx(
+            phase: "manual-post-hardwake",
+            timeout: const Duration(seconds: 12),
+            allowWakeEdge: true,
+            allowRecover: false,
+          );
+          if (!manualRxAfterHardWake) {
+            print(
+                "BLE: [manual] No RX after hard fallback, sending OFF and aborting start.");
+            _bleManager.log("MANUAL no-rx -> abort-off");
+            if (_bleManager.isConnected) {
+              await _sendPowerOffAndSettle(phase: "manual-abort-no-rx");
+            }
+            throw Exception("Manual start aborted (no BLE RX after retries)");
+          }
+        } else {
+          _bleManager.log("MANUAL forced-start -> unverified-no-rx");
         }
 
         if (!started) {
           print("BLE: [manual] Sequence completed without start command.");
         }
+        startedOk = started;
       } on _BleOperationAborted catch (e) {
         print("BLE: Manual start aborted by user action: $e");
         _bleManager.log("MANUAL abort-request -> cleanup");
         ciclosActivos.remove(tempId);
+        startedOk = false;
         _actualizarTratamientoActivoDesdeCiclos();
       } catch (e) {
         print("BLE Manual Error: $e");
         ciclosActivos.remove(tempId);
+        startedOk = false;
         _actualizarTratamientoActivoDesdeCiclos();
       } finally {
         _releaseBleStartLock();
       }
+    } else {
+      ciclosActivos.remove(tempId);
+      _actualizarTratamientoActivoDesdeCiclos();
     }
     _actualizarTratamientoActivoDesdeCiclos();
     notifyListeners();
+    return startedOk;
   }
 
   Future<void> detenerCiclo(String id) async {
@@ -4757,12 +4976,21 @@ class PanelDiarioView extends StatelessWidget {
                       }
                       final ready = await state.waitForStableConnection();
                       if (ready) {
-                        await state.iniciarCiclo(t.id);
-                        onOpenControlManual?.call();
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                              content: Text('Iniciando ${t.nombre}...'),
-                              backgroundColor: Colors.green));
+                        final started = await state.iniciarCiclo(t.id);
+                        if (started) {
+                          onOpenControlManual?.call();
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                content: Text('Iniciando ${t.nombre}...'),
+                                backgroundColor: Colors.green));
+                          }
+                        } else {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                content: Text(
+                                    'No se pudo iniciar ${t.nombre}. El panel no respondio.'),
+                                backgroundColor: Colors.red));
+                          }
                         }
                       } else {
                         if (context.mounted) {
@@ -5223,14 +5451,24 @@ class _PanelSemanalViewState extends State<PanelSemanalView>
                               final ready =
                                   await state.waitForStableConnection();
                               if (ready) {
-                                await state.iniciarCiclo(t.id);
-                                widget.onOpenControlManual?.call();
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                          content:
-                                              Text('Iniciando ${t.nombre}...'),
-                                          backgroundColor: Colors.green));
+                                final started = await state.iniciarCiclo(t.id);
+                                if (started) {
+                                  widget.onOpenControlManual?.call();
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                            content: Text(
+                                                'Iniciando ${t.nombre}...'),
+                                            backgroundColor: Colors.green));
+                                  }
+                                } else {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                            content: Text(
+                                                'No se pudo iniciar ${t.nombre}. El panel no respondio.'),
+                                            backgroundColor: Colors.red));
+                                  }
                                 }
                               } else {
                                 if (context.mounted) {
@@ -5436,12 +5674,21 @@ class ClinicaView extends StatelessWidget {
               }
               final ready = await state.waitForStableConnection();
               if (ready) {
-                await state.iniciarCiclo(t.id);
-                onOpenControlManual?.call();
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                      content: Text('Iniciando ${t.nombre}...'),
-                      backgroundColor: Colors.green));
+                final started = await state.iniciarCiclo(t.id);
+                if (started) {
+                  onOpenControlManual?.call();
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text('Iniciando ${t.nombre}...'),
+                        backgroundColor: Colors.green));
+                  }
+                } else {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text(
+                            'No se pudo iniciar ${t.nombre}. El panel no respondio.'),
+                        backgroundColor: Colors.red));
+                  }
                 }
               } else {
                 if (context.mounted) {

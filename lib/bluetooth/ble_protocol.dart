@@ -15,6 +15,9 @@ class BleProtocol {
   static const int cmdSetPulse = 0x42; // 66
   static const int cmdSetWorkMode = 0x50; // 80
   static const int cmdGetWorkMode = 0x51;
+  static const int cmdGetModeChannels = 0x52;
+  static const int cmdRenamePreset = 0x74;
+  static const int cmdGetCurrentPreset = 0x75;
 
   // --- PACKET STRUCTURE ---
   // Header: 0x3A (:)
@@ -121,9 +124,23 @@ class BleProtocol {
     return buildPacket(cmdQuickStart, [mode]);
   }
 
+  /// Returns available channels for a work mode (0x52).
+  static List<int> getModeChannels(int mode) {
+    return buildPacket(cmdGetModeChannels, [mode & 0xFF]);
+  }
+
+  /// Renames a preset slot (0x74): `[slotIndex, ...nameAsciiBytes]`.
+  static List<int> renamePreset(int slotIndex, String name) {
+    final safeIndex = slotIndex.clamp(0, 255).toInt();
+    final encodedName =
+        name.codeUnits.map((unit) => unit & 0xFF).toList(growable: false);
+    return buildPacket(cmdRenamePreset, [safeIndex, ...encodedName]);
+  }
+
   // --- READ HELPERS ---
   static List<int> getCountdown() => buildPacket(cmdGetCountdown, []);
   static List<int> getBrightness() => buildPacket(cmdGetBrightness, []);
   static List<int> getWorkMode() => buildPacket(cmdGetWorkMode, []);
   static List<int> getStatus() => buildPacket(cmdGetStatus, []);
+  static List<int> getCurrentPreset() => buildPacket(cmdGetCurrentPreset, []);
 }
