@@ -2649,6 +2649,36 @@ class AppState extends ChangeNotifier {
     await Future.delayed(const Duration(milliseconds: 160));
   }
 
+  Future<bool> _attemptLastResortNoRxRecovery({
+    required String phase,
+  }) async {
+    if (!_bleManager.isConnected) return false;
+    if (!_bleManager.canObserveRx) return true;
+
+    final phaseLabel = phase.isEmpty ? "no-rx-lastresort" : "$phase-lastresort";
+    _bleManager.log("RX LASTRESORT [$phaseLabel] start");
+    _bleManager.setPreferWriteWithoutResponse(
+      true,
+      reason: "$phaseLabel-wnr",
+    );
+    try {
+      await _sendOfficialControlWakeEdge(phase: phaseLabel);
+      final ok = await _waitForBleRx(
+        phase: "$phaseLabel-rx",
+        timeout: const Duration(seconds: 14),
+        allowWakeEdge: true,
+        allowRecover: true,
+      );
+      _bleManager.log("RX LASTRESORT [$phaseLabel] result=$ok");
+      return ok;
+    } finally {
+      _bleManager.setPreferWriteWithoutResponse(
+        false,
+        reason: "$phaseLabel-reset-transport",
+      );
+    }
+  }
+
   void _actualizarTratamientoActivoDesdeCiclos() {
     String? activeId;
     Map<String, dynamic>? activeMap;
@@ -3370,10 +3400,13 @@ class AppState extends ChangeNotifier {
         );
 
         if (_bleManager.canObserveRx) {
+          final coldCatalogLink = !_bleManager.hasSeenProtocolRx;
           // If writes complete but we still have no RX, recover and retry once.
           final catalogRxAfterPrimary = await _waitForBleRx(
             phase: "catalogo-post-primary",
-            timeout: const Duration(seconds: 6),
+            timeout: coldCatalogLink
+                ? const Duration(seconds: 8)
+                : const Duration(seconds: 6),
             allowWakeEdge: false,
             allowRecover: false,
           );
@@ -3387,7 +3420,9 @@ class AppState extends ChangeNotifier {
           // some firmware revives stale local presets after deep sleep).
           final catalogRxAfterRetry = await _waitForBleRx(
             phase: "catalogo-post-retry",
-            timeout: const Duration(seconds: 8),
+            timeout: coldCatalogLink
+                ? const Duration(seconds: 10)
+                : const Duration(seconds: 8),
             allowWakeEdge: true,
             allowRecover: false,
           );
@@ -3404,11 +3439,39 @@ class AppState extends ChangeNotifier {
           // Safety: if the panel never acknowledges RX, do not leave it armed.
           final catalogRxAfterHardWake = await _waitForBleRx(
             phase: "catalogo-post-hardwake",
-            timeout: const Duration(seconds: 12),
+            timeout: coldCatalogLink
+                ? const Duration(seconds: 15)
+                : const Duration(seconds: 12),
             allowWakeEdge: true,
             allowRecover: false,
           );
-          if (!catalogRxAfterHardWake) {
+          var catalogRxAfterLastResort = false;
+          if (!catalogRxAfterHardWake && _bleManager.isConnected) {
+            catalogRxAfterLastResort =
+                await _attemptLastResortNoRxRecovery(phase: "catalogo");
+            if (catalogRxAfterLastResort && _bleManager.isConnected) {
+              _bleManager.log("CATALOGO lastresort-rx -> rerun-sequence");
+              _bleManager.setPreferWriteWithoutResponse(
+                true,
+                reason: "catalogo-lastresort-rerun",
+              );
+              try {
+                await runCatalogSequence("catalogo-lastresort");
+              } finally {
+                _bleManager.setPreferWriteWithoutResponse(
+                  false,
+                  reason: "catalogo-lastresort-rerun-done",
+                );
+              }
+              catalogRxAfterLastResort = await _waitForBleRx(
+                phase: "catalogo-post-lastresort",
+                timeout: const Duration(seconds: 12),
+                allowWakeEdge: true,
+                allowRecover: false,
+              );
+            }
+          }
+          if (!catalogRxAfterHardWake && !catalogRxAfterLastResort) {
             print(
                 "BLE: [catalogo] No RX after hard fallback, sending OFF and aborting start.");
             _bleManager.log("CATALOGO no-rx -> abort-off");
@@ -3760,9 +3823,12 @@ class AppState extends ChangeNotifier {
         );
 
         if (_bleManager.canObserveRx) {
+          final coldManualLink = !_bleManager.hasSeenProtocolRx;
           final manualRxAfterPrimary = await _waitForBleRx(
             phase: "manual-post-primary",
-            timeout: const Duration(seconds: 6),
+            timeout: coldManualLink
+                ? const Duration(seconds: 8)
+                : const Duration(seconds: 6),
             allowWakeEdge: false,
             allowRecover: false,
           );
@@ -3774,7 +3840,9 @@ class AppState extends ChangeNotifier {
 
           final manualRxAfterRetry = await _waitForBleRx(
             phase: "manual-post-retry",
-            timeout: const Duration(seconds: 8),
+            timeout: coldManualLink
+                ? const Duration(seconds: 10)
+                : const Duration(seconds: 8),
             allowWakeEdge: true,
             allowRecover: false,
           );
@@ -3790,11 +3858,40 @@ class AppState extends ChangeNotifier {
 
           final manualRxAfterHardWake = await _waitForBleRx(
             phase: "manual-post-hardwake",
-            timeout: const Duration(seconds: 12),
+            timeout: coldManualLink
+                ? const Duration(seconds: 15)
+                : const Duration(seconds: 12),
             allowWakeEdge: true,
             allowRecover: false,
           );
-          if (!manualRxAfterHardWake) {
+          var manualRxAfterLastResort = false;
+          if (!manualRxAfterHardWake && _bleManager.isConnected) {
+            manualRxAfterLastResort =
+                await _attemptLastResortNoRxRecovery(phase: "manual");
+            if (manualRxAfterLastResort && _bleManager.isConnected) {
+              _bleManager.log("MANUAL lastresort-rx -> rerun-sequence");
+              _bleManager.setPreferWriteWithoutResponse(
+                true,
+                reason: "manual-lastresort-rerun",
+              );
+              try {
+                started =
+                    (await runManualSequence("manual-lastresort")) || started;
+              } finally {
+                _bleManager.setPreferWriteWithoutResponse(
+                  false,
+                  reason: "manual-lastresort-rerun-done",
+                );
+              }
+              manualRxAfterLastResort = await _waitForBleRx(
+                phase: "manual-post-lastresort",
+                timeout: const Duration(seconds: 12),
+                allowWakeEdge: true,
+                allowRecover: false,
+              );
+            }
+          }
+          if (!manualRxAfterHardWake && !manualRxAfterLastResort) {
             print(
                 "BLE: [manual] No RX after hard fallback, sending OFF and aborting start.");
             _bleManager.log("MANUAL no-rx -> abort-off");
