@@ -2502,6 +2502,7 @@ class AppState extends ChangeNotifier {
       print("BLE: ${phaseLabel}RX preflight skipped (notify unavailable).");
       return true;
     }
+    final coldLink = !_bleManager.hasSeenProtocolRx;
 
     final preflightOk = await _waitForBleRx(
       phase: phase.isEmpty ? "preflight" : "$phase-preflight",
@@ -2535,17 +2536,21 @@ class AppState extends ChangeNotifier {
         _bleManager.log("RX PREFLIGHT ${phaseLabel}ok-after-wnr");
         return true;
       }
-      _bleManager.setPreferWriteWithoutResponse(
-        false,
-        reason: phase.isEmpty
-            ? "preflight-wnr-failed"
-            : "$phase-preflight-wnr-failed",
-      );
+      if (coldLink) {
+        _bleManager.log("RX PREFLIGHT ${phaseLabel}keep-wnr-cold-link");
+      } else {
+        _bleManager.setPreferWriteWithoutResponse(
+          false,
+          reason: phase.isEmpty
+              ? "preflight-wnr-failed"
+              : "$phase-preflight-wnr-failed",
+        );
+      }
     }
 
     // Cold-link bootstrap: if we never observed protocol RX after connect,
     // spend extra probes before forcing the reconnect path.
-    if (!_bleManager.hasSeenProtocolRx) {
+    if (coldLink) {
       print(
           "BLE: ${phaseLabel}Cold link detected (no protocol RX yet), running bootstrap.");
       final bootstrapOk = await _waitForBleRx(
@@ -2571,6 +2576,15 @@ class AppState extends ChangeNotifier {
     print("BLE: ${phaseLabel}Attempting link recover.");
     await _recoverBleLink(phase: "${phase}recover");
     if (!isConnected || !_bleManager.isConnected) return false;
+    if (!_bleManager.hasSeenProtocolRx &&
+        !_bleManager.prefersWriteWithoutResponse) {
+      _bleManager.setPreferWriteWithoutResponse(
+        true,
+        reason: phase.isEmpty
+            ? "preflight-post-recover-cold-link"
+            : "$phase-preflight-post-recover-cold-link",
+      );
+    }
 
     final recoverOk = await _waitForBleRx(
       phase: phase.isEmpty ? "post-recover" : "$phase-post-recover",
@@ -3386,6 +3400,8 @@ class AppState extends ChangeNotifier {
           await _readBackRunState(reason: "after iniciarCiclo ($phase)");
         }
 
+        var forcedWnrForCatalogStart = false;
+
         // Keep catalog start aligned with manual start path (no forced OFF pre-reset).
         // Some cold-boot units stay stuck if we send OFF before the first wake edge.
         final preflightOk = await _ensureBleResponsive(
@@ -3394,6 +3410,13 @@ class AppState extends ChangeNotifier {
         );
         if (!preflightOk) {
           _bleManager.log("CATALOGO preflight-no-rx -> forced-start");
+          if (!_bleManager.prefersWriteWithoutResponse) {
+            _bleManager.setPreferWriteWithoutResponse(
+              true,
+              reason: "catalogo-forced-no-rx",
+            );
+          }
+          forcedWnrForCatalogStart = _bleManager.prefersWriteWithoutResponse;
         }
         await runCatalogSequence(
           preflightOk ? "catalogo" : "catalogo-forced",
@@ -3482,6 +3505,12 @@ class AppState extends ChangeNotifier {
           }
         } else {
           _bleManager.log("CATALOGO no-notify -> skip-rx-validation");
+        }
+        if (forcedWnrForCatalogStart && _bleManager.hasSeenProtocolRx) {
+          _bleManager.setPreferWriteWithoutResponse(
+            false,
+            reason: "catalogo-rx-restored",
+          );
         }
 
         _marcarInicioRealCiclo(id);
@@ -3811,12 +3840,21 @@ class AppState extends ChangeNotifier {
           return started;
         }
 
+        var forcedWnrForManualStart = false;
+
         final preflightOk = await _ensureBleResponsive(
           phase: "manual-preflight",
           allowRecover: true,
         );
         if (!preflightOk) {
           _bleManager.log("MANUAL preflight-no-rx -> forced-start");
+          if (!_bleManager.prefersWriteWithoutResponse) {
+            _bleManager.setPreferWriteWithoutResponse(
+              true,
+              reason: "manual-forced-no-rx",
+            );
+          }
+          forcedWnrForManualStart = _bleManager.prefersWriteWithoutResponse;
         }
         var started = await runManualSequence(
           preflightOk ? "manual" : "manual-forced",
@@ -3902,6 +3940,12 @@ class AppState extends ChangeNotifier {
           }
         } else {
           _bleManager.log("MANUAL no-notify -> skip-rx-validation");
+        }
+        if (forcedWnrForManualStart && _bleManager.hasSeenProtocolRx) {
+          _bleManager.setPreferWriteWithoutResponse(
+            false,
+            reason: "manual-rx-restored",
+          );
         }
 
         if (!started) {
