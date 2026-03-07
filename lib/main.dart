@@ -2522,6 +2522,7 @@ class AppState extends ChangeNotifier {
     // Some firmware revisions expose both write types but only react reliably
     // with Write Without Response on cold boot.
     if (!_bleManager.prefersWriteWithoutResponse) {
+      const defaultTransportEnabled = false;
       _bleManager.setPreferWriteWithoutResponse(
         true,
         reason: phase.isEmpty ? "preflight-no-rx" : "$phase-preflight-no-rx",
@@ -2536,15 +2537,28 @@ class AppState extends ChangeNotifier {
         _bleManager.log("RX PREFLIGHT ${phaseLabel}ok-after-wnr");
         return true;
       }
+      _bleManager.setPreferWriteWithoutResponse(
+        defaultTransportEnabled,
+        reason: phase.isEmpty
+            ? "preflight-wnr-failed-reset"
+            : "$phase-preflight-wnr-failed-reset",
+      );
       if (coldLink) {
-        _bleManager.log("RX PREFLIGHT ${phaseLabel}keep-wnr-cold-link");
-      } else {
-        _bleManager.setPreferWriteWithoutResponse(
-          false,
-          reason: phase.isEmpty
-              ? "preflight-wnr-failed"
-              : "$phase-preflight-wnr-failed",
+        _bleManager.log(
+          "RX PREFLIGHT ${phaseLabel}wnr-probe-failed-revert-default",
         );
+      }
+      final defaultProbeOk = await _waitForBleRx(
+        phase: phase.isEmpty
+            ? "preflight-default-after-wnr"
+            : "$phase-preflight-default-after-wnr",
+        timeout: const Duration(seconds: 4),
+        allowWakeEdge: true,
+        allowRecover: false,
+      );
+      if (defaultProbeOk) {
+        _bleManager.log("RX PREFLIGHT ${phaseLabel}ok-after-default-reset");
+        return true;
       }
     }
 
@@ -2656,9 +2670,11 @@ class AppState extends ChangeNotifier {
       phase: phase.isEmpty ? "run-commit" : "$phase-run-commit",
     );
     final phaseLabel = phase.isEmpty ? "" : "[$phase] ";
-    print("BLE: ${phaseLabel}Run commit (0x20:1)");
+    print("BLE: ${phaseLabel}Run commit edge (0x20:2->1)");
+    await _bleManager.write(BleProtocol.setControlMode(0x02));
+    await Future.delayed(const Duration(milliseconds: 180));
     await _bleManager.write(BleProtocol.setControlMode(0x01));
-    await Future.delayed(const Duration(milliseconds: 240));
+    await Future.delayed(const Duration(milliseconds: 260));
     await _bleManager.write(BleProtocol.getStatus());
     await Future.delayed(const Duration(milliseconds: 160));
   }
