@@ -156,7 +156,11 @@ class BleManager {
 
   int _findFrameStart(List<int> data) {
     for (var i = 0; i < data.length - 1; i++) {
-      if ((data[i] & 0xFF) == 0x2A && (data[i + 1] & 0xFF) == 0x01) {
+      final head = data[i] & 0xFF;
+      final addr = data[i + 1] & 0xFF;
+      // Some firmware revisions answer with '*' (0x2A) while others mirror
+      // ':' (0x3A). Accept both to avoid dropping valid protocol frames.
+      if ((head == 0x2A || head == 0x3A) && addr == 0x01) {
         return i;
       }
     }
@@ -169,7 +173,9 @@ class BleManager {
       final start = _findFrameStart(_rxBuffer);
       if (start < 0) {
         final keepTrailingHead =
-            (_rxBuffer.last & 0xFF) == 0x2A ? <int>[0x2A] : <int>[];
+            ((_rxBuffer.last & 0xFF) == 0x2A || (_rxBuffer.last & 0xFF) == 0x3A)
+                ? <int>[_rxBuffer.last & 0xFF]
+                : <int>[];
         if (_rxBuffer.length > keepTrailingHead.length) {
           log("BLE RX (ignored/non-protocol): ${_hex(_rxBuffer)}");
         }

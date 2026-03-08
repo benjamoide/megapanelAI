@@ -3399,12 +3399,16 @@ class AppState extends ChangeNotifier {
           _throwIfBleAbortRequested(phase: "$phase-run-seq");
           await _wakePanelFromSleep(workMode: 0);
           _throwIfBleAbortRequested(phase: "$phase-run-seq");
+          final allowQuickStartFallback = phase.contains("forced") ||
+              phase.contains("hardwake") ||
+              phase.contains("lastresort");
           // Mirror hardware UX: start first, then adjust parameters while running.
           await _sendStartHandshake(
             workMode: 0,
             useQuickStart: false,
             phase: phase,
             includeControlWakeEdge: true,
+            allowQuickStartFallback: allowQuickStartFallback,
           );
           _throwIfBleAbortRequested(phase: "$phase-run-seq");
           await _sendParameters(t, workMode: 0);
@@ -3677,13 +3681,12 @@ class AppState extends ChangeNotifier {
     required bool useQuickStart,
     String phase = "",
     bool includeControlWakeEdge = false,
+    bool allowQuickStartFallback = false,
   }) async {
     _throwIfBleAbortRequested(
       phase: phase.isEmpty ? "start-handshake" : "$phase-start-handshake",
     );
     final phaseLabel = phase.isEmpty ? "" : "[$phase] ";
-    // QuickStart (0x21) is intentionally disabled here because many firmware
-    // builds jump to the default preset (35s) immediately after receiving it.
     final strategy =
         includeControlWakeEdge ? "power+control(2->1)" : "power-only";
     print("BLE: ${phaseLabel}Start handshake ($strategy)");
@@ -3708,6 +3711,20 @@ class AppState extends ChangeNotifier {
       await Future.delayed(const Duration(milliseconds: 280));
       await _bleManager.write(BleProtocol.getStatus());
       await Future.delayed(const Duration(milliseconds: 160));
+    }
+
+    // Optional escape hatch for no-RX cold links, enabled only on forced
+    // paths to avoid perturbing the normal deterministic path.
+    if (useQuickStart || allowQuickStartFallback) {
+      final shouldTryQuickStart = !_bleManager.canObserveRx ||
+          !_bleManager.hasRecentRx(const Duration(seconds: 2));
+      if (shouldTryQuickStart) {
+        print("BLE: ${phaseLabel}QuickStart fallback (0x21)");
+        await _bleManager.write(BleProtocol.quickStart(mode: 0x00));
+        await Future.delayed(const Duration(milliseconds: 320));
+        await _bleManager.write(BleProtocol.getStatus());
+        await Future.delayed(const Duration(milliseconds: 180));
+      }
     }
   }
 
@@ -3784,14 +3801,17 @@ class AppState extends ChangeNotifier {
 
           Future<void> start() async {
             _throwIfBleAbortRequested(phase: "$phase-run-seq");
+            final allowQuickStartFallback = phase.contains("forced") ||
+                phase.contains("hardwake") ||
+                phase.contains("lastresort");
             if (startCommand == 0x21) {
-              print(
-                  "BLE: [$phase] Quick Start (0x21) requested, using power-only for stability.");
+              print("BLE: [$phase] Quick Start (0x21) requested.");
               await _sendStartHandshake(
                 workMode: workMode,
-                useQuickStart: false,
+                useQuickStart: true,
                 phase: phase,
                 includeControlWakeEdge: true,
+                allowQuickStartFallback: allowQuickStartFallback,
               );
               started = true;
             } else if (startCommand == 0x20) {
@@ -3801,6 +3821,7 @@ class AppState extends ChangeNotifier {
                 useQuickStart: false,
                 phase: phase,
                 includeControlWakeEdge: true,
+                allowQuickStartFallback: allowQuickStartFallback,
               );
               started = true;
             } else {
