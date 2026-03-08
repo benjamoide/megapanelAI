@@ -2385,6 +2385,12 @@ class AppState extends ChangeNotifier {
     return _bleManager.hasRecentRx(window);
   }
 
+  void _preferWriteWithResponse({required String reason}) {
+    if (_bleManager.prefersWriteWithoutResponse) {
+      _bleManager.setPreferWriteWithoutResponse(false, reason: reason);
+    }
+  }
+
   Future<void> _probeBleRx({
     String phase = "",
     bool includeBrightness = false,
@@ -2590,15 +2596,6 @@ class AppState extends ChangeNotifier {
     print("BLE: ${phaseLabel}Attempting link recover.");
     await _recoverBleLink(phase: "${phase}recover");
     if (!isConnected || !_bleManager.isConnected) return false;
-    if (!_bleManager.hasSeenProtocolRx &&
-        !_bleManager.prefersWriteWithoutResponse) {
-      _bleManager.setPreferWriteWithoutResponse(
-        true,
-        reason: phase.isEmpty
-            ? "preflight-post-recover-cold-link"
-            : "$phase-preflight-post-recover-cold-link",
-      );
-    }
 
     final recoverOk = await _waitForBleRx(
       phase: phase.isEmpty ? "post-recover" : "$phase-post-recover",
@@ -3416,8 +3413,6 @@ class AppState extends ChangeNotifier {
           await _readBackRunState(reason: "after iniciarCiclo ($phase)");
         }
 
-        var forcedWnrForCatalogStart = false;
-
         // Keep catalog start aligned with manual start path (no forced OFF pre-reset).
         // Some cold-boot units stay stuck if we send OFF before the first wake edge.
         final preflightOk = await _ensureBleResponsive(
@@ -3425,15 +3420,9 @@ class AppState extends ChangeNotifier {
           allowRecover: true,
         );
         if (!preflightOk) {
-          _bleManager.log("CATALOGO preflight-no-rx -> forced-start");
-          if (!_bleManager.prefersWriteWithoutResponse) {
-            _bleManager.setPreferWriteWithoutResponse(
-              true,
-              reason: "catalogo-forced-no-rx",
-            );
-          }
-          forcedWnrForCatalogStart = _bleManager.prefersWriteWithoutResponse;
+          _bleManager.log("CATALOGO preflight-no-rx -> forced-start-reliable");
         }
+        _preferWriteWithResponse(reason: "catalogo-before-primary-sequence");
         await runCatalogSequence(
           preflightOk ? "catalogo" : "catalogo-forced",
         );
@@ -3469,6 +3458,7 @@ class AppState extends ChangeNotifier {
             print(
                 "BLE: [catalogo] No RX after retry, forcing OFF+wake deterministic fallback.");
             _bleManager.log("CATALOGO no-rx -> hardwake");
+            _preferWriteWithResponse(reason: "catalogo-before-hardwake");
             await _sendPowerOffAndSettle(phase: "catalogo-hardwake");
             await Future.delayed(const Duration(milliseconds: 700));
             await _sendOfficialControlWakeEdge(phase: "catalogo-hardwake");
@@ -3521,12 +3511,6 @@ class AppState extends ChangeNotifier {
           }
         } else {
           _bleManager.log("CATALOGO no-notify -> skip-rx-validation");
-        }
-        if (forcedWnrForCatalogStart && _bleManager.hasSeenProtocolRx) {
-          _bleManager.setPreferWriteWithoutResponse(
-            false,
-            reason: "catalogo-rx-restored",
-          );
         }
 
         _marcarInicioRealCiclo(id);
@@ -3856,22 +3840,14 @@ class AppState extends ChangeNotifier {
           return started;
         }
 
-        var forcedWnrForManualStart = false;
-
         final preflightOk = await _ensureBleResponsive(
           phase: "manual-preflight",
           allowRecover: true,
         );
         if (!preflightOk) {
-          _bleManager.log("MANUAL preflight-no-rx -> forced-start");
-          if (!_bleManager.prefersWriteWithoutResponse) {
-            _bleManager.setPreferWriteWithoutResponse(
-              true,
-              reason: "manual-forced-no-rx",
-            );
-          }
-          forcedWnrForManualStart = _bleManager.prefersWriteWithoutResponse;
+          _bleManager.log("MANUAL preflight-no-rx -> forced-start-reliable");
         }
+        _preferWriteWithResponse(reason: "manual-before-primary-sequence");
         var started = await runManualSequence(
           preflightOk ? "manual" : "manual-forced",
         );
@@ -3904,6 +3880,7 @@ class AppState extends ChangeNotifier {
             print(
                 "BLE: [manual] No RX after retry, forcing OFF+wake deterministic fallback.");
             _bleManager.log("MANUAL no-rx -> hardwake");
+            _preferWriteWithResponse(reason: "manual-before-hardwake");
             await _sendPowerOffAndSettle(phase: "manual-hardwake");
             await Future.delayed(const Duration(milliseconds: 700));
             await _sendOfficialControlWakeEdge(phase: "manual-hardwake");
@@ -3956,12 +3933,6 @@ class AppState extends ChangeNotifier {
           }
         } else {
           _bleManager.log("MANUAL no-notify -> skip-rx-validation");
-        }
-        if (forcedWnrForManualStart && _bleManager.hasSeenProtocolRx) {
-          _bleManager.setPreferWriteWithoutResponse(
-            false,
-            reason: "manual-rx-restored",
-          );
         }
 
         if (!started) {
