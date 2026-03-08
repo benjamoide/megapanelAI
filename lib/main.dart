@@ -2508,7 +2508,8 @@ class AppState extends ChangeNotifier {
       print("BLE: ${phaseLabel}RX preflight skipped (notify unavailable).");
       return true;
     }
-    final coldLink = !_bleManager.hasSeenProtocolRx;
+    final hadAnyRxOnLink = _bleManager.hasSeenProtocolRx;
+    final coldLink = !hadAnyRxOnLink;
 
     final preflightOk = await _waitForBleRx(
       phase: phase.isEmpty ? "preflight" : "$phase-preflight",
@@ -2566,6 +2567,13 @@ class AppState extends ChangeNotifier {
         _bleManager.log("RX PREFLIGHT ${phaseLabel}ok-after-default-reset");
         return true;
       }
+    }
+
+    // If we have already received at least one valid protocol frame on this
+    // connection, don't spend extra aggressive recovery cycles here.
+    if (hadAnyRxOnLink) {
+      _bleManager.log("RX PREFLIGHT ${phaseLabel}seen-rx-on-link -> continue");
+      return true;
     }
 
     // Cold-link bootstrap: if we never observed protocol RX after connect,
@@ -2674,6 +2682,19 @@ class AppState extends ChangeNotifier {
     await Future.delayed(const Duration(milliseconds: 260));
     await _bleManager.write(BleProtocol.getStatus());
     await Future.delayed(const Duration(milliseconds: 160));
+
+    final useAlternateLatch = phase.contains("forced") ||
+        phase.contains("hardwake") ||
+        phase.contains("lastresort");
+    if (useAlternateLatch) {
+      print("BLE: ${phaseLabel}Run commit alt latch (0x20:1->2)");
+      await _bleManager.write(BleProtocol.setControlMode(0x01));
+      await Future.delayed(const Duration(milliseconds: 160));
+      await _bleManager.write(BleProtocol.setControlMode(0x02));
+      await Future.delayed(const Duration(milliseconds: 260));
+      await _bleManager.write(BleProtocol.getStatus());
+      await Future.delayed(const Duration(milliseconds: 160));
+    }
   }
 
   Future<bool> _attemptLastResortNoRxRecovery({
