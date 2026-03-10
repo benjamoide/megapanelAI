@@ -2107,6 +2107,18 @@ class _BleOperationAborted implements Exception {
   String toString() => "BLE operation aborted [$phase]";
 }
 
+enum ManualStartDiagnosticStrategy {
+  disabled,
+  powerOnOnly,
+  control2to1,
+  control1to2,
+  quickStart,
+  powerOnWithModeAndShortCountdown,
+  control2to1WithModeAndShortCountdown,
+  control1to2WithModeAndShortCountdown,
+  quickStartWithModeAndShortCountdown,
+}
+
 class AppState extends ChangeNotifier {
   String currentUser = "";
   bool isGuest = false;
@@ -2132,10 +2144,23 @@ class AppState extends ChangeNotifier {
   bool _bleAbortAckLogged = false;
   bool _bleInitInProgress = false;
   bool _bleInitDoneForLink = false;
+  String? _lastManualDiagnosticSequenceId;
+  ManualStartDiagnosticStrategy _lastManualDiagnosticStrategy =
+      ManualStartDiagnosticStrategy.disabled;
+  List<int>? _lastManualDiagnosticStatusPayload;
 
   bool get hasApiKey => _apiKey.isNotEmpty;
   Tratamiento? get tratamientoActivoActual => _tratamientoActivoActual;
   String? get idCicloActivoActual => _idCicloActivoActual;
+  String? get lastManualDiagnosticSequenceId => _lastManualDiagnosticSequenceId;
+  ManualStartDiagnosticStrategy get lastManualDiagnosticStrategy =>
+      _lastManualDiagnosticStrategy;
+  String get lastManualDiagnosticStatusPreview {
+    final payload = _lastManualDiagnosticStatusPayload;
+    if (payload == null || payload.isEmpty) return "<none>";
+    return _hexBytes(payload.take(8));
+  }
+
   bool get hayCicloActivo {
     for (final entry in ciclosActivos.entries) {
       final value = entry.value;
@@ -2389,6 +2414,78 @@ class AppState extends ChangeNotifier {
     if (_bleManager.prefersWriteWithoutResponse) {
       _bleManager.setPreferWriteWithoutResponse(false, reason: reason);
     }
+  }
+
+  String _hexBytes(Iterable<int> data) {
+    final bytes = data.map((b) => b & 0xFF).toList(growable: false);
+    if (bytes.isEmpty) return "<empty>";
+    return bytes
+        .map((byte) => byte.toRadixString(16).padLeft(2, '0'))
+        .join(' ');
+  }
+
+  List<int> _payloadFromFrame(List<int>? frame) {
+    if (frame == null || frame.length < 7) return const <int>[];
+    final payloadLength = ((frame[3] & 0xFF) << 8) | (frame[4] & 0xFF);
+    if (payloadLength <= 0) return const <int>[];
+    const payloadStart = 5;
+    final payloadEnd = payloadStart + payloadLength;
+    if (payloadEnd > frame.length - 2) return const <int>[];
+    return frame.sublist(payloadStart, payloadEnd);
+  }
+
+  bool _manualDiagnosticUsesModeAndShortCountdown(
+    ManualStartDiagnosticStrategy strategy,
+  ) {
+    switch (strategy) {
+      case ManualStartDiagnosticStrategy.powerOnWithModeAndShortCountdown:
+      case ManualStartDiagnosticStrategy.control2to1WithModeAndShortCountdown:
+      case ManualStartDiagnosticStrategy.control1to2WithModeAndShortCountdown:
+      case ManualStartDiagnosticStrategy.quickStartWithModeAndShortCountdown:
+        return true;
+      case ManualStartDiagnosticStrategy.disabled:
+      case ManualStartDiagnosticStrategy.powerOnOnly:
+      case ManualStartDiagnosticStrategy.control2to1:
+      case ManualStartDiagnosticStrategy.control1to2:
+      case ManualStartDiagnosticStrategy.quickStart:
+        return false;
+    }
+  }
+
+  String _manualDiagnosticStrategyId(ManualStartDiagnosticStrategy strategy) {
+    switch (strategy) {
+      case ManualStartDiagnosticStrategy.disabled:
+        return "disabled";
+      case ManualStartDiagnosticStrategy.powerOnOnly:
+        return "20:1";
+      case ManualStartDiagnosticStrategy.control2to1:
+        return "20:2->1";
+      case ManualStartDiagnosticStrategy.control1to2:
+        return "20:1->2";
+      case ManualStartDiagnosticStrategy.quickStart:
+        return "21";
+      case ManualStartDiagnosticStrategy.powerOnWithModeAndShortCountdown:
+        return "20:1+wm+ct45";
+      case ManualStartDiagnosticStrategy.control2to1WithModeAndShortCountdown:
+        return "20:2->1+wm+ct45";
+      case ManualStartDiagnosticStrategy.control1to2WithModeAndShortCountdown:
+        return "20:1->2+wm+ct45";
+      case ManualStartDiagnosticStrategy.quickStartWithModeAndShortCountdown:
+        return "21+wm+ct45";
+    }
+  }
+
+  void registrarObservacionDiagnosticoManual(String outcome) {
+    final seq = _lastManualDiagnosticSequenceId ?? "n/a";
+    final strategyId =
+        _manualDiagnosticStrategyId(_lastManualDiagnosticStrategy);
+    final payload = _lastManualDiagnosticStatusPayload;
+    final payloadHex = (payload == null || payload.isEmpty)
+        ? "<none>"
+        : _hexBytes(payload.take(8));
+    _bleManager.log(
+      "DIAG OBS seq=$seq strategy=$strategyId outcome=$outcome status10=$payloadHex",
+    );
   }
 
   Future<void> _probeBleRx({
@@ -3773,10 +3870,113 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  Future<bool> _runManualDiagnosticStart({
+    required String cycleId,
+    required int workMode,
+    required ManualStartDiagnosticStrategy strategy,
+  }) async {
+    if (!_bleManager.isConnected) return false;
+    if (strategy == ManualStartDiagnosticStrategy.disabled) return false;
+
+    final sequenceId = "mdx-${DateTime.now().millisecondsSinceEpoch}";
+    final strategyId = _manualDiagnosticStrategyId(strategy);
+    _lastManualDiagnosticSequenceId = sequenceId;
+    _lastManualDiagnosticStrategy = strategy;
+    _lastManualDiagnosticStatusPayload = null;
+
+    _bleManager.log("DIAG START seq=$sequenceId strategy=$strategyId");
+
+    if (_bleManager.canObserveRx &&
+        !_bleManager.hasRecentRx(const Duration(seconds: 4))) {
+      final preflightFrame = await _bleManager.writeAndWaitForAck(
+        BleProtocol.getStatus(),
+        ackCommand: BleProtocol.cmdGetStatus,
+        timeout: const Duration(seconds: 2),
+      );
+      if (preflightFrame == null) {
+        // Keep the diagnostic run alive even if the link is still cold.
+        _bleManager.log(
+          "DIAG START seq=$sequenceId preflight=ack-timeout-continue",
+        );
+      }
+      if (preflightFrame != null) {
+        _bleManager.log("DIAG START seq=$sequenceId preflight=ack-ok");
+      }
+    } else {
+      _bleManager.log("DIAG START seq=$sequenceId preflight=fresh-rx");
+    }
+
+    if (_manualDiagnosticUsesModeAndShortCountdown(strategy)) {
+      const shortCountdownSeconds = 45;
+      _bleManager.log(
+        "DIAG TX seq=$sequenceId setWorkMode=$workMode countdown=$shortCountdownSeconds",
+      );
+      await _bleManager.write(BleProtocol.setWorkMode(workMode));
+      await Future.delayed(const Duration(milliseconds: 180));
+      await _bleManager.write(
+        BleProtocol.setCountdownSeconds(shortCountdownSeconds),
+      );
+      await Future.delayed(const Duration(milliseconds: 180));
+    }
+
+    _throwIfBleAbortRequested(phase: "manual-diagnostic-$strategyId");
+    switch (strategy) {
+      case ManualStartDiagnosticStrategy.powerOnOnly:
+      case ManualStartDiagnosticStrategy.powerOnWithModeAndShortCountdown:
+        _bleManager.log("DIAG TX seq=$sequenceId step=20:1");
+        await _bleManager.write(BleProtocol.setPower(true));
+        await Future.delayed(const Duration(milliseconds: 260));
+        break;
+      case ManualStartDiagnosticStrategy.control2to1:
+      case ManualStartDiagnosticStrategy.control2to1WithModeAndShortCountdown:
+        _bleManager.log("DIAG TX seq=$sequenceId step=20:2->1");
+        await _bleManager.write(BleProtocol.setControlMode(0x02));
+        await Future.delayed(const Duration(milliseconds: 180));
+        await _bleManager.write(BleProtocol.setControlMode(0x01));
+        await Future.delayed(const Duration(milliseconds: 260));
+        break;
+      case ManualStartDiagnosticStrategy.control1to2:
+      case ManualStartDiagnosticStrategy.control1to2WithModeAndShortCountdown:
+        _bleManager.log("DIAG TX seq=$sequenceId step=20:1->2");
+        await _bleManager.write(BleProtocol.setControlMode(0x01));
+        await Future.delayed(const Duration(milliseconds: 180));
+        await _bleManager.write(BleProtocol.setControlMode(0x02));
+        await Future.delayed(const Duration(milliseconds: 260));
+        break;
+      case ManualStartDiagnosticStrategy.quickStart:
+      case ManualStartDiagnosticStrategy.quickStartWithModeAndShortCountdown:
+        _bleManager.log("DIAG TX seq=$sequenceId step=21");
+        await _bleManager.write(BleProtocol.quickStart(mode: 0x00));
+        await Future.delayed(const Duration(milliseconds: 260));
+        break;
+      case ManualStartDiagnosticStrategy.disabled:
+        return false;
+    }
+
+    final statusFrame = await _bleManager.writeAndWaitForAck(
+      BleProtocol.getStatus(),
+      ackCommand: BleProtocol.cmdGetStatus,
+      timeout: const Duration(seconds: 2),
+    );
+    final payload = _payloadFromFrame(statusFrame);
+    _lastManualDiagnosticStatusPayload = payload.isEmpty ? null : payload;
+    final payloadHex = payload.isEmpty ? "<none>" : _hexBytes(payload.take(8));
+    _bleManager.log(
+      "DIAG STATUS seq=$sequenceId strategy=$strategyId payload10=$payloadHex",
+    );
+
+    _marcarInicioRealCiclo(cycleId);
+    return true;
+  }
+
   /// Starts a manual treatment not in the catalog
   /// [sequenceMode]: 0=Params->Start, 1=Params only, 2=Start->Params, 3=Stop->Params->Start
   Future<bool> iniciarCicloManual(Tratamiento t,
-      {int startCommand = 0x20, int sequenceMode = 2, int workMode = 0}) async {
+      {int startCommand = 0x20,
+      int sequenceMode = 2,
+      int workMode = 0,
+      ManualStartDiagnosticStrategy diagnosticStrategy =
+          ManualStartDiagnosticStrategy.disabled}) async {
     final tempId = t.id;
     _limpiarCiclosPausados();
     var startedOk = false;
@@ -3807,184 +4007,203 @@ class AppState extends ChangeNotifier {
             "MANUAL init-incomplete -> continue-start-with-rx-guard",
           );
         }
-        print(
-            "BLE: Starting Manual Treatment (Seq: $sequenceMode, Cmd: $startCommand, Mode: $workMode)");
-        Future<bool> runManualSequence(String phase) async {
-          _throwIfBleAbortRequested(phase: "$phase-run-seq");
-          bool started = false;
-
-          Future<void> stop() async {
-            _throwIfBleAbortRequested(phase: "$phase-run-seq");
-            print("BLE: [$phase] Sending Power OFF (Reset)");
-            await _bleManager.write(BleProtocol.setPower(false));
-            await Future.delayed(const Duration(milliseconds: 500));
-          }
-
-          Future<void> start() async {
-            _throwIfBleAbortRequested(phase: "$phase-run-seq");
-            final allowQuickStartFallback = phase.contains("forced") ||
-                phase.contains("hardwake") ||
-                phase.contains("lastresort");
-            if (startCommand == 0x21) {
-              print("BLE: [$phase] Quick Start (0x21) requested.");
-              await _sendStartHandshake(
-                workMode: workMode,
-                useQuickStart: true,
-                phase: phase,
-                includeControlWakeEdge: true,
-                allowQuickStartFallback: allowQuickStartFallback,
-              );
-              started = true;
-            } else if (startCommand == 0x20) {
-              print("BLE: [$phase] Sending Power ON handshake (0x20)");
-              await _sendStartHandshake(
-                workMode: workMode,
-                useQuickStart: false,
-                phase: phase,
-                includeControlWakeEdge: true,
-                allowQuickStartFallback: allowQuickStartFallback,
-              );
-              started = true;
-            } else {
-              print("BLE: [$phase] Skipping Start Command");
-            }
-          }
-
-          Future<void> sendParams() async {
-            _throwIfBleAbortRequested(phase: "$phase-run-seq");
-            await _sendParameters(t, workMode: workMode);
-          }
-
-          await _wakePanelFromSleep(workMode: workMode);
-
-          if (sequenceMode == 0) {
-            await sendParams();
-            await start();
-          } else if (sequenceMode == 1) {
-            await sendParams();
-          } else if (sequenceMode == 2) {
-            await start();
-            await sendParams();
-          } else if (sequenceMode == 3) {
-            await stop();
-            await Future.delayed(const Duration(milliseconds: 1000));
-            await sendParams();
-            await start();
-          }
-
+        if (diagnosticStrategy != ManualStartDiagnosticStrategy.disabled) {
+          final strategyId = _manualDiagnosticStrategyId(diagnosticStrategy);
+          _bleManager.log("MANUAL diagnostic mode -> $strategyId");
+          _preferWriteWithResponse(reason: "manual-diagnostic-start");
+          final started = await _runManualDiagnosticStart(
+            cycleId: tempId,
+            workMode: workMode,
+            strategy: diagnosticStrategy,
+          );
           if (started) {
+            _idCicloActivoActual = tempId;
+            _tratamientoActivoActual = t;
+          } else {
+            ciclosActivos.remove(tempId);
+            _actualizarTratamientoActivoDesdeCiclos();
+          }
+          startedOk = started;
+        } else {
+          print(
+              "BLE: Starting Manual Treatment (Seq: $sequenceMode, Cmd: $startCommand, Mode: $workMode)");
+          Future<bool> runManualSequence(String phase) async {
             _throwIfBleAbortRequested(phase: "$phase-run-seq");
-            await _sendRunCommit(phase: phase);
-            await _readBackRunState(
-                reason: "after iniciarCicloManual ($phase)");
-            _marcarInicioRealCiclo(tempId);
+            bool started = false;
+
+            Future<void> stop() async {
+              _throwIfBleAbortRequested(phase: "$phase-run-seq");
+              print("BLE: [$phase] Sending Power OFF (Reset)");
+              await _bleManager.write(BleProtocol.setPower(false));
+              await Future.delayed(const Duration(milliseconds: 500));
+            }
+
+            Future<void> start() async {
+              _throwIfBleAbortRequested(phase: "$phase-run-seq");
+              final allowQuickStartFallback = phase.contains("forced") ||
+                  phase.contains("hardwake") ||
+                  phase.contains("lastresort");
+              if (startCommand == 0x21) {
+                print("BLE: [$phase] Quick Start (0x21) requested.");
+                await _sendStartHandshake(
+                  workMode: workMode,
+                  useQuickStart: true,
+                  phase: phase,
+                  includeControlWakeEdge: true,
+                  allowQuickStartFallback: allowQuickStartFallback,
+                );
+                started = true;
+              } else if (startCommand == 0x20) {
+                print("BLE: [$phase] Sending Power ON handshake (0x20)");
+                await _sendStartHandshake(
+                  workMode: workMode,
+                  useQuickStart: false,
+                  phase: phase,
+                  includeControlWakeEdge: true,
+                  allowQuickStartFallback: allowQuickStartFallback,
+                );
+                started = true;
+              } else {
+                print("BLE: [$phase] Skipping Start Command");
+              }
+            }
+
+            Future<void> sendParams() async {
+              _throwIfBleAbortRequested(phase: "$phase-run-seq");
+              await _sendParameters(t, workMode: workMode);
+            }
+
+            await _wakePanelFromSleep(workMode: workMode);
+
+            if (sequenceMode == 0) {
+              await sendParams();
+              await start();
+            } else if (sequenceMode == 1) {
+              await sendParams();
+            } else if (sequenceMode == 2) {
+              await start();
+              await sendParams();
+            } else if (sequenceMode == 3) {
+              await stop();
+              await Future.delayed(const Duration(milliseconds: 1000));
+              await sendParams();
+              await start();
+            }
+
+            if (started) {
+              _throwIfBleAbortRequested(phase: "$phase-run-seq");
+              await _sendRunCommit(phase: phase);
+              await _readBackRunState(
+                  reason: "after iniciarCicloManual ($phase)");
+              _marcarInicioRealCiclo(tempId);
+            }
+            return started;
           }
-          return started;
-        }
 
-        final preflightOk = await _ensureBleResponsive(
-          phase: "manual-preflight",
-          allowRecover: true,
-        );
-        if (!preflightOk) {
-          _bleManager.log("MANUAL preflight-no-rx -> forced-start-reliable");
-        }
-        _preferWriteWithResponse(reason: "manual-before-primary-sequence");
-        var started = await runManualSequence(
-          preflightOk ? "manual" : "manual-forced",
-        );
-
-        if (_bleManager.canObserveRx) {
-          final coldManualLink = !_bleManager.hasSeenProtocolRx;
-          final manualRxAfterPrimary = await _waitForBleRx(
-            phase: "manual-post-primary",
-            timeout: coldManualLink
-                ? const Duration(seconds: 8)
-                : const Duration(seconds: 6),
-            allowWakeEdge: false,
-            allowRecover: false,
+          final preflightOk = await _ensureBleResponsive(
+            phase: "manual-preflight",
+            allowRecover: true,
           );
-          if (!manualRxAfterPrimary && _bleManager.isConnected) {
-            print(
-                "BLE: [manual] No RX after sequence, keep link and continue deterministic fallback.");
-            _bleManager.log("MANUAL no-rx -> continue-no-reconnect");
+          if (!preflightOk) {
+            _bleManager.log("MANUAL preflight-no-rx -> forced-start-reliable");
           }
-
-          final manualRxAfterRetry = await _waitForBleRx(
-            phase: "manual-post-retry",
-            timeout: coldManualLink
-                ? const Duration(seconds: 10)
-                : const Duration(seconds: 8),
-            allowWakeEdge: true,
-            allowRecover: false,
+          _preferWriteWithResponse(reason: "manual-before-primary-sequence");
+          var started = await runManualSequence(
+            preflightOk ? "manual" : "manual-forced",
           );
-          if (!manualRxAfterRetry && isConnected && _bleManager.isConnected) {
-            print(
-                "BLE: [manual] No RX after retry, forcing OFF+wake deterministic fallback.");
-            _bleManager.log("MANUAL no-rx -> hardwake");
-            _preferWriteWithResponse(reason: "manual-before-hardwake");
-            await _sendPowerOffAndSettle(phase: "manual-hardwake");
-            await Future.delayed(const Duration(milliseconds: 700));
-            await _sendOfficialControlWakeEdge(phase: "manual-hardwake");
-            started = (await runManualSequence("manual-hardwake")) || started;
-          }
 
-          final manualRxAfterHardWake = await _waitForBleRx(
-            phase: "manual-post-hardwake",
-            timeout: coldManualLink
-                ? const Duration(seconds: 15)
-                : const Duration(seconds: 12),
-            allowWakeEdge: true,
-            allowRecover: false,
-          );
-          var manualRxAfterLastResort = false;
-          if (!manualRxAfterHardWake && _bleManager.isConnected) {
-            manualRxAfterLastResort =
-                await _attemptLastResortNoRxRecovery(phase: "manual");
-            if (manualRxAfterLastResort && _bleManager.isConnected) {
-              _bleManager.log("MANUAL lastresort-rx -> rerun-sequence");
-              _bleManager.setPreferWriteWithoutResponse(
-                true,
-                reason: "manual-lastresort-rerun",
-              );
-              try {
-                started =
-                    (await runManualSequence("manual-lastresort")) || started;
-              } finally {
+          if (_bleManager.canObserveRx) {
+            final coldManualLink = !_bleManager.hasSeenProtocolRx;
+            final manualRxAfterPrimary = await _waitForBleRx(
+              phase: "manual-post-primary",
+              timeout: coldManualLink
+                  ? const Duration(seconds: 8)
+                  : const Duration(seconds: 6),
+              allowWakeEdge: false,
+              allowRecover: false,
+            );
+            if (!manualRxAfterPrimary && _bleManager.isConnected) {
+              print(
+                  "BLE: [manual] No RX after sequence, keep link and continue deterministic fallback.");
+              _bleManager.log("MANUAL no-rx -> continue-no-reconnect");
+            }
+
+            final manualRxAfterRetry = await _waitForBleRx(
+              phase: "manual-post-retry",
+              timeout: coldManualLink
+                  ? const Duration(seconds: 10)
+                  : const Duration(seconds: 8),
+              allowWakeEdge: true,
+              allowRecover: false,
+            );
+            if (!manualRxAfterRetry && isConnected && _bleManager.isConnected) {
+              print(
+                  "BLE: [manual] No RX after retry, forcing OFF+wake deterministic fallback.");
+              _bleManager.log("MANUAL no-rx -> hardwake");
+              _preferWriteWithResponse(reason: "manual-before-hardwake");
+              await _sendPowerOffAndSettle(phase: "manual-hardwake");
+              await Future.delayed(const Duration(milliseconds: 700));
+              await _sendOfficialControlWakeEdge(phase: "manual-hardwake");
+              started = (await runManualSequence("manual-hardwake")) || started;
+            }
+
+            final manualRxAfterHardWake = await _waitForBleRx(
+              phase: "manual-post-hardwake",
+              timeout: coldManualLink
+                  ? const Duration(seconds: 15)
+                  : const Duration(seconds: 12),
+              allowWakeEdge: true,
+              allowRecover: false,
+            );
+            var manualRxAfterLastResort = false;
+            if (!manualRxAfterHardWake && _bleManager.isConnected) {
+              manualRxAfterLastResort =
+                  await _attemptLastResortNoRxRecovery(phase: "manual");
+              if (manualRxAfterLastResort && _bleManager.isConnected) {
+                _bleManager.log("MANUAL lastresort-rx -> rerun-sequence");
                 _bleManager.setPreferWriteWithoutResponse(
-                  false,
-                  reason: "manual-lastresort-rerun-done",
+                  true,
+                  reason: "manual-lastresort-rerun",
+                );
+                try {
+                  started =
+                      (await runManualSequence("manual-lastresort")) || started;
+                } finally {
+                  _bleManager.setPreferWriteWithoutResponse(
+                    false,
+                    reason: "manual-lastresort-rerun-done",
+                  );
+                }
+                manualRxAfterLastResort = await _waitForBleRx(
+                  phase: "manual-post-lastresort",
+                  timeout: const Duration(seconds: 12),
+                  allowWakeEdge: true,
+                  allowRecover: false,
                 );
               }
-              manualRxAfterLastResort = await _waitForBleRx(
-                phase: "manual-post-lastresort",
-                timeout: const Duration(seconds: 12),
-                allowWakeEdge: true,
-                allowRecover: false,
-              );
             }
-          }
-          if (!manualRxAfterHardWake && !manualRxAfterLastResort) {
-            print(
-                "BLE: [manual] No RX after hard fallback, sending OFF and aborting start.");
-            _bleManager.log("MANUAL no-rx -> abort-off");
-            if (_bleManager.isConnected) {
-              await _sendPowerOffAndSettle(phase: "manual-abort-no-rx");
+            if (!manualRxAfterHardWake && !manualRxAfterLastResort) {
+              print(
+                  "BLE: [manual] No RX after hard fallback, sending OFF and aborting start.");
+              _bleManager.log("MANUAL no-rx -> abort-off");
+              if (_bleManager.isConnected) {
+                await _sendPowerOffAndSettle(phase: "manual-abort-no-rx");
+              }
+              throw Exception("Manual start aborted (no BLE RX after retries)");
             }
-            throw Exception("Manual start aborted (no BLE RX after retries)");
+          } else {
+            _bleManager.log("MANUAL no-notify -> skip-rx-validation");
           }
-        } else {
-          _bleManager.log("MANUAL no-notify -> skip-rx-validation");
-        }
 
-        if (!started) {
-          print("BLE: [manual] Sequence completed without start command.");
+          if (!started) {
+            print("BLE: [manual] Sequence completed without start command.");
+          }
+          if (started) {
+            _idCicloActivoActual = tempId;
+            _tratamientoActivoActual = t;
+          }
+          startedOk = started;
         }
-        if (started) {
-          _idCicloActivoActual = tempId;
-          _tratamientoActivoActual = t;
-        }
-        startedOk = started;
       } on _BleOperationAborted catch (e) {
         print("BLE: Manual start aborted by user action: $e");
         _bleManager.log("MANUAL abort-request -> cleanup");

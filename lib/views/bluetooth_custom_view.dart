@@ -95,6 +95,8 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
   int _startCommand = 0x20;
   int _sequenceMode = 2;
   int _workMode = 0;
+  ManualStartDiagnosticStrategy _diagnosticStrategy =
+      ManualStartDiagnosticStrategy.disabled;
   int _selectedPresetIndex = 0;
 
   _ManualSection _section = _ManualSection.menu;
@@ -1152,7 +1154,35 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
     );
   }
 
+  String _diagLabel(ManualStartDiagnosticStrategy strategy) {
+    switch (strategy) {
+      case ManualStartDiagnosticStrategy.disabled:
+        return 'Diag: Off (normal start)';
+      case ManualStartDiagnosticStrategy.powerOnOnly:
+        return 'Diag: 0x20 1';
+      case ManualStartDiagnosticStrategy.control2to1:
+        return 'Diag: 0x20 2->1';
+      case ManualStartDiagnosticStrategy.control1to2:
+        return 'Diag: 0x20 1->2';
+      case ManualStartDiagnosticStrategy.quickStart:
+        return 'Diag: 0x21';
+      case ManualStartDiagnosticStrategy.powerOnWithModeAndShortCountdown:
+        return 'Diag: 0x20 1 + mode + ct45';
+      case ManualStartDiagnosticStrategy.control2to1WithModeAndShortCountdown:
+        return 'Diag: 0x20 2->1 + mode + ct45';
+      case ManualStartDiagnosticStrategy.control1to2WithModeAndShortCountdown:
+        return 'Diag: 0x20 1->2 + mode + ct45';
+      case ManualStartDiagnosticStrategy.quickStartWithModeAndShortCountdown:
+        return 'Diag: 0x21 + mode + ct45';
+    }
+  }
+
   Widget _buildDebugPanel() {
+    final appState = context.watch<AppState>();
+    final diagnosticActive =
+        _diagnosticStrategy != ManualStartDiagnosticStrategy.disabled;
+    final disableReadsDuringRun = diagnosticActive && appState.hayCicloActivo;
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.86),
@@ -1189,10 +1219,12 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
                     value: 0x21, child: Text('Cmd: Quick Start (0x21)')),
                 DropdownMenuItem(value: -1, child: Text('Cmd: None')),
               ],
-              onChanged: (v) {
-                if (v == null) return;
-                setState(() => _startCommand = v);
-              },
+              onChanged: diagnosticActive
+                  ? null
+                  : (v) {
+                      if (v == null) return;
+                      setState(() => _startCommand = v);
+                    },
             ),
             const SizedBox(height: 8),
             DropdownButton<int>(
@@ -1210,10 +1242,12 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
                     value: 3,
                     child: Text('Seq: Hard Reset (Stop -> Params -> Start)')),
               ],
-              onChanged: (v) {
-                if (v == null) return;
-                setState(() => _sequenceMode = v);
-              },
+              onChanged: diagnosticActive
+                  ? null
+                  : (v) {
+                      if (v == null) return;
+                      setState(() => _sequenceMode = v);
+                    },
             ),
             const SizedBox(height: 8),
             DropdownButton<int>(
@@ -1231,21 +1265,50 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
               },
             ),
             const SizedBox(height: 8),
+            DropdownButton<ManualStartDiagnosticStrategy>(
+              value: _diagnosticStrategy,
+              isExpanded: true,
+              items: ManualStartDiagnosticStrategy.values
+                  .map(
+                    (strategy) => DropdownMenuItem(
+                      value: strategy,
+                      child: Text(_diagLabel(strategy)),
+                    ),
+                  )
+                  .toList(growable: false),
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() => _diagnosticStrategy = value);
+              },
+            ),
+            if (diagnosticActive) ...[
+              const SizedBox(height: 6),
+              const Text(
+                'Modo diagnostico: envia una sola estrategia y captura status 0x10.',
+                style: TextStyle(fontSize: 12, color: Color(0xFF255F86)),
+              ),
+            ],
+            const SizedBox(height: 8),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: [
                 TextButton.icon(
-                  onPressed: () async {
-                    BleManager().log('--- READING DEVICE STATE ---');
-                    await BleManager().write(BleProtocol.getStatus());
-                    await Future.delayed(const Duration(milliseconds: 180));
-                    await BleManager().write(BleProtocol.getWorkMode());
-                    await Future.delayed(const Duration(milliseconds: 180));
-                    await BleManager().write(BleProtocol.getCountdown());
-                    await Future.delayed(const Duration(milliseconds: 180));
-                    await BleManager().write(BleProtocol.getBrightness());
-                  },
+                  onPressed: disableReadsDuringRun
+                      ? null
+                      : () async {
+                          BleManager().log('--- READING DEVICE STATE ---');
+                          await BleManager().write(BleProtocol.getStatus());
+                          await Future.delayed(
+                              const Duration(milliseconds: 180));
+                          await BleManager().write(BleProtocol.getWorkMode());
+                          await Future.delayed(
+                              const Duration(milliseconds: 180));
+                          await BleManager().write(BleProtocol.getCountdown());
+                          await Future.delayed(
+                              const Duration(milliseconds: 180));
+                          await BleManager().write(BleProtocol.getBrightness());
+                        },
                   icon: const Icon(Icons.info_outline, size: 16),
                   label: const Text('Leer estado'),
                 ),
@@ -1577,6 +1640,8 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
 
   Future<void> _runManualTreatment() async {
     final state = context.read<AppState>();
+    final diagnosticActive =
+        _diagnosticStrategy != ManualStartDiagnosticStrategy.disabled;
     final activeBeforeStop = _snapshotFromActiveTreatment(state);
     if (activeBeforeStop != null) {
       _applySnapshotToEditor(activeBeforeStop);
@@ -1600,16 +1665,72 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
       ],
     );
 
-    await state.iniciarCicloManual(
+    final started = await state.iniciarCicloManual(
       manualT,
       startCommand: _startCommand,
       sequenceMode: _sequenceMode,
       workMode: _workMode,
+      diagnosticStrategy: _diagnosticStrategy,
     );
     if (!mounted) return;
-    setState(() => _section = _ManualSection.home);
+    if (started) {
+      setState(() => _section = _ManualSection.home);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Enviando configuracion al dispositivo...')),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content:
+              Text('No se pudo iniciar el tratamiento. El panel no respondio.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+    if (diagnosticActive && mounted) {
+      await Future.delayed(const Duration(milliseconds: 120));
+      if (!mounted) return;
+      await _askDiagnosticOutcome(state);
+    }
+  }
+
+  Future<void> _askDiagnosticOutcome(AppState state) async {
+    final seq = state.lastManualDiagnosticSequenceId ?? 'n/a';
+    final status = state.lastManualDiagnosticStatusPreview;
+
+    final outcome = await showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Resultado diagnostico'),
+          content: Text(
+            'Seq: $seq\nStatus 0x10 (primeros bytes): $status\n\n'
+            'Que hizo fisicamente el panel?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop('no-start'),
+              child: const Text('No inicio'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop('light-only'),
+              child: const Text('Solo luz'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop('light-and-countdown'),
+              child: const Text('Luz + countdown'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (outcome == null) return;
+    state.registrarObservacionDiagnosticoManual(outcome);
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Enviando configuracion al dispositivo...')),
+      SnackBar(content: Text('Resultado diagnostico guardado: $outcome')),
     );
   }
 
