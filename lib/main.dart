@@ -3123,10 +3123,11 @@ class AppState extends ChangeNotifier {
     if (_bleManager.canObserveRx &&
         modeFrame == null &&
         !_bleManager.hasSeenProtocolRx) {
+      // Keep sending the full init chain even on a cold first probe (0x52).
+      // The stock app continues init blindly after this point.
       _bleManager.log(
-        "BLE INIT ${phaseLabel}fail-fast:no-ack-on-first-step",
+        "BLE INIT ${phaseLabel}no-ack-on-first-step -> continue-init",
       );
-      return false;
     }
     final channelCount = _channelCountFromModeFrame(modeFrame);
 
