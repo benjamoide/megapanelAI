@@ -99698,10 +99698,8 @@ s=3
 return A.f(n.$4$ackCommand$label$packet$timeout(82,"get-mode-channels",A.cx(82,A.b([0],m)),B.bR),$async$mt)
 case 3:l=c
 k=p.as
-if(k.c!=null&&l==null&&!k.y){k.aK("BLE INIT "+o+"fail-fast:no-ack-on-first-step")
-q=!1
-s=1
-break}j=p.ad_(l)
+if(k.c!=null&&l==null&&!k.y)k.aK("BLE INIT "+o+"no-ack-on-first-step -> continue-init")
+j=p.ad_(l)
 i=0
 case 4:if(!(i<4)){s=6
 break}s=7
