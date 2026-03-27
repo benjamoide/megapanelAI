@@ -2119,13 +2119,14 @@ enum ManualStartDiagnosticStrategy {
   quickStartWithModeAndShortCountdown,
 }
 
-class AppState extends ChangeNotifier {
+class AppState extends ChangeNotifier with WidgetsBindingObserver {
   String currentUser = "";
   bool isGuest = false;
   String _apiKey = apiKeyFromBuild;
 
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   StreamSubscription<DocumentSnapshot>? _userSubscription;
+  StreamSubscription<BluetoothConnectionState>? _bleConnectionSubscription;
 
   Map<String, List<Map<String, dynamic>>> historial = {};
   Map<String, Map<String, String>> planificados = {};
@@ -2148,6 +2149,27 @@ class AppState extends ChangeNotifier {
   ManualStartDiagnosticStrategy _lastManualDiagnosticStrategy =
       ManualStartDiagnosticStrategy.disabled;
   List<int>? _lastManualDiagnosticStatusPayload;
+  Timer? _bleKeepAliveTimer;
+  AppLifecycleState _appLifecycleState = AppLifecycleState.resumed;
+  bool _bleKeepAliveTickInFlight = false;
+  bool _bleWakeProbeInFlight = false;
+  int _bleKeepAliveMissCount = 0;
+  DateTime? _lastBleWakeProbeAt;
+  Timer? _bleAutoReconnectTimer;
+  bool _bleAutoReconnectAttemptInFlight = false;
+  bool _bleAutoReconnectAllowed = true;
+  bool _bleAutoReconnectSuspended = false;
+  String? _preferredBleDeviceId;
+  String? _preferredBleDeviceName;
+
+  static const Duration _bleKeepAliveInterval = Duration(seconds: 1);
+  static const Duration _bleKeepAliveAckWindow = Duration(milliseconds: 700);
+  static const Duration _bleKeepAliveWakeCooldown = Duration(seconds: 12);
+  static const Duration _bleAutoReconnectInterval = Duration(seconds: 6);
+  static const Duration _bleAutoReconnectScanTimeout = Duration(seconds: 5);
+  static const String _prefsGeminiApiKey = 'gemini_api_key';
+  static const String _prefsBleLastDeviceId = 'ble_last_device_id';
+  static const String _prefsBleLastDeviceName = 'ble_last_device_name';
 
   bool get hasApiKey => _apiKey.isNotEmpty;
   Tratamiento? get tratamientoActivoActual => _tratamientoActivoActual;
@@ -2302,14 +2324,18 @@ class AppState extends ChangeNotifier {
   }
 
   AppState() {
+    WidgetsBinding.instance.addObserver(this);
+    _appLifecycleState =
+        WidgetsBinding.instance.lifecycleState ?? AppLifecycleState.resumed;
     catalogo = _generarCatalogoCompleto();
+    _restoreLocalPreferences();
     _initBle();
   }
 
   void _initBle() {
     _bleManager.init();
     // Subscribe to state changes
-    _bleManager.connectionState.listen((state) {
+    _bleConnectionSubscription = _bleManager.connectionState.listen((state) {
       final connected = state == BluetoothConnectionState.connected;
       if (!connected) {
         _bleInitInProgress = false;
@@ -2317,10 +2343,344 @@ class AppState extends ChangeNotifier {
         _bleManager.setReadCommandGate(false, reason: "state-disconnected");
       }
       isConnected = connected;
+      _syncBleKeepAlive();
+      _syncBleAutoReconnect();
       notifyListeners();
     });
     // Check initial state
     isConnected = _bleManager.isConnected;
+    _syncBleKeepAlive();
+    _syncBleAutoReconnect();
+  }
+
+  Future<void> _restoreLocalPreferences() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final storedApiKey = prefs.getString(_prefsGeminiApiKey);
+      final storedBleDeviceId = prefs.getString(_prefsBleLastDeviceId);
+      final storedBleDeviceName = prefs.getString(_prefsBleLastDeviceName);
+
+      if (storedApiKey != null && storedApiKey.isNotEmpty) {
+        _apiKey = storedApiKey;
+      }
+      if (storedBleDeviceId != null && storedBleDeviceId.isNotEmpty) {
+        _preferredBleDeviceId = storedBleDeviceId;
+      }
+      if (storedBleDeviceName != null && storedBleDeviceName.isNotEmpty) {
+        _preferredBleDeviceName = storedBleDeviceName;
+      }
+    } catch (e) {
+      _bleManager.log("BLE PREFS restore error: $e");
+    } finally {
+      _syncBleAutoReconnect();
+      notifyListeners();
+    }
+  }
+
+  Future<void> _persistPreferredBleDevice(BluetoothDevice device) async {
+    final deviceId = device.remoteId.str.trim();
+    if (deviceId.isEmpty) return;
+
+    final displayName = (() {
+      final platformName = device.platformName.trim();
+      if (platformName.isNotEmpty) return platformName;
+      return deviceId;
+    })();
+
+    _preferredBleDeviceId = deviceId;
+    _preferredBleDeviceName = displayName;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_prefsBleLastDeviceId, deviceId);
+      await prefs.setString(_prefsBleLastDeviceName, displayName);
+    } catch (e) {
+      _bleManager.log("BLE PREFS persist error: $e");
+    }
+  }
+
+  bool get _shouldAutoReconnectBle {
+    final preferredId = _preferredBleDeviceId;
+    return preferredId != null &&
+        preferredId.isNotEmpty &&
+        _bleAutoReconnectAllowed &&
+        !_bleAutoReconnectSuspended &&
+        _appLifecycleState == AppLifecycleState.resumed &&
+        !isConnected &&
+        !_bleManager.isConnected;
+  }
+
+  void setBleAutoReconnectSuspended(
+    bool suspended, {
+    String reason = "",
+  }) {
+    if (_bleAutoReconnectSuspended == suspended) return;
+    _bleAutoReconnectSuspended = suspended;
+    final suffix = reason.isEmpty ? "" : " ($reason)";
+    _bleManager.log(
+      "BLE AUTORECONNECT -> ${suspended ? 'suspended' : 'resumed'}$suffix",
+    );
+    _syncBleAutoReconnect();
+  }
+
+  void _syncBleAutoReconnect() {
+    if (!_shouldAutoReconnectBle) {
+      _stopBleAutoReconnect(reason: _autoReconnectStopReason());
+      return;
+    }
+    if (_bleAutoReconnectTimer != null) return;
+
+    _bleManager.log(
+      "BLE AUTORECONNECT start"
+      " target=${_preferredBleDeviceName ?? _preferredBleDeviceId}",
+    );
+    _bleAutoReconnectTimer = Timer.periodic(_bleAutoReconnectInterval, (_) {
+      _runBleAutoReconnectAttemptNonBlocking(trigger: "timer");
+    });
+    _runBleAutoReconnectAttemptNonBlocking(trigger: "start");
+  }
+
+  String _autoReconnectStopReason() {
+    final parts = <String>[];
+    if (isConnected || _bleManager.isConnected) {
+      parts.add("connected");
+    }
+    if (!_bleAutoReconnectAllowed) {
+      parts.add("disabled");
+    }
+    if (_bleAutoReconnectSuspended) {
+      parts.add("suspended");
+    }
+    if (_appLifecycleState != AppLifecycleState.resumed) {
+      parts.add("lifecycle=$_appLifecycleState");
+    }
+    if ((_preferredBleDeviceId ?? "").isEmpty) {
+      parts.add("no-target");
+    }
+    if (parts.isEmpty) {
+      parts.add("idle");
+    }
+    return parts.join(", ");
+  }
+
+  void _stopBleAutoReconnect({String reason = ""}) {
+    final timer = _bleAutoReconnectTimer;
+    if (timer == null) return;
+    timer.cancel();
+    _bleAutoReconnectTimer = null;
+    final suffix = reason.isEmpty ? "" : " ($reason)";
+    _bleManager.log("BLE AUTORECONNECT stop$suffix");
+    unawaited(_bleManager.stopScan());
+  }
+
+  void _runBleAutoReconnectAttemptNonBlocking({String trigger = "timer"}) {
+    if (_bleAutoReconnectAttemptInFlight) return;
+    _bleAutoReconnectAttemptInFlight = true;
+    unawaited(() async {
+      try {
+        await _runBleAutoReconnectAttempt(trigger: trigger);
+      } catch (e) {
+        _bleManager.log("BLE AUTORECONNECT [$trigger] error: $e");
+      } finally {
+        _bleAutoReconnectAttemptInFlight = false;
+      }
+    }());
+  }
+
+  Future<void> _runBleAutoReconnectAttempt({String trigger = "timer"}) async {
+    if (!_shouldAutoReconnectBle) return;
+    final targetId = _preferredBleDeviceId;
+    if (targetId == null || targetId.isEmpty) return;
+
+    _bleManager.log(
+      "BLE AUTORECONNECT [$trigger] probing"
+      " target=${_preferredBleDeviceName ?? targetId}",
+    );
+    final match = await _scanForPreferredBleDevice(targetId);
+    if (!_shouldAutoReconnectBle) return;
+
+    if (match == null) {
+      _bleManager.log("BLE AUTORECONNECT [$trigger] target-not-found");
+      return;
+    }
+
+    final success = await connectToDevice(match);
+    _bleManager.log("BLE AUTORECONNECT [$trigger] result=$success");
+  }
+
+  Future<BluetoothDevice?> _scanForPreferredBleDevice(String targetId) async {
+    final normalizedTarget = targetId.trim().toUpperCase();
+    if (normalizedTarget.isEmpty) return null;
+
+    final current = _bleManager.connectedDevice;
+    if (current != null &&
+        current.remoteId.str.trim().toUpperCase() == normalizedTarget) {
+      return current;
+    }
+
+    final completer = Completer<BluetoothDevice?>();
+    late final StreamSubscription<List<ScanResult>> subscription;
+    Timer? timeoutTimer;
+
+    void resolve(BluetoothDevice? device) {
+      if (!completer.isCompleted) {
+        completer.complete(device);
+      }
+    }
+
+    subscription = _bleManager.scanResults.listen((results) {
+      for (final result in results) {
+        final candidateId = result.device.remoteId.str.trim().toUpperCase();
+        if (candidateId == normalizedTarget) {
+          resolve(result.device);
+          return;
+        }
+      }
+    }, onError: (_) {
+      resolve(null);
+    });
+
+    try {
+      await _bleManager.stopScan();
+      await _bleManager.startScan();
+      timeoutTimer = Timer(_bleAutoReconnectScanTimeout, () => resolve(null));
+      return await completer.future;
+    } finally {
+      timeoutTimer?.cancel();
+      await subscription.cancel();
+      await _bleManager.stopScan();
+    }
+  }
+
+  void _syncBleKeepAlive() {
+    final shouldRun = isConnected &&
+        _bleManager.isConnected &&
+        _appLifecycleState == AppLifecycleState.resumed;
+    if (!shouldRun) {
+      _stopBleKeepAlive(
+        reason: "connected=$isConnected lifecycle=$_appLifecycleState",
+      );
+      return;
+    }
+    if (_bleKeepAliveTimer != null) return;
+
+    _bleKeepAliveMissCount = 0;
+    _bleManager.log("BLE KEEPALIVE start");
+    _bleKeepAliveTimer = Timer.periodic(_bleKeepAliveInterval, (_) {
+      _runBleKeepAliveTickNonBlocking(trigger: "timer");
+    });
+    _runBleKeepAliveTickNonBlocking(trigger: "start");
+  }
+
+  void _stopBleKeepAlive({String reason = ""}) {
+    final timer = _bleKeepAliveTimer;
+    if (timer == null) return;
+    timer.cancel();
+    _bleKeepAliveTimer = null;
+    _bleKeepAliveMissCount = 0;
+    final suffix = reason.isEmpty ? "" : " ($reason)";
+    _bleManager.log("BLE KEEPALIVE stop$suffix");
+  }
+
+  void _runBleKeepAliveTickNonBlocking({String trigger = "timer"}) {
+    if (_bleKeepAliveTickInFlight) return;
+    _bleKeepAliveTickInFlight = true;
+    unawaited(() async {
+      try {
+        await _runBleKeepAliveTick(trigger: trigger);
+      } catch (e) {
+        _bleManager.log("BLE KEEPALIVE [$trigger] error: $e");
+      } finally {
+        _bleKeepAliveTickInFlight = false;
+      }
+    }());
+  }
+
+  Future<void> _runBleKeepAliveTick({String trigger = "timer"}) async {
+    if (!isConnected || !_bleManager.isConnected) return;
+    if (_appLifecycleState != AppLifecycleState.resumed) return;
+    if (_bleInitInProgress ||
+        _bleStartBusy ||
+        _bleAbortRequested ||
+        _bleWakeProbeInFlight) {
+      return;
+    }
+    if (_bleManager.readCommandGateActive) return;
+
+    final rxBefore = _bleManager.lastProtocolRxAt;
+    await _bleManager.write(BleProtocol.getStatus());
+    if (!_bleManager.canObserveRx) return;
+
+    await Future.delayed(_bleKeepAliveAckWindow);
+    if (!isConnected || !_bleManager.isConnected) return;
+
+    final rxAfter = _bleManager.lastProtocolRxAt;
+    final responded =
+        rxAfter != null && (rxBefore == null || rxAfter.isAfter(rxBefore));
+
+    if (responded) {
+      if (_bleKeepAliveMissCount > 0) {
+        _bleManager.log("BLE KEEPALIVE [$trigger] recovered");
+      }
+      _bleKeepAliveMissCount = 0;
+      return;
+    }
+
+    _bleKeepAliveMissCount++;
+    _bleManager.log("BLE KEEPALIVE [$trigger] miss=$_bleKeepAliveMissCount");
+    if (_bleKeepAliveMissCount < 3) return;
+
+    final now = DateTime.now();
+    final lastProbe = _lastBleWakeProbeAt;
+    if (lastProbe != null &&
+        now.difference(lastProbe) < _bleKeepAliveWakeCooldown) {
+      return;
+    }
+
+    _bleKeepAliveMissCount = 0;
+    _runBleWakeProbeNonBlocking(
+      phase: "keepalive",
+      allowRecover: false,
+    );
+  }
+
+  void _runBleWakeProbeNonBlocking({
+    required String phase,
+    required bool allowRecover,
+  }) {
+    if (_bleWakeProbeInFlight) return;
+    _bleWakeProbeInFlight = true;
+    _lastBleWakeProbeAt = DateTime.now();
+    unawaited(() async {
+      try {
+        final responsive = await _ensureBleResponsive(
+          phase: phase,
+          allowRecover: allowRecover,
+        );
+        if (!responsive && isConnected && _bleManager.isConnected) {
+          await _wakePanelFromSleep(workMode: 0);
+        }
+      } catch (e) {
+        _bleManager.log("BLE WAKE PROBE [$phase] error: $e");
+      } finally {
+        _bleWakeProbeInFlight = false;
+      }
+    }());
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _appLifecycleState = state;
+    _syncBleKeepAlive();
+    _syncBleAutoReconnect();
+    if (state == AppLifecycleState.resumed &&
+        isConnected &&
+        _bleManager.isConnected) {
+      _runBleWakeProbeNonBlocking(
+        phase: "resume",
+        allowRecover: false,
+      );
+    }
   }
 
   Future<void> _acquireBleStartLock() async {
@@ -3210,6 +3570,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<bool> connectToDevice(BluetoothDevice device) async {
+    _bleAutoReconnectAllowed = true;
     _bleManager.setPreferWriteWithoutResponse(false, reason: "new-connection");
     _bleInitDoneForLink = false;
     _bleInitInProgress = false;
@@ -3218,22 +3579,38 @@ class AppState extends ChangeNotifier {
     var changed = isConnected != nextIsConnected;
     isConnected = nextIsConnected;
     if (changed) notifyListeners();
+    _syncBleKeepAlive();
+    _syncBleAutoReconnect();
 
     final ready = connected && nextIsConnected;
     if (!ready) return false;
+    await _persistPreferredBleDevice(device);
     _runConnectWarmupNonBlocking();
     return true;
   }
 
   Future<void> disconnectDevice() async {
+    _bleAutoReconnectAllowed = false;
     _bleInitDoneForLink = false;
     _bleInitInProgress = false;
     _bleManager.setReadCommandGate(false, reason: "manual-disconnect");
+    _stopBleKeepAlive(reason: "manual-disconnect");
+    _stopBleAutoReconnect(reason: "manual-disconnect");
     await _bleManager.disconnect();
     if (isConnected) {
       isConnected = false;
       notifyListeners();
     }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _stopBleKeepAlive(reason: "dispose");
+    _stopBleAutoReconnect(reason: "dispose");
+    _bleConnectionSubscription?.cancel();
+    _userSubscription?.cancel();
+    super.dispose();
   }
 
   Future<bool> waitForStableConnection({
@@ -3269,7 +3646,7 @@ class AppState extends ChangeNotifier {
   void setApiKey(String key) {
     _apiKey = key;
     SharedPreferences.getInstance()
-        .then((prefs) => prefs.setString('gemini_api_key', key));
+        .then((prefs) => prefs.setString(_prefsGeminiApiKey, key));
     notifyListeners();
   }
 
@@ -6794,6 +7171,7 @@ class BluetoothScanDialog extends StatefulWidget {
 
 class _BluetoothScanDialogState extends State<BluetoothScanDialog> {
   final BleManager _ble = BleManager();
+  late final AppState _appState;
 
   String _displayName(ScanResult result) {
     final advName = result.advertisementData.advName.trim();
@@ -6825,11 +7203,20 @@ class _BluetoothScanDialogState extends State<BluetoothScanDialog> {
   @override
   void initState() {
     super.initState();
+    _appState = context.read<AppState>();
+    _appState.setBleAutoReconnectSuspended(
+      true,
+      reason: "scan-dialog",
+    );
     _ble.startScan();
   }
 
   @override
   void dispose() {
+    _appState.setBleAutoReconnectSuspended(
+      false,
+      reason: "scan-dialog-closed",
+    );
     _ble.stopScan();
     super.dispose();
   }

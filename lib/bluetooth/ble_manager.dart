@@ -57,6 +57,7 @@ class BleManager {
       _writeCharacteristic != null;
   bool get canObserveRx => _notifyCharacteristic != null;
   bool get hasSeenProtocolRx => _hadProtocolRxSinceConnect;
+  DateTime? get lastProtocolRxAt => _lastRxAt;
   bool get prefersWriteWithoutResponse => _preferWriteWithoutResponse;
   bool get readCommandGateActive => _suspendReadCommands;
 
