@@ -2159,6 +2159,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   bool _bleAutoReconnectAttemptInFlight = false;
   bool _bleAutoReconnectAllowed = true;
   bool _bleAutoReconnectSuspended = false;
+  int _bleBackgroundSuspendCount = 0;
   String? _preferredBleDeviceId;
   String? _preferredBleDeviceName;
 
@@ -2405,9 +2406,31 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         preferredId.isNotEmpty &&
         _bleAutoReconnectAllowed &&
         !_bleAutoReconnectSuspended &&
+        !_bleBackgroundWorkSuspended &&
         _appLifecycleState == AppLifecycleState.resumed &&
         !isConnected &&
         !_bleManager.isConnected;
+  }
+
+  bool get _bleBackgroundWorkSuspended => _bleBackgroundSuspendCount > 0;
+
+  void _suspendBleBackgroundWork({String reason = ""}) {
+    _bleBackgroundSuspendCount++;
+    if (_bleBackgroundSuspendCount != 1) return;
+    final suffix = reason.isEmpty ? "" : " ($reason)";
+    _bleManager.log("BLE BACKGROUND -> suspended$suffix");
+    _syncBleKeepAlive();
+    _syncBleAutoReconnect();
+  }
+
+  void _resumeBleBackgroundWork({String reason = ""}) {
+    if (_bleBackgroundSuspendCount <= 0) return;
+    _bleBackgroundSuspendCount--;
+    if (_bleBackgroundSuspendCount != 0) return;
+    final suffix = reason.isEmpty ? "" : " ($reason)";
+    _bleManager.log("BLE BACKGROUND -> resumed$suffix");
+    _syncBleKeepAlive();
+    _syncBleAutoReconnect();
   }
 
   void setBleAutoReconnectSuspended(
@@ -2555,6 +2578,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   void _syncBleKeepAlive() {
     final shouldRun = isConnected &&
         _bleManager.isConnected &&
+        !_bleBackgroundWorkSuspended &&
         _appLifecycleState == AppLifecycleState.resumed;
     if (!shouldRun) {
       _stopBleKeepAlive(
@@ -2648,7 +2672,13 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     required String phase,
     required bool allowRecover,
   }) {
-    if (_bleWakeProbeInFlight) return;
+    if (_bleWakeProbeInFlight ||
+        _bleBackgroundWorkSuspended ||
+        _bleStartBusy ||
+        _bleInitInProgress ||
+        _bleAbortRequested) {
+      return;
+    }
     _bleWakeProbeInFlight = true;
     _lastBleWakeProbeAt = DateTime.now();
     unawaited(() async {
@@ -2674,6 +2704,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     _syncBleKeepAlive();
     _syncBleAutoReconnect();
     if (state == AppLifecycleState.resumed &&
+        !_bleBackgroundWorkSuspended &&
         isConnected &&
         _bleManager.isConnected) {
       _runBleWakeProbeNonBlocking(
@@ -2684,6 +2715,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> _acquireBleStartLock() async {
+    _suspendBleBackgroundWork(reason: "critical-op");
     while (_bleStartBusy) {
       await Future.delayed(const Duration(milliseconds: 120));
     }
@@ -2692,6 +2724,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
   void _releaseBleStartLock() {
     _bleStartBusy = false;
+    _resumeBleBackgroundWork(reason: "critical-op");
   }
 
   void _requestBleAbort({String reason = ""}) {
@@ -3387,6 +3420,14 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   void _runConnectWarmupNonBlocking() {
     unawaited(() async {
       try {
+        if (_bleBackgroundWorkSuspended ||
+            _bleStartBusy ||
+            _bleInitInProgress ||
+            _bleWakeProbeInFlight ||
+            _bleAbortRequested) {
+          _bleManager.log("CONNECT warmup -> skipped:critical-op");
+          return;
+        }
         final ok = await _waitForBleRx(
           phase: "connect-passive",
           timeout: const Duration(seconds: 3),
@@ -4379,15 +4420,10 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
           false,
           reason: "manual-start-default-transport",
         );
-        final initOk = await _ensureBleInitialized(phase: "manual");
-        if (!initOk) {
-          _bleManager.log(
-            "MANUAL init-incomplete -> continue-start-with-rx-guard",
-          );
-        }
         if (diagnosticStrategy != ManualStartDiagnosticStrategy.disabled) {
           final strategyId = _manualDiagnosticStrategyId(diagnosticStrategy);
           _bleManager.log("MANUAL diagnostic mode -> $strategyId");
+          _bleManager.log("MANUAL diagnostic mode -> skip-official-init");
           _preferWriteWithResponse(reason: "manual-diagnostic-start");
           final started = await _runManualDiagnosticStart(
             cycleId: tempId,
@@ -4403,6 +4439,12 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
           }
           startedOk = started;
         } else {
+          final initOk = await _ensureBleInitialized(phase: "manual");
+          if (!initOk) {
+            _bleManager.log(
+              "MANUAL init-incomplete -> continue-start-with-rx-guard",
+            );
+          }
           print(
               "BLE: Starting Manual Treatment (Seq: $sequenceMode, Cmd: $startCommand, Mode: $workMode)");
           Future<bool> runManualSequence(String phase) async {
