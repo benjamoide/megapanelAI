@@ -2160,6 +2160,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   bool _bleAutoReconnectAllowed = true;
   bool _bleAutoReconnectSuspended = false;
   int _bleBackgroundSuspendCount = 0;
+  int _bleCriticalRequestCount = 0;
   String? _preferredBleDeviceId;
   String? _preferredBleDeviceName;
 
@@ -2412,7 +2413,25 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         !_bleManager.isConnected;
   }
 
-  bool get _bleBackgroundWorkSuspended => _bleBackgroundSuspendCount > 0;
+  bool get _bleBackgroundWorkSuspended =>
+      _bleBackgroundSuspendCount > 0 || _bleCriticalRequestCount > 0;
+
+  void _beginBleCriticalRequest() {
+    _bleCriticalRequestCount++;
+    if (_bleCriticalRequestCount != 1) return;
+    _bleManager.log("BLE BACKGROUND -> critical-requested");
+    _syncBleKeepAlive();
+    _syncBleAutoReconnect();
+  }
+
+  void _endBleCriticalRequest() {
+    if (_bleCriticalRequestCount <= 0) return;
+    _bleCriticalRequestCount--;
+    if (_bleCriticalRequestCount != 0) return;
+    _bleManager.log("BLE BACKGROUND -> critical-cleared");
+    _syncBleKeepAlive();
+    _syncBleAutoReconnect();
+  }
 
   void _suspendBleBackgroundWork({String reason = ""}) {
     _bleBackgroundSuspendCount++;
@@ -2715,16 +2734,21 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> _acquireBleStartLock() async {
-    _suspendBleBackgroundWork(reason: "critical-op");
-    while (_bleStartBusy) {
+    _beginBleCriticalRequest();
+    while (_bleStartBusy ||
+        _bleWakeProbeInFlight ||
+        _bleKeepAliveTickInFlight ||
+        _bleAutoReconnectAttemptInFlight) {
       await Future.delayed(const Duration(milliseconds: 120));
     }
+    _suspendBleBackgroundWork(reason: "critical-op");
     _bleStartBusy = true;
   }
 
   void _releaseBleStartLock() {
     _bleStartBusy = false;
     _resumeBleBackgroundWork(reason: "critical-op");
+    _endBleCriticalRequest();
   }
 
   void _requestBleAbort({String reason = ""}) {
