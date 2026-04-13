@@ -99200,13 +99200,15 @@ break
 case 5:case 1:return A.v(q,r)
 case 2:return A.u(o.at(-1),r)}})
 return A.w($async$nJ,r)},
-nO(){var s=this
-if(!(s.ax&&s.at.gc9()&&!s.gvA()&&s.fx===B.bc)){s.Kp("connected="+s.ax+" lifecycle="+s.fx.j(0))
-return}if(s.fr!=null)return
-s.id=0
-s.at.ar("BLE KEEPALIVE start")
-s.fr=A.xT(B.cv,new A.a4P(s))
-s.WN("start")},
+nO(){var s,r,q=this
+if(q.ax){s=q.at
+r=s.gc9()&&s.y&&!q.gvA()&&q.fx===B.bc}else r=!1
+if(!r){q.Kp("connected="+q.ax+" lifecycle="+q.fx.j(0)+" seenRx="+q.at.y)
+return}if(q.fr!=null)return
+q.id=0
+q.at.ar("BLE KEEPALIVE start")
+q.fr=A.xT(B.cv,new A.a4P(q))
+q.WN("start")},
 Kp(a){var s,r=this,q=r.fr
 if(q==null)return
 q.aE()
