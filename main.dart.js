@@ -99202,8 +99202,8 @@ case 2:return A.u(o.at(-1),r)}})
 return A.w($async$nJ,r)},
 nO(){var s,r,q=this
 if(q.ax){s=q.at
-r=s.gc9()&&s.y&&!q.gvA()&&q.fx===B.bc}else r=!1
-if(!r){q.Kp("connected="+q.ax+" lifecycle="+q.fx.j(0)+" seenRx="+q.at.y)
+r=s.gc9()&&s.y&&q.cy&&!q.gvA()&&q.fx===B.bc}else r=!1
+if(!r){q.Kp("connected="+q.ax+" lifecycle="+q.fx.j(0)+" seenRx="+q.at.y+" initDone="+q.cy)
 return}if(q.fr!=null)return
 q.id=0
 q.at.ar("BLE KEEPALIVE start")
