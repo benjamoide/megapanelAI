@@ -2598,12 +2598,13 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     final shouldRun = isConnected &&
         _bleManager.isConnected &&
         _bleManager.hasSeenProtocolRx &&
+        _bleInitDoneForLink &&
         !_bleBackgroundWorkSuspended &&
         _appLifecycleState == AppLifecycleState.resumed;
     if (!shouldRun) {
       _stopBleKeepAlive(
         reason:
-            "connected=$isConnected lifecycle=$_appLifecycleState seenRx=${_bleManager.hasSeenProtocolRx}",
+            "connected=$isConnected lifecycle=$_appLifecycleState seenRx=${_bleManager.hasSeenProtocolRx} initDone=$_bleInitDoneForLink",
       );
       return;
     }
