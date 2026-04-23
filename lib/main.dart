@@ -3134,6 +3134,30 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     return recoverOk;
   }
 
+  Future<bool> _ensureBlePanelReady({
+    required String phase,
+    bool allowRecover = true,
+  }) async {
+    if (!_bleManager.isConnected) return false;
+
+    final phaseLabel = phase.isEmpty ? "start" : phase;
+    final alreadyReady = _bleManager.hasSeenProtocolRx &&
+        (_bleInitDoneForLink ||
+            _bleManager.hasRecentRx(const Duration(seconds: 2)));
+    if (alreadyReady) {
+      _bleManager.log("PANEL READY [$phaseLabel] already-ready");
+      return true;
+    }
+
+    _bleManager.log("PANEL READY [$phaseLabel] bootstrap-start");
+    final ready = await _ensureBleResponsive(
+      phase: "$phaseLabel-ready",
+      allowRecover: allowRecover,
+    );
+    _bleManager.log("PANEL READY [$phaseLabel] ${ready ? 'ok' : 'silent'}");
+    return ready;
+  }
+
   Future<void> _sendOfficialControlWakeEdge({String phase = ""}) async {
     _throwIfBleAbortRequested(
       phase: phase.isEmpty ? "wake-edge" : "$phase-wake-edge",
@@ -3949,6 +3973,14 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
           false,
           reason: "catalogo-start-default-transport",
         );
+        final panelReady = await _ensureBlePanelReady(
+          phase: "catalogo",
+          allowRecover: true,
+        );
+        if (!panelReady) {
+          _bleManager.log("CATALOGO panel-not-ready -> abort-before-init");
+          throw Exception("Catalog start blocked (panel not ready)");
+        }
         final initOk = await _ensureBleInitialized(phase: "catalogo");
         if (!initOk) {
           _bleManager.log(
@@ -3983,10 +4015,15 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
         // Keep catalog start aligned with manual start path (no forced OFF pre-reset).
         // Some cold-boot units stay stuck if we send OFF before the first wake edge.
-        final preflightOk = await _ensureBleResponsive(
-          phase: "catalogo-preflight",
-          allowRecover: true,
-        );
+        var preflightOk = panelReady;
+        if (!initOk || !_bleManager.hasRecentRx(const Duration(seconds: 2))) {
+          preflightOk = await _ensureBleResponsive(
+            phase: "catalogo-preflight",
+            allowRecover: true,
+          );
+        } else {
+          _bleManager.log("RX PREFLIGHT [catalogo-preflight] skip-ready");
+        }
         if (!preflightOk) {
           _bleManager.log("CATALOGO preflight-no-rx -> forced-start-reliable");
         }
@@ -4466,6 +4503,14 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
           }
           startedOk = started;
         } else {
+          final panelReady = await _ensureBlePanelReady(
+            phase: "manual",
+            allowRecover: true,
+          );
+          if (!panelReady) {
+            _bleManager.log("MANUAL panel-not-ready -> abort-before-init");
+            throw Exception("Manual start blocked (panel not ready)");
+          }
           final initOk = await _ensureBleInitialized(phase: "manual");
           if (!initOk) {
             _bleManager.log(
@@ -4547,10 +4592,15 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
             return started;
           }
 
-          final preflightOk = await _ensureBleResponsive(
-            phase: "manual-preflight",
-            allowRecover: true,
-          );
+          var preflightOk = panelReady;
+          if (!initOk || !_bleManager.hasRecentRx(const Duration(seconds: 2))) {
+            preflightOk = await _ensureBleResponsive(
+              phase: "manual-preflight",
+              allowRecover: true,
+            );
+          } else {
+            _bleManager.log("RX PREFLIGHT [manual-preflight] skip-ready");
+          }
           if (!preflightOk) {
             _bleManager.log("MANUAL preflight-no-rx -> forced-start-reliable");
           }
