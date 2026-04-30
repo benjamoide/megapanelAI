@@ -2145,6 +2145,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   bool _bleAbortAckLogged = false;
   bool _bleInitInProgress = false;
   bool _bleInitDoneForLink = false;
+  bool _blePanelReadyForLink = false;
   String? _lastManualDiagnosticSequenceId;
   ManualStartDiagnosticStrategy _lastManualDiagnosticStrategy =
       ManualStartDiagnosticStrategy.disabled;
@@ -2342,6 +2343,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       if (!connected) {
         _bleInitInProgress = false;
         _bleInitDoneForLink = false;
+        _blePanelReadyForLink = false;
         _bleManager.setReadCommandGate(false, reason: "state-disconnected");
       }
       isConnected = connected;
@@ -3141,9 +3143,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     if (!_bleManager.isConnected) return false;
 
     final phaseLabel = phase.isEmpty ? "start" : phase;
-    final alreadyReady = _bleManager.hasSeenProtocolRx &&
-        (_bleInitDoneForLink ||
-            _bleManager.hasRecentRx(const Duration(seconds: 2)));
+    final alreadyReady = _blePanelReadyForLink || _bleInitDoneForLink;
     if (alreadyReady) {
       _bleManager.log("PANEL READY [$phaseLabel] already-ready");
       return true;
@@ -3154,8 +3154,68 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       phase: "$phaseLabel-ready",
       allowRecover: allowRecover,
     );
-    _bleManager.log("PANEL READY [$phaseLabel] ${ready ? 'ok' : 'silent'}");
-    return ready;
+    if (!ready) {
+      _blePanelReadyForLink = false;
+      _bleManager.log("PANEL READY [$phaseLabel] silent");
+      return false;
+    }
+
+    final confirmed = await _confirmBlePanelReadyReadback(phase: phaseLabel);
+    _blePanelReadyForLink = confirmed;
+    _bleManager.log(
+      "PANEL READY [$phaseLabel] ${confirmed ? 'ok' : 'secondary-missing'}",
+    );
+    return confirmed;
+  }
+
+  Future<bool> _confirmBlePanelReadyReadback({required String phase}) async {
+    if (!_bleManager.isConnected) return false;
+    if (!_bleManager.canObserveRx) return true;
+
+    Future<List<int>?> probe({
+      required List<int> packet,
+      required int ackCommand,
+      required String label,
+    }) async {
+      _throwIfBleAbortRequested(phase: "$phase-ready-$label");
+      return _bleManager.writeAndWaitForAck(
+        packet,
+        ackCommand: ackCommand,
+        timeout: const Duration(milliseconds: 1400),
+      );
+    }
+
+    final workModeFrame = await probe(
+      packet: BleProtocol.getWorkMode(),
+      ackCommand: BleProtocol.cmdGetWorkMode,
+      label: "workmode",
+    );
+    if (workModeFrame != null) {
+      _bleManager.log("PANEL READY [$phase] secondary-ok cmd=0x51");
+      return true;
+    }
+
+    final countdownFrame = await probe(
+      packet: BleProtocol.getCountdown(),
+      ackCommand: BleProtocol.cmdGetCountdown,
+      label: "countdown",
+    );
+    if (countdownFrame != null) {
+      _bleManager.log("PANEL READY [$phase] secondary-ok cmd=0x30");
+      return true;
+    }
+
+    final brightnessFrame = await probe(
+      packet: BleProtocol.getBrightness(),
+      ackCommand: BleProtocol.cmdGetBrightness,
+      label: "brightness",
+    );
+    if (brightnessFrame != null) {
+      _bleManager.log("PANEL READY [$phase] secondary-ok cmd=0x40");
+      return true;
+    }
+
+    return false;
   }
 
   Future<void> _sendOfficialControlWakeEdge({String phase = ""}) async {
@@ -3648,11 +3708,13 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       _bleManager.log("BLE INIT [$phaseLabel] start");
       ok = await _runOfficialInitSequence(phase: phaseLabel);
       _bleInitDoneForLink = ok;
+      _blePanelReadyForLink = ok;
       if (!ok) {
         _bleManager.log("BLE INIT [$phaseLabel] incomplete -> fallback path");
       }
     } catch (e) {
       _bleInitDoneForLink = false;
+      _blePanelReadyForLink = false;
       _bleManager.log("BLE INIT [$phaseLabel] failed: $e");
     } finally {
       _bleInitInProgress = false;
@@ -3666,6 +3728,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     _bleManager.setPreferWriteWithoutResponse(false, reason: "new-connection");
     _bleInitDoneForLink = false;
     _bleInitInProgress = false;
+    _blePanelReadyForLink = false;
     final connected = await _bleManager.connect(device);
     var nextIsConnected = _bleManager.isConnected;
     var changed = isConnected != nextIsConnected;
@@ -3685,6 +3748,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     _bleAutoReconnectAllowed = false;
     _bleInitDoneForLink = false;
     _bleInitInProgress = false;
+    _blePanelReadyForLink = false;
     _bleManager.setReadCommandGate(false, reason: "manual-disconnect");
     _stopBleKeepAlive(reason: "manual-disconnect");
     _stopBleAutoReconnect(reason: "manual-disconnect");
