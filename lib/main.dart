@@ -2113,6 +2113,7 @@ enum ManualStartDiagnosticStrategy {
   control2to1,
   control1to2,
   quickStart,
+  officialPresetRun,
   powerOnWithModeAndShortCountdown,
   control2to1WithModeAndShortCountdown,
   control1to2WithModeAndShortCountdown,
@@ -2870,6 +2871,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       case ManualStartDiagnosticStrategy.control2to1:
       case ManualStartDiagnosticStrategy.control1to2:
       case ManualStartDiagnosticStrategy.quickStart:
+      case ManualStartDiagnosticStrategy.officialPresetRun:
         return false;
     }
   }
@@ -2886,6 +2888,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         return "20:1->2";
       case ManualStartDiagnosticStrategy.quickStart:
         return "21";
+      case ManualStartDiagnosticStrategy.officialPresetRun:
+        return "70->20:0->73";
       case ManualStartDiagnosticStrategy.powerOnWithModeAndShortCountdown:
         return "20:1+wm+ct45";
       case ManualStartDiagnosticStrategy.control2to1WithModeAndShortCountdown:
@@ -4421,6 +4425,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     required String cycleId,
     required int workMode,
     required ManualStartDiagnosticStrategy strategy,
+    required int presetIndex,
   }) async {
     if (!_bleManager.isConnected) return false;
     if (strategy == ManualStartDiagnosticStrategy.disabled) return false;
@@ -4496,6 +4501,28 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         await _bleManager.write(BleProtocol.quickStart(mode: 0x00));
         await Future.delayed(const Duration(milliseconds: 260));
         break;
+      case ManualStartDiagnosticStrategy.officialPresetRun:
+        final safePresetIndex = presetIndex.clamp(0, 3);
+        _bleManager.log(
+          "DIAG TX seq=$sequenceId step=70:$safePresetIndex->20:0->73:$safePresetIndex",
+        );
+        final presetFrame = await _bleManager.writeAndWaitForAck(
+          BleProtocol.getPreset(safePresetIndex),
+          ackCommand: BleProtocol.cmdGetPreset,
+          timeout: const Duration(seconds: 2),
+        );
+        final presetPayload = _payloadFromFrame(presetFrame);
+        final presetHex =
+            presetPayload.isEmpty ? "<none>" : _hexBytes(presetPayload.take(8));
+        _bleManager.log(
+          "DIAG TX seq=$sequenceId preset70 slot=$safePresetIndex payload=$presetHex",
+        );
+        await Future.delayed(const Duration(milliseconds: 180));
+        await _bleManager.write(BleProtocol.setPower(false));
+        await Future.delayed(const Duration(milliseconds: 180));
+        await _bleManager.write(BleProtocol.runPreset(safePresetIndex));
+        await Future.delayed(const Duration(milliseconds: 260));
+        break;
       case ManualStartDiagnosticStrategy.disabled:
         return false;
     }
@@ -4522,6 +4549,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       {int startCommand = 0x20,
       int sequenceMode = 2,
       int workMode = 0,
+      int diagnosticPresetIndex = 0,
       ManualStartDiagnosticStrategy diagnosticStrategy =
           ManualStartDiagnosticStrategy.disabled}) async {
     final tempId = t.id;
@@ -4557,6 +4585,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
             cycleId: tempId,
             workMode: workMode,
             strategy: diagnosticStrategy,
+            presetIndex: diagnosticPresetIndex,
           );
           if (started) {
             _idCicloActivoActual = tempId;

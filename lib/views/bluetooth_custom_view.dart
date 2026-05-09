@@ -1161,11 +1161,13 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
       case ManualStartDiagnosticStrategy.powerOnOnly:
         return 'Diag: 0x20 1';
       case ManualStartDiagnosticStrategy.control2to1:
-        return 'Diag: 0x20 2->1';
+        return 'Diag: Official dim wake 0x20 2->1';
       case ManualStartDiagnosticStrategy.control1to2:
-        return 'Diag: 0x20 1->2';
+        return 'Diag: Official load 0x20 1->2';
       case ManualStartDiagnosticStrategy.quickStart:
-        return 'Diag: 0x21';
+        return 'Diag: 0x21 (unused in official APK)';
+      case ManualStartDiagnosticStrategy.officialPresetRun:
+        return 'Diag: Official preset run 0x70->0x20 0->0x73';
       case ManualStartDiagnosticStrategy.powerOnWithModeAndShortCountdown:
         return 'Diag: 0x20 1 + mode + ct45';
       case ManualStartDiagnosticStrategy.control2to1WithModeAndShortCountdown:
@@ -1670,6 +1672,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
       startCommand: _startCommand,
       sequenceMode: _sequenceMode,
       workMode: _workMode,
+      diagnosticPresetIndex: _selectedPresetIndex,
       diagnosticStrategy: _diagnosticStrategy,
     );
     if (!mounted) return;

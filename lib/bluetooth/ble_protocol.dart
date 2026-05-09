@@ -16,6 +16,8 @@ class BleProtocol {
   static const int cmdSetWorkMode = 0x50; // 80
   static const int cmdGetWorkMode = 0x51;
   static const int cmdGetModeChannels = 0x52;
+  static const int cmdGetPreset = 0x70;
+  static const int cmdRunPreset = 0x73;
   static const int cmdRenamePreset = 0x74;
   static const int cmdGetCurrentPreset = 0x75;
 
@@ -127,6 +129,18 @@ class BleProtocol {
   /// Returns available channels for a work mode (0x52).
   static List<int> getModeChannels(int mode) {
     return buildPacket(cmdGetModeChannels, [mode & 0xFF]);
+  }
+
+  /// Reads a preset slot from the device (0x70).
+  static List<int> getPreset(int slotIndex) {
+    final safeIndex = slotIndex.clamp(0, 255).toInt();
+    return buildPacket(cmdGetPreset, [safeIndex]);
+  }
+
+  /// Runs a preset slot on the device (0x73).
+  static List<int> runPreset(int slotIndex) {
+    final safeIndex = slotIndex.clamp(0, 255).toInt();
+    return buildPacket(cmdRunPreset, [safeIndex]);
   }
 
   /// Renames a preset slot (0x74): `[slotIndex, ...nameAsciiBytes]`.
