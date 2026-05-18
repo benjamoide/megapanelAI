@@ -7,9 +7,12 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:intl/intl.dart';
-import 'package:firebase_core/firebase_core.dart';
+import 'package:mega_panel_ai/blueprint_one_app.dart';
+import 'package:mega_panel_ai/core/evidence/evidence_level.dart';
+import 'package:mega_panel_ai/core/scheduling/blueprint_controller.dart';
+import 'package:mega_panel_ai/core/scheduling/scheduling_models.dart';
+import 'package:mega_panel_ai/core/treatments/treatment.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'firebase_options.dart';
 import 'bluetooth/ble_manager.dart';
 import 'bluetooth/ble_protocol.dart';
 import 'views/bluetooth_custom_view.dart';
@@ -4963,19 +4966,152 @@ class Uuid {
   String v4() => DateTime.now().microsecondsSinceEpoch.toString();
 }
 
+List<String> _cleanBlueprintNotes(
+  List<String> items, {
+  bool excludeSourceReferences = false,
+}) {
+  final cleaned = <String>{};
+  for (final item in items) {
+    final note = item.trim().replaceFirst(RegExp(r'^[-*•]\s*'), '');
+    if (note.isEmpty) continue;
+    if (excludeSourceReferences && _looksLikeSourceReference(note)) continue;
+    cleaned.add(note);
+  }
+  return cleaned.toList();
+}
+
+bool _looksLikeSourceReference(String value) {
+  final lower = value.toLowerCase();
+  return lower.contains('fuente:') ||
+      lower.contains('pubmed') ||
+      lower.contains('pmid') ||
+      lower.contains('clinicaltrials') ||
+      lower.contains('nct') ||
+      lower.contains('cochrane') ||
+      lower.contains('europe pmc') ||
+      lower.contains('embase') ||
+      lower.contains('doi');
+}
+
+List<String> _extractBlueprintSourceReferences(Tratamiento treatment) {
+  final references = <String>{};
+  for (final item in [...treatment.tipsAntes, ...treatment.tipsDespues]) {
+    if (_looksLikeSourceReference(item)) {
+      references.add(item.trim().replaceFirst(RegExp(r'^[-*•]\s*'), ''));
+    }
+  }
+  return references.toList();
+}
+
+List<TreatmentIntensity> _mapBlueprintIntensity(
+    List<Map<String, dynamic>> frequencies) {
+  return frequencies
+      .map((entry) => TreatmentIntensity(
+            wavelengthNm: (entry['nm'] as num?)?.toInt() ?? 0,
+            percentage: (entry['p'] as num?)?.toInt() ?? 0,
+          ))
+      .where((entry) => entry.wavelengthNm > 0)
+      .toList();
+}
+
+String _deriveBlueprintGoal(Tratamiento treatment) {
+  if (treatment.descripcion.trim().isNotEmpty) {
+    return treatment.descripcion.trim();
+  }
+  if (treatment.sintomas.trim().isNotEmpty) {
+    return 'Support for ${treatment.sintomas.trim().toLowerCase()}.';
+  }
+  return 'General wellness guidance for ${treatment.nombre.toLowerCase()}.';
+}
+
+String _deriveBlueprintSummary(Tratamiento treatment) {
+  if (treatment.sintomas.trim().isNotEmpty) {
+    return treatment.sintomas.trim();
+  }
+  if (treatment.posicion.trim().isNotEmpty) {
+    return 'Suggested placement: ${treatment.posicion.trim()}';
+  }
+  return 'Published protocol summary available in the treatment notes.';
+}
+
+List<WellnessTreatment> _buildBlueprintTreatments() {
+  final treatments =
+      DB_DEFINICIONES.where((entry) => !entry.oculto).map((entry) {
+    final treatment = _aplicarActualizacionCientifica(entry);
+    final sourceReferences = _extractBlueprintSourceReferences(treatment);
+    final safetyNotes = _cleanBlueprintNotes(treatment.prohibidos);
+    return WellnessTreatment(
+      id: treatment.id,
+      title: treatment.nombre,
+      category:
+          treatment.zona.trim().isEmpty ? 'General wellness' : treatment.zona,
+      goal: _deriveBlueprintGoal(treatment),
+      summary: _deriveBlueprintSummary(treatment),
+      durationMinutes: int.tryParse(treatment.duracion) ?? 10,
+      distanceGuidance: treatment.posicion.trim().isEmpty
+          ? 'Follow the distance used in the cited protocol and adjust for comfort.'
+          : treatment.posicion.trim(),
+      pulseGuidance:
+          treatment.hz.trim().isEmpty ? 'Protocol dependent' : treatment.hz,
+      intensityDistribution: _mapBlueprintIntensity(treatment.frecuencias),
+      evidenceLevel: deriveEvidenceLevel(
+        sourceReferences: sourceReferences,
+        safetyNotes: safetyNotes,
+      ),
+      safetyNotes: safetyNotes.isEmpty
+          ? const [
+              'Stop the session if symptoms worsen or discomfort appears.',
+            ]
+          : safetyNotes,
+      sourceReferences: sourceReferences,
+      beforeSessionTips: _cleanBlueprintNotes(
+        treatment.tipsAntes,
+        excludeSourceReferences: true,
+      ),
+      afterSessionTips: _cleanBlueprintNotes(
+        treatment.tipsDespues,
+        excludeSourceReferences: true,
+      ),
+    );
+  }).toList();
+
+  treatments.sort((a, b) {
+    final category = a.category.compareTo(b.category);
+    if (category != 0) return category;
+    return a.title.compareTo(b.title);
+  });
+  return treatments;
+}
+
+Map<int, WeeklyRoutine> _buildBlueprintRoutines() {
+  final routines = <int, WeeklyRoutine>{};
+  for (var weekday = 1; weekday <= 7; weekday++) {
+    final key = weekday.toString();
+    routines[weekday] = WeeklyRoutine(
+      weekday: weekday,
+      focusLabel:
+          (RUTINA_SEMANAL_BASE[key] ?? const ['Open planning']).join(' + '),
+      cardioLabel: CARDIO_DEFAULTS[key] ?? 'Recovery / optional cardio',
+    );
+  }
+  return routines;
+}
+
 // ==============================================================================
 // 5. INTERFAZ DE USUARIO (WEB DASHBOARD + MOBILE RESPONSIVE)
 // ==============================================================================
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
+  final controller = BlueprintController(
+    treatments: _buildBlueprintTreatments(),
+    initialRoutines: _buildBlueprintRoutines(),
   );
+  await controller.load();
   runApp(
-    ChangeNotifierProvider(
-      create: (context) => AppState(),
-      child: const MegaPanelApp(),
+    ChangeNotifierProvider<BlueprintController>.value(
+      value: controller,
+      child: const BlueprintOneApp(),
     ),
   );
 }
@@ -4986,7 +5122,7 @@ class MegaPanelApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Mega Panel AI',
+      title: 'Blueprint One',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
@@ -5105,7 +5241,7 @@ class _LoginScreenState extends State<LoginScreen> {
               children: [
                 const Icon(Icons.science, size: 64, color: Color(0xFFB71C1C)),
                 const SizedBox(height: 20),
-                const Text("Mega Panel AI Pro",
+                const Text("Blueprint One Studio",
                     style:
                         TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 30),
@@ -5328,7 +5464,7 @@ class _MobileLayout extends StatelessWidget {
     ];
     return Scaffold(
       appBar: AppBar(
-          title: const Text("Mega Panel AI"),
+          title: const Text("Blueprint One"),
           backgroundColor: Colors.white,
           foregroundColor: Colors.black,
           elevation: 0),
