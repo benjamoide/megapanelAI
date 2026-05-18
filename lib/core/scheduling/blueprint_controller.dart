@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
+import 'package:mega_panel_ai/core/scheduling/notification_service.dart';
 import 'package:mega_panel_ai/core/scheduling/scheduling_models.dart';
 import 'package:mega_panel_ai/core/treatments/treatment.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -9,32 +10,54 @@ import 'package:shared_preferences/shared_preferences.dart';
 class BlueprintController extends ChangeNotifier {
   BlueprintController({
     required List<WellnessTreatment> treatments,
-    required Map<int, WeeklyRoutine> initialRoutines,
+    NotificationService? notificationService,
   })  : _treatments = List<WellnessTreatment>.unmodifiable(treatments),
-        _weeklyRoutines = Map<int, WeeklyRoutine>.from(initialRoutines);
+        _notificationService = notificationService ?? NotificationService();
 
   static const String disclaimer =
       'This app provides wellness guidance based on published literature and is not a medical device.';
 
   static const _prefsPlans = 'bp1_plans';
   static const _prefsHistory = 'bp1_history';
-  static const _prefsRoutines = 'bp1_routines';
+  static const _prefsReminderSettings = 'bp1_reminder_settings';
 
   final List<WellnessTreatment> _treatments;
+  final NotificationService _notificationService;
+
   Map<String, List<PlannedSession>> _plans = <String, List<PlannedSession>>{};
   List<SessionHistoryEntry> _history = <SessionHistoryEntry>[];
-  Map<int, WeeklyRoutine> _weeklyRoutines;
+  ReminderSettings _reminderSettings = const ReminderSettings(
+    enabled: false,
+    reminders: <ReminderPreference>[
+      ReminderPreference(
+        id: 'default_same_day',
+        leadTime: ReminderLeadTime.sameDay,
+        hour: 9,
+        minute: 0,
+      ),
+    ],
+  );
   bool _ready = false;
+  bool _notificationsSupported = false;
+  bool _notificationsPermissionGranted = false;
 
   bool get ready => _ready;
+  bool get notificationsSupported => _notificationsSupported;
+  bool get notificationsPermissionGranted => _notificationsPermissionGranted;
   List<WellnessTreatment> get treatments => _treatments;
   List<SessionHistoryEntry> get history =>
       List<SessionHistoryEntry>.unmodifiable(_history);
-  Map<int, WeeklyRoutine> get weeklyRoutines =>
-      Map<int, WeeklyRoutine>.unmodifiable(_weeklyRoutines);
+  ReminderSettings get reminderSettings => _reminderSettings;
 
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
+
+    _notificationsSupported = _notificationService.isSupported;
+    if (_notificationsSupported) {
+      await _notificationService.initialize();
+      _notificationsPermissionGranted =
+          await _notificationService.areNotificationsEnabled();
+    }
 
     final plansRaw = prefs.getString(_prefsPlans);
     if (plansRaw != null && plansRaw.isNotEmpty) {
@@ -43,8 +66,11 @@ class BlueprintController extends ChangeNotifier {
         (key, value) => MapEntry(
           key,
           (value as List)
-              .map((entry) => PlannedSession.fromJson(
-                  Map<String, dynamic>.from(entry as Map)))
+              .map(
+                (entry) => PlannedSession.fromJson(
+                  Map<String, dynamic>.from(entry as Map),
+                ),
+              )
               .toList(),
         ),
       );
@@ -53,23 +79,23 @@ class BlueprintController extends ChangeNotifier {
     final historyRaw = prefs.getString(_prefsHistory);
     if (historyRaw != null && historyRaw.isNotEmpty) {
       _history = (json.decode(historyRaw) as List)
-          .map((entry) =>
-              SessionHistoryEntry.fromJson(Map<String, dynamic>.from(entry)))
+          .map(
+            (entry) => SessionHistoryEntry.fromJson(
+              Map<String, dynamic>.from(entry),
+            ),
+          )
           .toList();
     }
 
-    final routinesRaw = prefs.getString(_prefsRoutines);
-    if (routinesRaw != null && routinesRaw.isNotEmpty) {
-      final decoded = json.decode(routinesRaw) as Map<String, dynamic>;
-      _weeklyRoutines = decoded.map(
-        (key, value) => MapEntry(
-          int.tryParse(key) ?? 1,
-          WeeklyRoutine.fromJson(Map<String, dynamic>.from(value as Map)),
-        ),
+    final reminderRaw = prefs.getString(_prefsReminderSettings);
+    if (reminderRaw != null && reminderRaw.isNotEmpty) {
+      _reminderSettings = ReminderSettings.fromJson(
+        Map<String, dynamic>.from(json.decode(reminderRaw) as Map),
       );
     }
 
     _ready = true;
+    await _syncNotifications();
     notifyListeners();
   }
 
@@ -81,6 +107,14 @@ class BlueprintController extends ChangeNotifier {
   }
 
   String dateKeyFor(DateTime date) => DateFormat('yyyy-MM-dd').format(date);
+
+  DateTime dateFromKey(String dateKey) {
+    final parsed = DateTime.tryParse(dateKey);
+    if (parsed == null) {
+      return DateTime.now();
+    }
+    return DateTime(parsed.year, parsed.month, parsed.day);
+  }
 
   List<PlannedSession> plansFor(DateTime date) {
     final key = dateKeyFor(date);
@@ -95,8 +129,132 @@ class BlueprintController extends ChangeNotifier {
 
   int plannedCountFor(DateTime date) => plansFor(date).length;
 
+  int plannedCountForWeek(DateTime anchor) {
+    final week = weekFor(anchor);
+    return week.fold<int>(0, (count, day) => count + plannedCountFor(day));
+  }
+
+  int trackedCountForWeek(DateTime anchor) {
+    final weekKeys = weekFor(anchor).map(dateKeyFor).toSet();
+    return _history.where((entry) => weekKeys.contains(entry.dateKey)).length;
+  }
+
   bool isPlannedOn(DateTime date, String treatmentId) {
     return plansFor(date).any((entry) => entry.treatmentId == treatmentId);
+  }
+
+  List<DateTime> weekFor(DateTime date) {
+    final first = date.subtract(Duration(days: date.weekday - 1));
+    return List<DateTime>.generate(
+      7,
+      (index) => DateTime(first.year, first.month, first.day + index),
+    );
+  }
+
+  ResolvedPlannedSession? get nextPlannedSession {
+    final today = DateTime.now();
+    final dayStart = DateTime(today.year, today.month, today.day);
+    final sortedKeys = _plans.keys.toList()..sort();
+    for (final key in sortedKeys) {
+      final date = dateFromKey(key);
+      if (date.isBefore(dayStart)) continue;
+      final sessions = List<PlannedSession>.from(_plans[key] ?? const [])
+        ..sort((a, b) => a.momentLabel.compareTo(b.momentLabel));
+      for (final session in sessions) {
+        final treatment = treatmentById(session.treatmentId);
+        if (treatment != null) {
+          return ResolvedPlannedSession(
+            treatment: treatment,
+            session: session,
+            date: date,
+          );
+        }
+      }
+    }
+    return null;
+  }
+
+  String reminderSummaryForPlan(PlannedSession session) {
+    final enabledReminders =
+        _reminderSettings.reminders.where((entry) => entry.enabled).toList();
+    if (!_reminderSettings.enabled || enabledReminders.isEmpty) {
+      return 'Reminders off';
+    }
+    if (enabledReminders.length == 1) {
+      return enabledReminders.first.summary;
+    }
+    return '${enabledReminders.length} reminders active';
+  }
+
+  List<DateTime> reminderTimesFor(DateTime date) {
+    if (!_reminderSettings.enabled) return const [];
+    final times = _reminderSettings.reminders
+        .where((entry) => entry.enabled)
+        .map((entry) => DateTime(
+              date.year,
+              date.month,
+              date.day - entry.leadTime.daysOffset,
+              entry.hour,
+              entry.minute,
+            ))
+        .toList()
+      ..sort();
+    return times;
+  }
+
+  Future<bool> requestNotificationPermissions() async {
+    if (!_notificationsSupported) return false;
+    final granted = await _notificationService.requestPermissions();
+    _notificationsPermissionGranted = granted;
+    await _syncNotifications();
+    notifyListeners();
+    return granted;
+  }
+
+  Future<void> setReminderNotificationsEnabled(bool value) async {
+    _reminderSettings = _reminderSettings.copyWith(enabled: value);
+    await _persist();
+    await _syncNotifications();
+    notifyListeners();
+  }
+
+  Future<void> addReminderPreference({
+    required ReminderLeadTime leadTime,
+    required int hour,
+    required int minute,
+  }) async {
+    final reminders = List<ReminderPreference>.from(_reminderSettings.reminders)
+      ..add(
+        ReminderPreference(
+          id: 'reminder_${DateTime.now().microsecondsSinceEpoch}',
+          leadTime: leadTime,
+          hour: hour,
+          minute: minute,
+        ),
+      );
+    _reminderSettings = _reminderSettings.copyWith(reminders: reminders);
+    await _persist();
+    await _syncNotifications();
+    notifyListeners();
+  }
+
+  Future<void> updateReminderPreference(ReminderPreference updated) async {
+    final reminders = _reminderSettings.reminders
+        .map((entry) => entry.id == updated.id ? updated : entry)
+        .toList();
+    _reminderSettings = _reminderSettings.copyWith(reminders: reminders);
+    await _persist();
+    await _syncNotifications();
+    notifyListeners();
+  }
+
+  Future<void> removeReminderPreference(String id) async {
+    final reminders =
+        _reminderSettings.reminders.where((entry) => entry.id != id).toList();
+    _reminderSettings = _reminderSettings.copyWith(reminders: reminders);
+    await _persist();
+    await _syncNotifications();
+    notifyListeners();
   }
 
   Future<void> scheduleTreatment({
@@ -114,8 +272,10 @@ class BlueprintController extends ChangeNotifier {
           momentLabel: momentLabel,
         ),
       );
+      existing.sort((a, b) => a.momentLabel.compareTo(b.momentLabel));
       _plans[key] = existing;
       await _persist();
+      await _syncNotifications();
       notifyListeners();
     }
   }
@@ -133,6 +293,7 @@ class BlueprintController extends ChangeNotifier {
       _plans[key] = existing;
     }
     await _persist();
+    await _syncNotifications();
     notifyListeners();
   }
 
@@ -142,33 +303,27 @@ class BlueprintController extends ChangeNotifier {
     required SessionStatus status,
     String momentLabel = 'Tracked',
   }) async {
-    await unscheduleTreatment(date: date, treatmentId: treatment.id);
+    final key = dateKeyFor(date);
+    final existing = List<PlannedSession>.from(_plans[key] ?? const []);
+    existing.removeWhere((entry) => entry.treatmentId == treatment.id);
+    if (existing.isEmpty) {
+      _plans.remove(key);
+    } else {
+      _plans[key] = existing;
+    }
     _history.add(
       SessionHistoryEntry(
         id: '${treatment.id}_${DateTime.now().microsecondsSinceEpoch}',
         treatmentId: treatment.id,
         loggedAtIso: DateTime.now().toIso8601String(),
-        dateKey: dateKeyFor(date),
+        dateKey: key,
         status: status,
         momentLabel: momentLabel,
       ),
     );
     _history.sort((a, b) => b.loggedAtIso.compareTo(a.loggedAtIso));
     await _persist();
-    notifyListeners();
-  }
-
-  Future<void> updateRoutine({
-    required int weekday,
-    required String focusLabel,
-    required String cardioLabel,
-  }) async {
-    _weeklyRoutines[weekday] = WeeklyRoutine(
-      weekday: weekday,
-      focusLabel: focusLabel,
-      cardioLabel: cardioLabel,
-    );
-    await _persist();
+    await _syncNotifications();
     notifyListeners();
   }
 
@@ -219,12 +374,37 @@ class BlueprintController extends ChangeNotifier {
       json.encode(_history.map((entry) => entry.toJson()).toList()),
     );
     await prefs.setString(
-      _prefsRoutines,
-      json.encode(
-        _weeklyRoutines.map(
-          (key, value) => MapEntry(key.toString(), value.toJson()),
-        ),
-      ),
+      _prefsReminderSettings,
+      json.encode(_reminderSettings.toJson()),
+    );
+  }
+
+  Future<void> _syncNotifications() async {
+    if (!_ready || !_notificationsSupported) return;
+    if (!_notificationsPermissionGranted || !_reminderSettings.enabled) {
+      await _notificationService.cancelAll();
+      return;
+    }
+    final plans = <ResolvedPlannedSession>[];
+    final sortedKeys = _plans.keys.toList()..sort();
+    for (final key in sortedKeys) {
+      final date = dateFromKey(key);
+      for (final session in _plans[key] ?? const []) {
+        final treatment = treatmentById(session.treatmentId);
+        if (treatment != null) {
+          plans.add(
+            ResolvedPlannedSession(
+              treatment: treatment,
+              session: session,
+              date: date,
+            ),
+          );
+        }
+      }
+    }
+    await _notificationService.syncPlannedReminders(
+      plans: plans,
+      settings: _reminderSettings,
     );
   }
 

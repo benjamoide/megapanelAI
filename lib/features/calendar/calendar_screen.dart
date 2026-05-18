@@ -24,20 +24,21 @@ class _CalendarScreenState extends State<CalendarScreen> {
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<BlueprintController>();
-    final week = _weekFor(_selectedDate);
+    final week = controller.weekFor(_selectedDate);
     final plans = controller.plansFor(_selectedDate);
     final history = controller.historyFor(_selectedDate);
+    final nextSession = controller.nextPlannedSession;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
       children: [
         Text(
-          'Weekly planner',
+          'Weekly schedule',
           style: Theme.of(context).textTheme.headlineMedium,
         ),
         const SizedBox(height: 8),
-        Text(
-          'Plan sessions, see placeholder reminders and mark them as completed or skipped.',
+        const Text(
+          'Plan treatments through the week, review upcoming reminders and track each session once it is completed or skipped.',
         ),
         const SizedBox(height: 18),
         Card(
@@ -52,18 +53,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       DateFormat('MMMM yyyy').format(_selectedDate),
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Reminders placeholder: connect your preferred notification flow later.',
-                            ),
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.notifications_outlined),
-                      label: const Text('Reminders'),
+                    Chip(
+                      label: Text(
+                        controller.reminderSettings.enabled
+                            ? '${controller.reminderSettings.reminders.where((entry) => entry.enabled).length} reminders'
+                            : 'Reminders off',
+                      ),
                     ),
                   ],
                 ),
@@ -129,7 +124,44 @@ class _CalendarScreenState extends State<CalendarScreen> {
           ),
         ),
         const SizedBox(height: 14),
-        _RoutineCard(selectedDate: _selectedDate),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Reminder snapshot',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 10),
+                if (nextSession == null)
+                  const Text(
+                    'No future treatment is planned yet, so there is nothing to notify.',
+                  )
+                else ...[
+                  Text(
+                    'Next treatment: ${nextSession.treatment.title}',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '${DateFormat('EEE d MMM').format(nextSession.date)} · ${nextSession.session.momentLabel}',
+                  ),
+                  const SizedBox(height: 8),
+                  ...controller.reminderTimesFor(nextSession.date).map(
+                        (time) => Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Text(
+                            DateFormat('EEE d MMM · HH:mm').format(time),
+                          ),
+                        ),
+                      ),
+                ],
+              ],
+            ),
+          ),
+        ),
         const SizedBox(height: 14),
         Card(
           child: Padding(
@@ -159,7 +191,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           ),
                           title: Text(treatment.title),
                           subtitle: Text(
-                            '${plan.momentLabel} · ${plan.reminderPlaceholder}',
+                            '${plan.momentLabel} · ${controller.reminderSummaryForPlan(plan)}',
                           ),
                           onTap: () {
                             Navigator.of(context).push(
@@ -242,100 +274,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  List<DateTime> _weekFor(DateTime date) {
-    final first = date.subtract(Duration(days: date.weekday - 1));
-    return List<DateTime>.generate(
-      7,
-      (index) => DateTime(first.year, first.month, first.day + index),
-    );
-  }
-
   bool _isSameDay(DateTime a, DateTime b) {
     return a.year == b.year && a.month == b.month && a.day == b.day;
-  }
-}
-
-class _RoutineCard extends StatelessWidget {
-  const _RoutineCard({required this.selectedDate});
-
-  final DateTime selectedDate;
-
-  @override
-  Widget build(BuildContext context) {
-    final controller = context.watch<BlueprintController>();
-    final routine = controller.weeklyRoutines[selectedDate.weekday];
-    if (routine == null) return const SizedBox.shrink();
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Routine anchor',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 12),
-            Text('Focus block: ${routine.focusLabel}'),
-            const SizedBox(height: 6),
-            Text('Cardio block: ${routine.cardioLabel}'),
-            const SizedBox(height: 14),
-            OutlinedButton.icon(
-              onPressed: () => _editRoutine(context, controller, routine),
-              icon: const Icon(Icons.tune_outlined),
-              label: const Text('Edit routine labels'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _editRoutine(
-    BuildContext context,
-    BlueprintController controller,
-    WeeklyRoutine routine,
-  ) async {
-    final focusCtrl = TextEditingController(text: routine.focusLabel);
-    final cardioCtrl = TextEditingController(text: routine.cardioLabel);
-
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Edit weekly routine'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: focusCtrl,
-              decoration: const InputDecoration(labelText: 'Focus block'),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: cardioCtrl,
-              decoration: const InputDecoration(labelText: 'Cardio block'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              await controller.updateRoutine(
-                weekday: routine.weekday,
-                focusLabel: focusCtrl.text.trim(),
-                cardioLabel: cardioCtrl.text.trim(),
-              );
-              if (ctx.mounted) Navigator.of(ctx).pop();
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
   }
 }

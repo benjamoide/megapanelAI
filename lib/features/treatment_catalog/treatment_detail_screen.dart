@@ -69,6 +69,7 @@ class TreatmentDetailScreen extends StatelessWidget {
               _MetricRow('Distance', treatment.distanceGuidance),
               _MetricRow('Pulse / mode', treatment.pulseGuidance),
               _MetricRow('Suggested intensity', treatment.intensitySummary),
+              _MetricRow('Evidence level', treatment.evidenceLevel.label),
             ],
           ),
           const SizedBox(height: 14),

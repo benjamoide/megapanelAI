@@ -46,7 +46,7 @@ class SessionHistoryScreen extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 8),
-        Text(
+        const Text(
           'Completed and skipped sessions stay here for review and export.',
         ),
         const SizedBox(height: 18),

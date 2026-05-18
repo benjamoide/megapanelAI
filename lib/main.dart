@@ -10,7 +10,6 @@ import 'package:intl/intl.dart';
 import 'package:mega_panel_ai/blueprint_one_app.dart';
 import 'package:mega_panel_ai/core/evidence/evidence_level.dart';
 import 'package:mega_panel_ai/core/scheduling/blueprint_controller.dart';
-import 'package:mega_panel_ai/core/scheduling/scheduling_models.dart';
 import 'package:mega_panel_ai/core/treatments/treatment.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'bluetooth/ble_manager.dart';
@@ -5043,8 +5042,7 @@ List<WellnessTreatment> _buildBlueprintTreatments() {
     return WellnessTreatment(
       id: treatment.id,
       title: treatment.nombre,
-      category:
-          treatment.zona.trim().isEmpty ? 'General wellness' : treatment.zona,
+      category: entry.zona.trim().isEmpty ? 'General wellness' : entry.zona,
       goal: _deriveBlueprintGoal(treatment),
       summary: _deriveBlueprintSummary(treatment),
       durationMinutes: int.tryParse(treatment.duracion) ?? 10,
@@ -5083,20 +5081,6 @@ List<WellnessTreatment> _buildBlueprintTreatments() {
   return treatments;
 }
 
-Map<int, WeeklyRoutine> _buildBlueprintRoutines() {
-  final routines = <int, WeeklyRoutine>{};
-  for (var weekday = 1; weekday <= 7; weekday++) {
-    final key = weekday.toString();
-    routines[weekday] = WeeklyRoutine(
-      weekday: weekday,
-      focusLabel:
-          (RUTINA_SEMANAL_BASE[key] ?? const ['Open planning']).join(' + '),
-      cardioLabel: CARDIO_DEFAULTS[key] ?? 'Recovery / optional cardio',
-    );
-  }
-  return routines;
-}
-
 // ==============================================================================
 // 5. INTERFAZ DE USUARIO (WEB DASHBOARD + MOBILE RESPONSIVE)
 // ==============================================================================
@@ -5105,7 +5089,6 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final controller = BlueprintController(
     treatments: _buildBlueprintTreatments(),
-    initialRoutines: _buildBlueprintRoutines(),
   );
   await controller.load();
   runApp(

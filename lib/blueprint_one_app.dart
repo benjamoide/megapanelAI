@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:mega_panel_ai/core/scheduling/blueprint_controller.dart';
 import 'package:mega_panel_ai/design_system/blueprint_theme.dart';
 import 'package:mega_panel_ai/features/calendar/calendar_screen.dart';
 import 'package:mega_panel_ai/features/session_history/session_history_screen.dart';
+import 'package:mega_panel_ai/features/settings/settings_screen.dart';
 import 'package:mega_panel_ai/features/treatment_catalog/treatment_catalog_screen.dart';
 import 'package:provider/provider.dart';
 
@@ -38,8 +40,15 @@ class _BlueprintShellState extends State<BlueprintShell> {
       TreatmentCatalogScreen(),
       CalendarScreen(),
       SessionHistoryScreen(),
+      SettingsScreen(),
     ];
-    final labels = const ['Overview', 'Treatments', 'Calendar', 'History'];
+    const labels = [
+      'Overview',
+      'Treatments',
+      'Calendar',
+      'History',
+      'Settings'
+    ];
 
     return Scaffold(
       appBar: AppBar(
@@ -72,6 +81,8 @@ class _BlueprintShellState extends State<BlueprintShell> {
         return Icons.calendar_month_outlined;
       case 3:
         return Icons.history_edu_outlined;
+      case 4:
+        return Icons.notifications_active_outlined;
       default:
         return Icons.circle_outlined;
     }
@@ -87,7 +98,10 @@ class _OverviewScreen extends StatelessWidget {
     final today = DateTime.now();
     final plansToday = controller.plansFor(today);
     final historyToday = controller.historyFor(today);
-    final nextRoutine = controller.weeklyRoutines[today.weekday];
+    final nextSession = controller.nextPlannedSession;
+    final enabledReminders = controller.reminderSettings.reminders
+        .where((entry) => entry.enabled)
+        .length;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
@@ -106,13 +120,18 @@ class _OverviewScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'A calmer way to plan light therapy sessions',
+                'A clearer way to follow light therapy plans',
                 style: Theme.of(context).textTheme.headlineMedium,
               ),
               const SizedBox(height: 10),
               Text(
-                BlueprintController.disclaimer,
+                'Review evidence-based treatments, schedule them through the week and keep a clean record of completed or skipped sessions.',
                 style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                BlueprintController.disclaimer,
+                style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
           ),
@@ -138,10 +157,61 @@ class _OverviewScreen extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 12),
-        _StatCard(
-          title: 'Routine anchor',
-          value: nextRoutine?.focusLabel ?? 'Free day',
-          subtitle: nextRoutine?.cardioLabel ?? 'No cardio label',
+        Row(
+          children: [
+            Expanded(
+              child: _StatCard(
+                title: 'This week planned',
+                value: '${controller.plannedCountForWeek(today)}',
+                subtitle: 'Upcoming sessions across the current week',
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _StatCard(
+                title: 'Reminders active',
+                value: '$enabledReminders',
+                subtitle: controller.reminderSettings.enabled
+                    ? 'Notification schedule ready'
+                    : 'Turn reminders on in settings',
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Next planned treatment',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 10),
+                if (nextSession == null)
+                  const Text(
+                    'Nothing planned yet. Open the catalogue and add a treatment to your calendar.',
+                  )
+                else ...[
+                  Text(
+                    nextSession.treatment.title,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '${DateFormat('EEE d MMM').format(nextSession.date)} · ${nextSession.session.momentLabel}',
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    controller.reminderSummaryForPlan(nextSession.session),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ],
+            ),
+          ),
         ),
         const SizedBox(height: 16),
         Text(
@@ -152,15 +222,15 @@ class _OverviewScreen extends StatelessWidget {
         const _CapabilityLine(
           title: 'Browse treatments',
           body:
-              'Open the catalogue, review goal, duration, distance and suggested intensity distribution.',
+              'Open the catalogue, compare goals, duration, distance and suggested intensity distribution.',
         ),
         const _CapabilityLine(
-          title: 'Plan sessions',
+          title: 'Plan your week',
           body:
-              'Use the calendar to assign sessions to each day of the week and keep reminder placeholders visible.',
+              'Assign treatments to specific days, review the week at a glance and keep reminder timing aligned with your schedule.',
         ),
         const _CapabilityLine(
-          title: 'Track outcomes',
+          title: 'Track consistency',
           body:
               'Mark sessions as completed or skipped and export the history for your own records.',
         ),
