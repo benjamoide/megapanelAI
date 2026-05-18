@@ -1,11 +1,11 @@
 {
-    "name": "mega_panel_ai",
-    "short_name": "mega_panel_ai",
+    "name": "Blueprint One",
+    "short_name": "Blueprint One",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Brand-neutral red light therapy planning and guidance companion.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
