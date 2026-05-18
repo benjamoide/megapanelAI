@@ -30,7 +30,13 @@ class BlueprintShell extends StatefulWidget {
 }
 
 class _BlueprintShellState extends State<BlueprintShell> {
-  int _index = 0;
+  late int _index;
+
+  @override
+  void initState() {
+    super.initState();
+    _index = _initialIndexFromUri();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -85,6 +91,23 @@ class _BlueprintShellState extends State<BlueprintShell> {
         return Icons.notifications_active_outlined;
       default:
         return Icons.circle_outlined;
+    }
+  }
+
+  int _initialIndexFromUri() {
+    final tab = Uri.base.queryParameters['tab']?.toLowerCase().trim();
+    switch (tab) {
+      case 'treatments':
+        return 1;
+      case 'calendar':
+        return 2;
+      case 'history':
+        return 3;
+      case 'settings':
+        return 4;
+      case 'overview':
+      default:
+        return 0;
     }
   }
 }

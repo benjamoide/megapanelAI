@@ -5087,8 +5087,12 @@ List<WellnessTreatment> _buildBlueprintTreatments() {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  const buildDemoMode =
+      bool.fromEnvironment('BP1_DEMO_MODE', defaultValue: false);
+  final queryDemoMode = Uri.base.queryParameters['demo'] == '1';
   final controller = BlueprintController(
     treatments: _buildBlueprintTreatments(),
+    demoMode: buildDemoMode || queryDemoMode,
   );
   await controller.load();
   runApp(

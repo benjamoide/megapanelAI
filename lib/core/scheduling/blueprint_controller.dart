@@ -11,8 +11,10 @@ class BlueprintController extends ChangeNotifier {
   BlueprintController({
     required List<WellnessTreatment> treatments,
     NotificationService? notificationService,
+    bool demoMode = false,
   })  : _treatments = List<WellnessTreatment>.unmodifiable(treatments),
-        _notificationService = notificationService ?? NotificationService();
+        _notificationService = notificationService ?? NotificationService(),
+        _demoMode = demoMode;
 
   static const String disclaimer =
       'This app provides wellness guidance based on published literature and is not a medical device.';
@@ -23,6 +25,7 @@ class BlueprintController extends ChangeNotifier {
 
   final List<WellnessTreatment> _treatments;
   final NotificationService _notificationService;
+  final bool _demoMode;
 
   Map<String, List<PlannedSession>> _plans = <String, List<PlannedSession>>{};
   List<SessionHistoryEntry> _history = <SessionHistoryEntry>[];
@@ -50,6 +53,20 @@ class BlueprintController extends ChangeNotifier {
   ReminderSettings get reminderSettings => _reminderSettings;
 
   Future<void> load() async {
+    if (_demoMode) {
+      _notificationsSupported = _notificationService.isSupported;
+      if (_notificationsSupported) {
+        await _notificationService.initialize();
+        _notificationsPermissionGranted =
+            await _notificationService.areNotificationsEnabled();
+      }
+      _seedDemoData();
+      _ready = true;
+      await _syncNotifications();
+      notifyListeners();
+      return;
+    }
+
     final prefs = await SharedPreferences.getInstance();
 
     _notificationsSupported = _notificationService.isSupported;
@@ -411,5 +428,101 @@ class BlueprintController extends ChangeNotifier {
   String _csvEscape(Object? value) {
     final raw = (value ?? '').toString().replaceAll('"', '""');
     return '"$raw"';
+  }
+
+  void _seedDemoData() {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final source = _treatments.take(6).toList(growable: false);
+    if (source.length < 4) return;
+
+    _plans = <String, List<PlannedSession>>{
+      dateKeyFor(today): [
+        PlannedSession(
+          treatmentId: source[0].id,
+          dateKey: dateKeyFor(today),
+          momentLabel: 'Morning',
+        ),
+        PlannedSession(
+          treatmentId: source[1].id,
+          dateKey: dateKeyFor(today),
+          momentLabel: 'Evening',
+        ),
+      ],
+      dateKeyFor(today.add(const Duration(days: 1))): [
+        PlannedSession(
+          treatmentId: source[2].id,
+          dateKey: dateKeyFor(today.add(const Duration(days: 1))),
+          momentLabel: 'Lunch break',
+        ),
+      ],
+      dateKeyFor(today.add(const Duration(days: 3))): [
+        PlannedSession(
+          treatmentId: source[3].id,
+          dateKey: dateKeyFor(today.add(const Duration(days: 3))),
+          momentLabel: 'Afternoon',
+        ),
+      ],
+    };
+
+    _history = [
+      SessionHistoryEntry(
+        id: 'demo_1',
+        treatmentId: source[4].id,
+        loggedAtIso: today
+            .subtract(const Duration(days: 1))
+            .add(const Duration(hours: 19))
+            .toIso8601String(),
+        dateKey: dateKeyFor(today.subtract(const Duration(days: 1))),
+        status: SessionStatus.completed,
+        momentLabel: 'Evening',
+      ),
+      SessionHistoryEntry(
+        id: 'demo_2',
+        treatmentId: source[0].id,
+        loggedAtIso: today
+            .subtract(const Duration(days: 2))
+            .add(const Duration(hours: 8))
+            .toIso8601String(),
+        dateKey: dateKeyFor(today.subtract(const Duration(days: 2))),
+        status: SessionStatus.completed,
+        momentLabel: 'Morning',
+      ),
+      SessionHistoryEntry(
+        id: 'demo_3',
+        treatmentId: source[5 % source.length].id,
+        loggedAtIso: today
+            .subtract(const Duration(days: 3))
+            .add(const Duration(hours: 13))
+            .toIso8601String(),
+        dateKey: dateKeyFor(today.subtract(const Duration(days: 3))),
+        status: SessionStatus.skipped,
+        momentLabel: 'Lunch break',
+      ),
+    ];
+
+    _reminderSettings = const ReminderSettings(
+      enabled: true,
+      reminders: <ReminderPreference>[
+        ReminderPreference(
+          id: 'demo_day_before',
+          leadTime: ReminderLeadTime.dayBefore,
+          hour: 20,
+          minute: 30,
+        ),
+        ReminderPreference(
+          id: 'demo_same_day_morning',
+          leadTime: ReminderLeadTime.sameDay,
+          hour: 8,
+          minute: 15,
+        ),
+        ReminderPreference(
+          id: 'demo_same_day_evening',
+          leadTime: ReminderLeadTime.sameDay,
+          hour: 18,
+          minute: 45,
+        ),
+      ],
+    );
   }
 }
