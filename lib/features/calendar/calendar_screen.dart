@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:mega_panel_ai/core/scheduling/blueprint_controller.dart';
 import 'package:mega_panel_ai/core/scheduling/scheduling_models.dart';
+import 'package:mega_panel_ai/design_system/blueprint_localization.dart';
 import 'package:mega_panel_ai/features/treatment_catalog/treatment_detail_screen.dart';
 import 'package:provider/provider.dart';
 
@@ -24,22 +24,24 @@ class _CalendarScreenState extends State<CalendarScreen> {
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<BlueprintController>();
+    final strings = BlueprintStrings(controller.language);
     final week = controller.weekFor(_selectedDate);
     final plans = controller.plansFor(_selectedDate);
     final history = controller.historyFor(_selectedDate);
     final nextSession = controller.nextPlannedSession;
+    final enabledReminderCount = controller.reminderSettings.reminders
+        .where((entry) => entry.enabled)
+        .length;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
       children: [
         Text(
-          'Weekly schedule',
+          strings.weeklySchedule,
           style: Theme.of(context).textTheme.headlineMedium,
         ),
         const SizedBox(height: 8),
-        const Text(
-          'Plan treatments through the week, review upcoming reminders and track each session once it is completed or skipped.',
-        ),
+        Text(strings.weeklyScheduleBody),
         const SizedBox(height: 18),
         Card(
           child: Padding(
@@ -50,14 +52,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      DateFormat('MMMM yyyy').format(_selectedDate),
+                      strings.monthYear(_selectedDate),
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                     Chip(
                       label: Text(
                         controller.reminderSettings.enabled
-                            ? '${controller.reminderSettings.reminders.where((entry) => entry.enabled).length} reminders'
-                            : 'Reminders off',
+                            ? strings.remindersCount(enabledReminderCount)
+                            : strings.remindersOff,
                       ),
                     ),
                   ],
@@ -84,7 +86,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                             child: Column(
                               children: [
                                 Text(
-                                  DateFormat('E').format(day),
+                                  strings.weekdayShort(day.weekday),
                                   style: TextStyle(
                                     color: selected
                                         ? Colors.white
@@ -103,7 +105,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                 ),
                                 const SizedBox(height: 6),
                                 Text(
-                                  plannedCount == 0 ? '—' : '$plannedCount',
+                                  plannedCount == 0 ? '-' : '$plannedCount',
                                   style: TextStyle(
                                     color: selected
                                         ? Colors.white70
@@ -131,29 +133,30 @@ class _CalendarScreenState extends State<CalendarScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Reminder snapshot',
+                  strings.reminderSnapshot,
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 10),
                 if (nextSession == null)
-                  const Text(
-                    'No future treatment is planned yet, so there is nothing to notify.',
-                  )
+                  Text(strings.noFutureTreatment)
                 else ...[
                   Text(
-                    'Next treatment: ${nextSession.treatment.title}',
+                    strings.nextTreatmentLine(nextSession.treatment.title),
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    '${DateFormat('EEE d MMM').format(nextSession.date)} · ${nextSession.session.momentLabel}',
+                    strings.formattedMomentDate(
+                      nextSession.date,
+                      nextSession.session.momentLabel,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   ...controller.reminderTimesFor(nextSession.date).map(
                         (time) => Padding(
                           padding: const EdgeInsets.only(bottom: 4),
                           child: Text(
-                            DateFormat('EEE d MMM · HH:mm').format(time),
+                            '${strings.shortDate(time)} - ${strings.timeLabel(time)}',
                           ),
                         ),
                       ),
@@ -170,12 +173,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Scheduled sessions',
+                  strings.scheduledSessions,
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 12),
                 if (plans.isEmpty)
-                  const Text('No treatments scheduled for this day.')
+                  Text(strings.noTreatmentsScheduledForDay)
                 else
                   ...plans.map(
                     (plan) {
@@ -191,7 +194,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           ),
                           title: Text(treatment.title),
                           subtitle: Text(
-                            '${plan.momentLabel} · ${controller.reminderSummaryForPlan(plan)}',
+                            '${strings.translateMomentLabel(plan.momentLabel)} - ${controller.reminderSummaryForPlan(plan, strings)}',
                           ),
                           onTap: () {
                             Navigator.of(context).push(
@@ -205,7 +208,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                             spacing: 8,
                             children: [
                               IconButton(
-                                tooltip: 'Completed',
+                                tooltip: strings.completed,
                                 onPressed: () async {
                                   await controller.markStatus(
                                     date: _selectedDate,
@@ -217,7 +220,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                 icon: const Icon(Icons.check_circle_outline),
                               ),
                               IconButton(
-                                tooltip: 'Skipped',
+                                tooltip: strings.skipped,
                                 onPressed: () async {
                                   await controller.markStatus(
                                     date: _selectedDate,
@@ -246,12 +249,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Day results',
+                  strings.dayResults,
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 12),
                 if (history.isEmpty)
-                  const Text('Nothing marked yet for this day.')
+                  Text(strings.nothingMarkedYet)
                 else
                   ...history.map(
                     (entry) {
@@ -260,9 +263,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       return ListTile(
                         contentPadding: EdgeInsets.zero,
                         title: Text(treatment?.title ?? entry.treatmentId),
-                        subtitle: Text(
-                          '${entry.status.name} · ${entry.momentLabel} · ${DateFormat('HH:mm').format(DateTime.parse(entry.loggedAtIso).toLocal())}',
-                        ),
+                        subtitle: Text(strings.historyEntryLine(entry)),
                       );
                     },
                   ),

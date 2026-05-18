@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mega_panel_ai/core/scheduling/blueprint_controller.dart';
 import 'package:mega_panel_ai/core/scheduling/scheduling_models.dart';
+import 'package:mega_panel_ai/design_system/blueprint_localization.dart';
 import 'package:provider/provider.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -9,6 +10,7 @@ class SettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<BlueprintController>();
+    final strings = BlueprintStrings(controller.language);
     final reminders = controller.reminderSettings.reminders;
     final enabledReminders =
         reminders.where((entry) => entry.enabled).toList(growable: false);
@@ -17,14 +19,46 @@ class SettingsScreen extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
       children: [
         Text(
-          'Reminder settings',
+          strings.reminderSettings,
           style: Theme.of(context).textTheme.headlineMedium,
         ),
         const SizedBox(height: 8),
-        const Text(
-          'Choose whether reminders arrive the same day or one day before, select the hour and add as many reminders as you need.',
-        ),
+        Text(strings.reminderSettingsBody),
         const SizedBox(height: 18),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  strings.languageTitle,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 8),
+                Text(strings.languageSubtitle),
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: AppLanguage.values.map((language) {
+                    final selected = controller.language == language;
+                    return ChoiceChip(
+                      label: Text(
+                        language == AppLanguage.spanish
+                            ? strings.spanishLabel
+                            : strings.englishLabel,
+                      ),
+                      selected: selected,
+                      onSelected: (_) => controller.setLanguage(language),
+                    );
+                  }).toList(growable: false),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
         Card(
           child: Padding(
             padding: const EdgeInsets.all(18),
@@ -37,11 +71,11 @@ class SettingsScreen extends StatelessWidget {
                   onChanged: controller.notificationsSupported
                       ? controller.setReminderNotificationsEnabled
                       : null,
-                  title: const Text('Enable treatment reminders'),
+                  title: Text(strings.enableTreatmentReminders),
                   subtitle: Text(
                     controller.notificationsSupported
-                        ? 'Reminders are scheduled from your treatment calendar.'
-                        : 'Notifications are not supported on this platform preview.',
+                        ? strings.reminderCalendarSource
+                        : strings.notificationsNotSupported,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -50,8 +84,8 @@ class SettingsScreen extends StatelessWidget {
                     Chip(
                       label: Text(
                         controller.notificationsPermissionGranted
-                            ? 'Notifications allowed'
-                            : 'Permission needed',
+                            ? strings.notificationsAllowed
+                            : strings.permissionNeeded,
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -61,7 +95,7 @@ class SettingsScreen extends StatelessWidget {
                         onPressed: () async {
                           await controller.requestNotificationPermissions();
                         },
-                        child: const Text('Allow notifications'),
+                        child: Text(strings.allowNotifications),
                       ),
                   ],
                 ),
@@ -80,7 +114,7 @@ class SettingsScreen extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        'Active reminders',
+                        strings.activeReminders,
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                     ),
@@ -89,15 +123,13 @@ class SettingsScreen extends StatelessWidget {
                           ? () => _openReminderEditor(context, controller)
                           : null,
                       icon: const Icon(Icons.add_alert_outlined),
-                      label: const Text('Add reminder'),
+                      label: Text(strings.addReminder),
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
                 if (enabledReminders.isEmpty)
-                  const Text(
-                    'No active reminders yet. Add one or more reminders to stay on track with planned treatments.',
-                  )
+                  Text(strings.noActiveRemindersYet)
                 else
                   ...enabledReminders.map(
                     (reminder) => Padding(
@@ -107,17 +139,14 @@ class SettingsScreen extends StatelessWidget {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(18),
                         ),
-                        title: Text(reminder.summary),
-                        subtitle: Text(
-                          reminder.leadTime == ReminderLeadTime.dayBefore
-                              ? 'Sent one day before at ${reminder.timeLabel}'
-                              : 'Sent the same day at ${reminder.timeLabel}',
-                        ),
+                        title:
+                            Text(strings.reminderPreferenceSummary(reminder)),
+                        subtitle: Text(strings.reminderDescription(reminder)),
                         trailing: Wrap(
                           spacing: 6,
                           children: [
                             IconButton(
-                              tooltip: 'Edit reminder',
+                              tooltip: strings.editReminder,
                               onPressed: () => _openReminderEditor(
                                 context,
                                 controller,
@@ -126,7 +155,7 @@ class SettingsScreen extends StatelessWidget {
                               icon: const Icon(Icons.edit_outlined),
                             ),
                             IconButton(
-                              tooltip: 'Remove reminder',
+                              tooltip: strings.removeReminder,
                               onPressed: () async {
                                 await controller
                                     .removeReminderPreference(reminder.id);
@@ -150,16 +179,14 @@ class SettingsScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Reminder behavior',
+                  strings.reminderBehavior,
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 10),
-                const Text(
-                  'Reminders are created from your planned treatments. Completed or skipped sessions stop generating future notifications for that day.',
-                ),
+                Text(strings.reminderBehaviorBody),
                 const SizedBox(height: 8),
                 Text(
-                  BlueprintController.disclaimer,
+                  strings.disclaimer,
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],
@@ -175,6 +202,7 @@ class SettingsScreen extends StatelessWidget {
     BlueprintController controller, {
     ReminderPreference? existing,
   }) async {
+    final strings = BlueprintStrings(controller.language);
     var leadTime = existing?.leadTime ?? ReminderLeadTime.sameDay;
     var selectedTime =
         TimeOfDay(hour: existing?.hour ?? 9, minute: existing?.minute ?? 0);
@@ -184,19 +212,23 @@ class SettingsScreen extends StatelessWidget {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (ctx, setState) => AlertDialog(
-            title: Text(existing == null ? 'Add reminder' : 'Edit reminder'),
+            title: Text(
+              existing == null
+                  ? strings.addReminderDialogTitle
+                  : strings.editReminderDialogTitle,
+            ),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 DropdownButtonFormField<ReminderLeadTime>(
                   initialValue: leadTime,
-                  decoration: const InputDecoration(labelText: 'When'),
+                  decoration: InputDecoration(labelText: strings.when),
                   items: ReminderLeadTime.values
                       .map(
                         (value) => DropdownMenuItem(
                           value: value,
-                          child: Text(value.label),
+                          child: Text(strings.reminderLeadTimeLabel(value)),
                         ),
                       )
                       .toList(growable: false),
@@ -211,13 +243,16 @@ class SettingsScreen extends StatelessWidget {
                     final picked = await showTimePicker(
                       context: ctx,
                       initialTime: selectedTime,
+                      helpText: strings.when,
+                      cancelText: strings.cancel,
+                      confirmText: strings.save,
                     );
                     if (picked == null) return;
                     setState(() => selectedTime = picked);
                   },
                   icon: const Icon(Icons.schedule_outlined),
                   label: Text(
-                    'Time · ${selectedTime.format(ctx)}',
+                    strings.timeButtonLabel(selectedTime.format(ctx)),
                   ),
                 ),
               ],
@@ -225,7 +260,7 @@ class SettingsScreen extends StatelessWidget {
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('Cancel'),
+                child: Text(strings.cancel),
               ),
               FilledButton(
                 onPressed: () async {
@@ -246,7 +281,7 @@ class SettingsScreen extends StatelessWidget {
                   }
                   if (ctx.mounted) Navigator.of(ctx).pop();
                 },
-                child: const Text('Save'),
+                child: Text(strings.save),
               ),
             ],
           ),

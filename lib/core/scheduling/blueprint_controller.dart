@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:mega_panel_ai/core/scheduling/notification_service.dart';
 import 'package:mega_panel_ai/core/scheduling/scheduling_models.dart';
 import 'package:mega_panel_ai/core/treatments/treatment.dart';
+import 'package:mega_panel_ai/design_system/blueprint_localization.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class BlueprintController extends ChangeNotifier {
@@ -16,12 +17,10 @@ class BlueprintController extends ChangeNotifier {
         _notificationService = notificationService ?? NotificationService(),
         _demoMode = demoMode;
 
-  static const String disclaimer =
-      'This app provides wellness guidance based on published literature and is not a medical device.';
-
   static const _prefsPlans = 'bp1_plans';
   static const _prefsHistory = 'bp1_history';
   static const _prefsReminderSettings = 'bp1_reminder_settings';
+  static const _prefsLanguage = 'bp1_language';
 
   final List<WellnessTreatment> _treatments;
   final NotificationService _notificationService;
@@ -43,6 +42,7 @@ class BlueprintController extends ChangeNotifier {
   bool _ready = false;
   bool _notificationsSupported = false;
   bool _notificationsPermissionGranted = false;
+  AppLanguage _language = AppLanguage.english;
 
   bool get ready => _ready;
   bool get notificationsSupported => _notificationsSupported;
@@ -51,6 +51,7 @@ class BlueprintController extends ChangeNotifier {
   List<SessionHistoryEntry> get history =>
       List<SessionHistoryEntry>.unmodifiable(_history);
   ReminderSettings get reminderSettings => _reminderSettings;
+  AppLanguage get language => _language;
 
   Future<void> load() async {
     if (_demoMode) {
@@ -109,6 +110,11 @@ class BlueprintController extends ChangeNotifier {
       _reminderSettings = ReminderSettings.fromJson(
         Map<String, dynamic>.from(json.decode(reminderRaw) as Map),
       );
+    }
+
+    final rawLanguage = prefs.getString(_prefsLanguage);
+    if (rawLanguage == AppLanguage.spanish.name) {
+      _language = AppLanguage.spanish;
     }
 
     _ready = true;
@@ -191,16 +197,19 @@ class BlueprintController extends ChangeNotifier {
     return null;
   }
 
-  String reminderSummaryForPlan(PlannedSession session) {
+  String reminderSummaryForPlan(
+    PlannedSession session,
+    BlueprintStrings strings,
+  ) {
     final enabledReminders =
         _reminderSettings.reminders.where((entry) => entry.enabled).toList();
     if (!_reminderSettings.enabled || enabledReminders.isEmpty) {
-      return 'Reminders off';
+      return strings.remindersOff;
     }
     if (enabledReminders.length == 1) {
-      return enabledReminders.first.summary;
+      return strings.reminderPreferenceSummary(enabledReminders.first);
     }
-    return '${enabledReminders.length} reminders active';
+    return strings.reminderSummary(enabledReminders.length, true);
   }
 
   List<DateTime> reminderTimesFor(DateTime date) {
@@ -230,6 +239,14 @@ class BlueprintController extends ChangeNotifier {
 
   Future<void> setReminderNotificationsEnabled(bool value) async {
     _reminderSettings = _reminderSettings.copyWith(enabled: value);
+    await _persist();
+    await _syncNotifications();
+    notifyListeners();
+  }
+
+  Future<void> setLanguage(AppLanguage value) async {
+    if (_language == value) return;
+    _language = value;
     await _persist();
     await _syncNotifications();
     notifyListeners();
@@ -355,7 +372,8 @@ class BlueprintController extends ChangeNotifier {
           entry.dateKey,
           entry.status.name,
           entry.treatmentId,
-          treatment?.title ?? 'Unknown',
+          treatment?.title ??
+              BlueprintStrings(_language).unknownTreatmentLabel(),
           entry.momentLabel,
           entry.loggedAtIso,
         ].map(_csvEscape).join(','),
@@ -369,7 +387,8 @@ class BlueprintController extends ChangeNotifier {
       final treatment = treatmentById(entry.treatmentId);
       return {
         ...entry.toJson(),
-        'treatmentTitle': treatment?.title ?? 'Unknown',
+        'treatmentTitle': treatment?.title ??
+            BlueprintStrings(_language).unknownTreatmentLabel(),
       };
     }).toList();
     return const JsonEncoder.withIndent('  ').convert(payload);
@@ -394,6 +413,7 @@ class BlueprintController extends ChangeNotifier {
       _prefsReminderSettings,
       json.encode(_reminderSettings.toJson()),
     );
+    await prefs.setString(_prefsLanguage, _language.name);
   }
 
   Future<void> _syncNotifications() async {
@@ -422,6 +442,7 @@ class BlueprintController extends ChangeNotifier {
     await _notificationService.syncPlannedReminders(
       plans: plans,
       settings: _reminderSettings,
+      language: _language,
     );
   }
 

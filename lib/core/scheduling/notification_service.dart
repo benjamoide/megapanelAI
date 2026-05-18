@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:mega_panel_ai/core/scheduling/scheduling_models.dart';
+import 'package:mega_panel_ai/design_system/blueprint_localization.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -116,6 +117,7 @@ class NotificationService {
   Future<void> syncPlannedReminders({
     required List<ResolvedPlannedSession> plans,
     required ReminderSettings settings,
+    required AppLanguage language,
   }) async {
     if (!isSupported) return;
     await initialize();
@@ -125,6 +127,7 @@ class NotificationService {
 
     final now = tz.TZDateTime.now(tz.local);
     var notificationId = 3000;
+    final strings = BlueprintStrings(language);
 
     for (final entry in plans) {
       for (final reminder in settings.reminders) {
@@ -142,13 +145,17 @@ class NotificationService {
         if (scheduled.isBefore(now)) continue;
 
         final leadLabel = reminder.leadTime == ReminderLeadTime.dayBefore
-            ? 'Planned for tomorrow'
-            : 'Planned for today';
+            ? (strings.isSpanish
+                ? 'Planificado para manana'
+                : 'Planned for tomorrow')
+            : (strings.isSpanish
+                ? 'Planificado para hoy'
+                : 'Planned for today');
 
         await _plugin.zonedSchedule(
           notificationId++,
           entry.treatment.title,
-          '$leadLabel · ${entry.session.momentLabel}',
+          '$leadLabel - ${strings.translateMomentLabel(entry.session.momentLabel)}',
           scheduled,
           const NotificationDetails(
             android: AndroidNotificationDetails(

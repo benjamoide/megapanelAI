@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
 import 'package:mega_panel_ai/core/scheduling/blueprint_controller.dart';
+import 'package:mega_panel_ai/design_system/blueprint_localization.dart';
 import 'package:provider/provider.dart';
 
 class SessionHistoryScreen extends StatelessWidget {
@@ -10,6 +10,7 @@ class SessionHistoryScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<BlueprintController>();
+    final strings = BlueprintStrings(controller.language);
     final history = controller.history;
 
     return ListView(
@@ -19,7 +20,7 @@ class SessionHistoryScreen extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                'Session history',
+                strings.sessionHistory,
                 style: Theme.of(context).textTheme.headlineMedium,
               ),
             ),
@@ -32,30 +33,31 @@ class SessionHistoryScreen extends StatelessWidget {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                        content:
-                            Text('History copied as ${value.toUpperCase()}')),
+                      content: Text(strings.historyCopiedAs(value)),
+                    ),
                   );
                 }
               },
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: 'csv', child: Text('Copy CSV export')),
-                PopupMenuItem(value: 'json', child: Text('Copy JSON export')),
+              itemBuilder: (_) => [
+                PopupMenuItem(value: 'csv', child: Text(strings.copyCsvExport)),
+                PopupMenuItem(
+                  value: 'json',
+                  child: Text(strings.copyJsonExport),
+                ),
               ],
-              child: const Chip(label: Text('Export')),
+              child: Chip(label: Text(strings.export)),
             ),
           ],
         ),
         const SizedBox(height: 8),
-        const Text(
-          'Completed and skipped sessions stay here for review and export.',
-        ),
+        Text(strings.sessionHistoryBody),
         const SizedBox(height: 18),
         if (history.isEmpty)
           Card(
             child: Padding(
               padding: const EdgeInsets.all(24),
               child: Text(
-                'No tracked sessions yet. Plan a treatment and mark it as completed or skipped from the calendar.',
+                strings.noTrackedSessionsYet,
                 style: Theme.of(context).textTheme.bodyLarge,
               ),
             ),
@@ -81,16 +83,17 @@ class SessionHistoryScreen extends StatelessWidget {
                                 style: Theme.of(context).textTheme.titleLarge,
                               ),
                             ),
-                            Chip(label: Text(entry.status.name)),
+                            Chip(
+                              label: Text(
+                                strings.sessionStatusLabel(entry.status),
+                              ),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 10),
-                        Text('Scheduled day: ${entry.dateKey}'),
-                        Text('Moment: ${entry.momentLabel}'),
-                        if (loggedAt != null)
-                          Text(
-                            'Logged at: ${DateFormat('yyyy-MM-dd HH:mm').format(loggedAt)}',
-                          ),
+                        Text(strings.scheduledDay(entry.dateKey)),
+                        Text(strings.moment(entry.momentLabel)),
+                        if (loggedAt != null) Text(strings.loggedAt(loggedAt)),
                       ],
                     ),
                   ),

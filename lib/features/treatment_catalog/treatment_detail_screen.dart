@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:mega_panel_ai/core/evidence/evidence_level.dart';
 import 'package:mega_panel_ai/core/scheduling/blueprint_controller.dart';
 import 'package:mega_panel_ai/core/treatments/treatment.dart';
+import 'package:mega_panel_ai/design_system/blueprint_localization.dart';
 import 'package:mega_panel_ai/design_system/blueprint_theme.dart';
 import 'package:provider/provider.dart';
 
@@ -17,6 +17,7 @@ class TreatmentDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<BlueprintController>();
+    final strings = BlueprintStrings(controller.language);
     final today = DateTime.now();
 
     return Scaffold(
@@ -45,7 +46,8 @@ class TreatmentDetailScreen extends StatelessWidget {
                   children: [
                     Chip(label: Text(treatment.category)),
                     Chip(
-                      label: Text(treatment.evidenceLevel.label),
+                      label:
+                          Text(strings.evidenceLabel(treatment.evidenceLevel)),
                       backgroundColor:
                           treatment.evidenceLevel.color.withValues(alpha: 0.14),
                     ),
@@ -63,18 +65,23 @@ class TreatmentDetailScreen extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           _MetricCard(
-            title: 'Configuration',
+            title: strings.configuration,
             rows: [
-              _MetricRow('Duration', '${treatment.durationMinutes} min'),
-              _MetricRow('Distance', treatment.distanceGuidance),
-              _MetricRow('Pulse / mode', treatment.pulseGuidance),
-              _MetricRow('Suggested intensity', treatment.intensitySummary),
-              _MetricRow('Evidence level', treatment.evidenceLevel.label),
+              _MetricRow(strings.duration,
+                  strings.minutesLabel(treatment.durationMinutes)),
+              _MetricRow(strings.distance, treatment.distanceGuidance),
+              _MetricRow(strings.pulseMode, treatment.pulseGuidance),
+              _MetricRow(strings.suggestedIntensity,
+                  strings.intensitySummary(treatment)),
+              _MetricRow(
+                strings.evidenceLevel,
+                strings.evidenceLabel(treatment.evidenceLevel),
+              ),
             ],
           ),
           const SizedBox(height: 14),
           _SectionCard(
-            title: 'Safety notes',
+            title: strings.safetyNotes,
             icon: Icons.shield_outlined,
             children: treatment.safetyNotes
                 .map((note) => _BulletLine(text: note))
@@ -82,7 +89,7 @@ class TreatmentDetailScreen extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           _SectionCard(
-            title: 'Before session',
+            title: strings.beforeSession,
             icon: Icons.wb_sunny_outlined,
             children: treatment.beforeSessionTips
                 .map((note) => _BulletLine(text: note))
@@ -90,7 +97,7 @@ class TreatmentDetailScreen extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           _SectionCard(
-            title: 'After session',
+            title: strings.afterSession,
             icon: Icons.self_improvement_outlined,
             children: treatment.afterSessionTips
                 .map((note) => _BulletLine(text: note))
@@ -98,7 +105,7 @@ class TreatmentDetailScreen extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           _SectionCard(
-            title: 'Source references',
+            title: strings.sourceReferences,
             icon: Icons.menu_book_outlined,
             children: treatment.sourceReferences
                 .map((note) => _BulletLine(text: note))
@@ -106,7 +113,7 @@ class TreatmentDetailScreen extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           Text(
-            BlueprintController.disclaimer,
+            strings.disclaimer,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: BlueprintTheme.ink.withValues(alpha: 0.66),
                 ),
@@ -120,20 +127,20 @@ class TreatmentDetailScreen extends StatelessWidget {
                     await controller.scheduleTreatment(
                       treatment: treatment,
                       date: today,
-                      momentLabel: 'Today',
+                      momentLabel: strings.todayMomentLabel,
                     );
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(
-                            'Planned for ${DateFormat('EEE d MMM').format(today)}',
+                            strings.plannedFor(today),
                           ),
                         ),
                       );
                     }
                   },
                   icon: const Icon(Icons.event_available_outlined),
-                  label: const Text('Plan for today'),
+                  label: Text(strings.planForToday),
                 ),
               ),
             ],
@@ -151,25 +158,28 @@ class TreatmentDetailScreen extends StatelessWidget {
                           DateTime(today.year, today.month, today.day - 30),
                       lastDate:
                           DateTime(today.year, today.month, today.day + 365),
+                      helpText: strings.chooseDate,
+                      cancelText: strings.cancel,
+                      confirmText: strings.save,
                     );
                     if (selectedDate == null) return;
                     await controller.scheduleTreatment(
                       treatment: treatment,
                       date: selectedDate,
-                      momentLabel: 'Scheduled',
+                      momentLabel: strings.scheduledMomentLabel,
                     );
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(
-                            'Scheduled for ${DateFormat('EEE d MMM').format(selectedDate)}',
+                            strings.scheduledFor(selectedDate),
                           ),
                         ),
                       );
                     }
                   },
                   icon: const Icon(Icons.calendar_month_outlined),
-                  label: const Text('Choose a date'),
+                  label: Text(strings.chooseDate),
                 ),
               ),
             ],

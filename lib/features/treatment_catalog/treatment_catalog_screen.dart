@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mega_panel_ai/core/scheduling/blueprint_controller.dart';
-import 'package:mega_panel_ai/core/evidence/evidence_level.dart';
 import 'package:mega_panel_ai/core/treatments/treatment.dart';
+import 'package:mega_panel_ai/design_system/blueprint_localization.dart';
 import 'package:mega_panel_ai/features/treatment_catalog/treatment_detail_screen.dart';
 import 'package:provider/provider.dart';
 
@@ -14,19 +14,24 @@ class TreatmentCatalogScreen extends StatefulWidget {
 
 class _TreatmentCatalogScreenState extends State<TreatmentCatalogScreen> {
   String _query = '';
-  String _category = 'All';
+  String _category = '__all__';
 
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<BlueprintController>();
+    final strings = BlueprintStrings(controller.language);
     final categories = <String>{
-      'All',
+      '__all__',
       ...controller.treatments.map((t) => t.category),
     }.toList()
-      ..sort();
+      ..sort((a, b) {
+        if (a == '__all__') return -1;
+        if (b == '__all__') return 1;
+        return a.compareTo(b);
+      });
 
     final visible = controller.treatments.where((t) {
-      final categoryOk = _category == 'All' || t.category == _category;
+      final categoryOk = _category == '__all__' || t.category == _category;
       final haystack =
           '${t.title} ${t.category} ${t.goal} ${t.summary}'.toLowerCase();
       final queryOk = _query.trim().isEmpty ||
@@ -38,19 +43,19 @@ class _TreatmentCatalogScreenState extends State<TreatmentCatalogScreen> {
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
       children: [
         Text(
-          'Treatment catalogue',
+          strings.treatmentCatalogue,
           style: Theme.of(context).textTheme.headlineMedium,
         ),
         const SizedBox(height: 8),
         Text(
-          'Choose a goal, review recommended settings and plan it into your week.',
+          strings.treatmentCatalogueBody,
           style: Theme.of(context).textTheme.bodyLarge,
         ),
         const SizedBox(height: 18),
         TextField(
-          decoration: const InputDecoration(
-            hintText: 'Search by goal, area or symptom',
-            prefixIcon: Icon(Icons.search),
+          decoration: InputDecoration(
+            hintText: strings.searchHint,
+            prefixIcon: const Icon(Icons.search),
           ),
           onChanged: (value) => setState(() => _query = value),
         ),
@@ -65,7 +70,9 @@ class _TreatmentCatalogScreenState extends State<TreatmentCatalogScreen> {
               final category = categories[index];
               final selected = category == _category;
               return ChoiceChip(
-                label: Text(category),
+                label: Text(
+                  category == '__all__' ? strings.allCategory : category,
+                ),
                 selected: selected,
                 onSelected: (_) => setState(() => _category = category),
               );
@@ -99,6 +106,9 @@ class _TreatmentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings =
+        BlueprintStrings(context.watch<BlueprintController>().language);
+
     return Card(
       child: InkWell(
         borderRadius: BorderRadius.circular(24),
@@ -132,9 +142,14 @@ class _TreatmentCard extends StatelessWidget {
                           children: [
                             Chip(label: Text(treatment.category)),
                             Chip(
-                                label:
-                                    Text('${treatment.durationMinutes} min')),
-                            Chip(label: Text(treatment.evidenceLevel.label)),
+                              label: Text(strings
+                                  .minutesLabel(treatment.durationMinutes)),
+                            ),
+                            Chip(
+                              label: Text(
+                                strings.evidenceLabel(treatment.evidenceLevel),
+                              ),
+                            ),
                           ],
                         ),
                       ],
@@ -152,12 +167,12 @@ class _TreatmentCard extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                'Distance: ${treatment.distanceGuidance}',
+                '${strings.distancePrefix}: ${treatment.distanceGuidance}',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 4),
               Text(
-                'Intensity: ${treatment.intensitySummary}',
+                '${strings.intensityPrefix}: ${strings.intensitySummary(treatment)}',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ],

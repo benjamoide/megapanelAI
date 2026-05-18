@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:mega_panel_ai/core/scheduling/blueprint_controller.dart';
+import 'package:mega_panel_ai/design_system/blueprint_localization.dart';
 import 'package:mega_panel_ai/design_system/blueprint_theme.dart';
 import 'package:mega_panel_ai/features/calendar/calendar_screen.dart';
 import 'package:mega_panel_ai/features/session_history/session_history_screen.dart';
@@ -13,8 +13,11 @@ class BlueprintOneApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final language = context.watch<BlueprintController>().language;
+    final strings = BlueprintStrings(language);
+
     return MaterialApp(
-      title: 'Blueprint One',
+      title: strings.appTitle,
       debugShowCheckedModeBanner: false,
       theme: BlueprintTheme.light(),
       home: const BlueprintShell(),
@@ -41,6 +44,7 @@ class _BlueprintShellState extends State<BlueprintShell> {
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<BlueprintController>();
+    final strings = BlueprintStrings(controller.language);
     const pages = <Widget>[
       _OverviewScreen(),
       TreatmentCatalogScreen(),
@@ -48,17 +52,17 @@ class _BlueprintShellState extends State<BlueprintShell> {
       SessionHistoryScreen(),
       SettingsScreen(),
     ];
-    const labels = [
-      'Overview',
-      'Treatments',
-      'Calendar',
-      'History',
-      'Settings'
+    final labels = [
+      strings.navOverview,
+      strings.navTreatments,
+      strings.navCalendar,
+      strings.navHistory,
+      strings.navSettings,
     ];
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Blueprint One'),
+        title: Text(strings.appTitle),
       ),
       body: controller.ready
           ? pages[_index]
@@ -118,6 +122,7 @@ class _OverviewScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<BlueprintController>();
+    final strings = BlueprintStrings(controller.language);
     final today = DateTime.now();
     final plansToday = controller.plansFor(today);
     final historyToday = controller.historyFor(today);
@@ -143,17 +148,17 @@ class _OverviewScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'A clearer way to follow light therapy plans',
+                strings.heroTitle,
                 style: Theme.of(context).textTheme.headlineMedium,
               ),
               const SizedBox(height: 10),
               Text(
-                'Review evidence-based treatments, schedule them through the week and keep a clean record of completed or skipped sessions.',
+                strings.heroBody,
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: 12),
               Text(
-                BlueprintController.disclaimer,
+                strings.disclaimer,
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
@@ -164,17 +169,17 @@ class _OverviewScreen extends StatelessWidget {
           children: [
             Expanded(
               child: _StatCard(
-                title: 'Today planned',
+                title: strings.todayPlanned,
                 value: '${plansToday.length}',
-                subtitle: 'Sessions waiting in your calendar',
+                subtitle: strings.sessionsWaitingInCalendar,
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: _StatCard(
-                title: 'Today tracked',
+                title: strings.todayTracked,
                 value: '${historyToday.length}',
-                subtitle: 'Completed or skipped entries',
+                subtitle: strings.completedOrSkippedEntries,
               ),
             ),
           ],
@@ -184,19 +189,19 @@ class _OverviewScreen extends StatelessWidget {
           children: [
             Expanded(
               child: _StatCard(
-                title: 'This week planned',
+                title: strings.thisWeekPlanned,
                 value: '${controller.plannedCountForWeek(today)}',
-                subtitle: 'Upcoming sessions across the current week',
+                subtitle: strings.upcomingSessionsAcrossWeek,
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: _StatCard(
-                title: 'Reminders active',
+                title: strings.remindersActive,
                 value: '$enabledReminders',
                 subtitle: controller.reminderSettings.enabled
-                    ? 'Notification schedule ready'
-                    : 'Turn reminders on in settings',
+                    ? strings.notificationScheduleReady
+                    : strings.turnRemindersOnInSettings,
               ),
             ),
           ],
@@ -209,14 +214,12 @@ class _OverviewScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Next planned treatment',
+                  strings.nextPlannedTreatment,
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 10),
                 if (nextSession == null)
-                  const Text(
-                    'Nothing planned yet. Open the catalogue and add a treatment to your calendar.',
-                  )
+                  Text(strings.nothingPlannedYet)
                 else ...[
                   Text(
                     nextSession.treatment.title,
@@ -224,11 +227,17 @@ class _OverviewScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    '${DateFormat('EEE d MMM').format(nextSession.date)} · ${nextSession.session.momentLabel}',
+                    strings.formattedMomentDate(
+                      nextSession.date,
+                      nextSession.session.momentLabel,
+                    ),
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    controller.reminderSummaryForPlan(nextSession.session),
+                    controller.reminderSummaryForPlan(
+                      nextSession.session,
+                      strings,
+                    ),
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
@@ -238,24 +247,21 @@ class _OverviewScreen extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         Text(
-          'What you can do here',
+          strings.whatYouCanDoHere,
           style: Theme.of(context).textTheme.titleLarge,
         ),
         const SizedBox(height: 10),
-        const _CapabilityLine(
-          title: 'Browse treatments',
-          body:
-              'Open the catalogue, compare goals, duration, distance and suggested intensity distribution.',
+        _CapabilityLine(
+          title: strings.browseTreatments,
+          body: strings.browseTreatmentsBody,
         ),
-        const _CapabilityLine(
-          title: 'Plan your week',
-          body:
-              'Assign treatments to specific days, review the week at a glance and keep reminder timing aligned with your schedule.',
+        _CapabilityLine(
+          title: strings.planYourWeek,
+          body: strings.planYourWeekBody,
         ),
-        const _CapabilityLine(
-          title: 'Track consistency',
-          body:
-              'Mark sessions as completed or skipped and export the history for your own records.',
+        _CapabilityLine(
+          title: strings.trackConsistency,
+          body: strings.trackConsistencyBody,
         ),
       ],
     );
