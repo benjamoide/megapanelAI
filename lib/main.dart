@@ -4979,6 +4979,68 @@ List<String> _cleanBlueprintNotes(
   return cleaned.toList();
 }
 
+const Set<String> _blueprintExcludedTreatmentIds = {
+  'rec_gluteo_post',
+  'rec_gemelos_post',
+  'perf_prime',
+  'perf_stab',
+  'perf_transfer',
+  'ses_pierna',
+  'ses_tiron',
+  'ses_empuje',
+  'ses_wod',
+};
+
+bool _isBlueprintDatasetExcluded(Tratamiento treatment) {
+  return _blueprintExcludedTreatmentIds.contains(treatment.id);
+}
+
+bool _isBlueprintTrainingReference(String value) {
+  final lower = value.toLowerCase();
+  return lower.contains('entren') ||
+      lower.contains('crossfit') ||
+      lower.contains('wod') ||
+      lower.contains('rendimiento') ||
+      lower.contains('deportivo') ||
+      lower.contains('pre-ejercicio') ||
+      lower.contains('pre ejercicio') ||
+      lower.contains('pre-sesion') ||
+      lower.contains('pre sesion') ||
+      lower.contains('recuperacion de fuerza') ||
+      lower.contains('dano muscular') ||
+      lower.contains('resistencia') ||
+      lower.contains('workout');
+}
+
+String _sanitizeBlueprintText(String value) {
+  var text = value.trim();
+  if (text.isEmpty) return text;
+  const replacements = <String, String>{
+    'post-entreno': 'de sobrecarga acumulada',
+    'post entreno': 'de sobrecarga acumulada',
+    'pre-entreno': 'previo a la sesion',
+    'pre entreno': 'previo a la sesion',
+    'antes de entrenar': 'antes de la sesion',
+    'entrenamiento': 'actividad fisica',
+    'Crossfit': 'alta intensidad',
+    'crossfit': 'alta intensidad',
+    'WOD': 'esfuerzo intenso',
+    'wod': 'esfuerzo intenso',
+    'rendimiento deportivo': 'bienestar funcional',
+    'rendimiento tecnico': 'bienestar funcional',
+    'pre-ejercicio': 'antes de la sesion',
+    'pre ejercicio': 'antes de la sesion',
+    'dieta/ejercicio': 'habitos saludables',
+    'dieta y ejercicio': 'habitos saludables',
+    'combinar con entrenamiento y control nutricional':
+        'combinar con habitos saludables y control nutricional',
+  };
+  replacements.forEach((from, to) {
+    text = text.replaceAll(from, to);
+  });
+  return text.replaceAll(RegExp(r'\s+'), ' ').trim();
+}
+
 bool _looksLikeSourceReference(String value) {
   final lower = value.toLowerCase();
   return lower.contains('fuente:') ||
@@ -5015,20 +5077,26 @@ List<TreatmentIntensity> _mapBlueprintIntensity(
 
 String _deriveBlueprintGoal(Tratamiento treatment) {
   if (treatment.descripcion.trim().isNotEmpty) {
-    return treatment.descripcion.trim();
+    return _sanitizeBlueprintText(treatment.descripcion.trim());
   }
   if (treatment.sintomas.trim().isNotEmpty) {
-    return 'Support for ${treatment.sintomas.trim().toLowerCase()}.';
+    return _sanitizeBlueprintText(
+      'Support for ${treatment.sintomas.trim().toLowerCase()}.',
+    );
   }
-  return 'General wellness guidance for ${treatment.nombre.toLowerCase()}.';
+  return _sanitizeBlueprintText(
+    'General wellness guidance for ${treatment.nombre.toLowerCase()}.',
+  );
 }
 
 String _deriveBlueprintSummary(Tratamiento treatment) {
   if (treatment.sintomas.trim().isNotEmpty) {
-    return treatment.sintomas.trim();
+    return _sanitizeBlueprintText(treatment.sintomas.trim());
   }
   if (treatment.posicion.trim().isNotEmpty) {
-    return 'Suggested placement: ${treatment.posicion.trim()}';
+    return _sanitizeBlueprintText(
+      'Suggested placement: ${treatment.posicion.trim()}',
+    );
   }
   return 'Published protocol summary available in the treatment notes.';
 }
@@ -5037,18 +5105,40 @@ List<WellnessTreatment> _buildBlueprintTreatments() {
   final treatments =
       DB_DEFINICIONES.where((entry) => !entry.oculto).map((entry) {
     final treatment = _aplicarActualizacionCientifica(entry);
-    final sourceReferences = _extractBlueprintSourceReferences(treatment);
-    final safetyNotes = _cleanBlueprintNotes(treatment.prohibidos);
+    if (_isBlueprintDatasetExcluded(treatment)) {
+      return null;
+    }
+    final sourceReferences = _extractBlueprintSourceReferences(treatment)
+        .where((reference) => !_isBlueprintTrainingReference(reference))
+        .toList();
+    final safetyNotes = _cleanBlueprintNotes(treatment.prohibidos)
+        .map(_sanitizeBlueprintText)
+        .where((note) => !_isBlueprintTrainingReference(note))
+        .toList();
+    final beforeSessionTips = _cleanBlueprintNotes(
+      treatment.tipsAntes,
+      excludeSourceReferences: true,
+    )
+        .map(_sanitizeBlueprintText)
+        .where((note) => !_isBlueprintTrainingReference(note))
+        .toList();
+    final afterSessionTips = _cleanBlueprintNotes(
+      treatment.tipsDespues,
+      excludeSourceReferences: true,
+    )
+        .map(_sanitizeBlueprintText)
+        .where((note) => !_isBlueprintTrainingReference(note))
+        .toList();
     return WellnessTreatment(
       id: treatment.id,
-      title: treatment.nombre,
+      title: _sanitizeBlueprintText(treatment.nombre),
       category: entry.zona.trim().isEmpty ? 'General wellness' : entry.zona,
       goal: _deriveBlueprintGoal(treatment),
       summary: _deriveBlueprintSummary(treatment),
       durationMinutes: int.tryParse(treatment.duracion) ?? 10,
       distanceGuidance: treatment.posicion.trim().isEmpty
           ? 'Follow the distance used in the cited protocol and adjust for comfort.'
-          : treatment.posicion.trim(),
+          : _sanitizeBlueprintText(treatment.posicion.trim()),
       pulseGuidance:
           treatment.hz.trim().isEmpty ? 'Protocol dependent' : treatment.hz,
       intensityDistribution: _mapBlueprintIntensity(treatment.frecuencias),
@@ -5062,16 +5152,10 @@ List<WellnessTreatment> _buildBlueprintTreatments() {
             ]
           : safetyNotes,
       sourceReferences: sourceReferences,
-      beforeSessionTips: _cleanBlueprintNotes(
-        treatment.tipsAntes,
-        excludeSourceReferences: true,
-      ),
-      afterSessionTips: _cleanBlueprintNotes(
-        treatment.tipsDespues,
-        excludeSourceReferences: true,
-      ),
+      beforeSessionTips: beforeSessionTips,
+      afterSessionTips: afterSessionTips,
     );
-  }).toList();
+  }).whereType<WellnessTreatment>().toList();
 
   treatments.sort((a, b) {
     final category = a.category.compareTo(b.category);
