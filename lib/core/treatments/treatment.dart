@@ -1,4 +1,5 @@
 import 'package:mega_panel_ai/core/evidence/evidence_level.dart';
+import 'package:mega_panel_ai/core/training/training_models.dart';
 
 class TreatmentIntensity {
   const TreatmentIntensity({
@@ -26,6 +27,7 @@ class WellnessTreatment {
     required this.sourceReferences,
     required this.beforeSessionTips,
     required this.afterSessionTips,
+    required this.trainingGuidance,
   });
 
   final String id;
@@ -42,6 +44,7 @@ class WellnessTreatment {
   final List<String> sourceReferences;
   final List<String> beforeSessionTips;
   final List<String> afterSessionTips;
+  final List<TreatmentTrainingGuidance> trainingGuidance;
 
   String get intensitySummary {
     if (intensityDistribution.isEmpty) return 'No intensity guidance';

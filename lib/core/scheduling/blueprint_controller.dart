@@ -1,10 +1,12 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:mega_panel_ai/core/evidence/training_compatibility.dart';
 import 'package:intl/intl.dart';
 import 'package:mega_panel_ai/core/scheduling/notification_service.dart';
 import 'package:mega_panel_ai/core/scheduling/scheduling_models.dart';
 import 'package:mega_panel_ai/core/treatments/treatment.dart';
+import 'package:mega_panel_ai/core/training/training_models.dart';
 import 'package:mega_panel_ai/design_system/blueprint_localization.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -21,6 +23,7 @@ class BlueprintController extends ChangeNotifier {
   static const _prefsHistory = 'bp1_history';
   static const _prefsReminderSettings = 'bp1_reminder_settings';
   static const _prefsLanguage = 'bp1_language';
+  static const _prefsRecentTraining = 'bp1_recent_training';
 
   final List<WellnessTreatment> _treatments;
   final NotificationService _notificationService;
@@ -28,6 +31,8 @@ class BlueprintController extends ChangeNotifier {
 
   Map<String, List<PlannedSession>> _plans = <String, List<PlannedSession>>{};
   List<SessionHistoryEntry> _history = <SessionHistoryEntry>[];
+  Map<TrainingType, RecentTrainingSession> _recentTraining =
+      <TrainingType, RecentTrainingSession>{};
   ReminderSettings _reminderSettings = const ReminderSettings(
     enabled: false,
     reminders: <ReminderPreference>[
@@ -52,6 +57,10 @@ class BlueprintController extends ChangeNotifier {
       List<SessionHistoryEntry>.unmodifiable(_history);
   ReminderSettings get reminderSettings => _reminderSettings;
   AppLanguage get language => _language;
+  List<RecentTrainingSession> get recentTrainingSessions =>
+      _recentTraining.values.toList(growable: false)
+        ..sort((a, b) => b.performedAtIso.compareTo(a.performedAtIso));
+  bool get hasRecentTraining => _recentTraining.isNotEmpty;
 
   Future<void> load() async {
     if (_demoMode) {
@@ -110,6 +119,21 @@ class BlueprintController extends ChangeNotifier {
       _reminderSettings = ReminderSettings.fromJson(
         Map<String, dynamic>.from(json.decode(reminderRaw) as Map),
       );
+    }
+
+    final trainingRaw = prefs.getString(_prefsRecentTraining);
+    if (trainingRaw != null && trainingRaw.isNotEmpty) {
+      final decoded = json.decode(trainingRaw) as List;
+      final decodedSessions = decoded
+          .map(
+            (entry) => RecentTrainingSession.fromJson(
+              Map<String, dynamic>.from(entry as Map),
+            ),
+          )
+          .toList(growable: false);
+      _recentTraining = {
+        for (final session in decodedSessions) session.type: session,
+      };
     }
 
     final rawLanguage = prefs.getString(_prefsLanguage);
@@ -252,6 +276,47 @@ class BlueprintController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> logTrainingSession({
+    required TrainingType type,
+    required DateTime performedAt,
+    String? exampleKey,
+  }) async {
+    _recentTraining[type] = RecentTrainingSession(
+      type: type,
+      performedAtIso: performedAt.toIso8601String(),
+      exampleKey: exampleKey,
+    );
+    await _persist();
+    notifyListeners();
+  }
+
+  Future<void> removeTrainingSession(TrainingType type) async {
+    _recentTraining.remove(type);
+    await _persist();
+    notifyListeners();
+  }
+
+  Future<void> clearTrainingSessions() async {
+    _recentTraining.clear();
+    await _persist();
+    notifyListeners();
+  }
+
+  List<TrainingCompatibilityAssessment> compatibilityForTreatment({
+    required WellnessTreatment treatment,
+    DateTime? referenceTime,
+  }) {
+    final now = referenceTime ?? DateTime.now();
+    final recent = recentTrainingSessions
+        .where((entry) => now.difference(entry.performedAt).inHours <= 72)
+        .toList(growable: false);
+    return assessTrainingCompatibility(
+      guidance: treatment.trainingGuidance,
+      recentTraining: recent,
+      referenceTime: now,
+    );
+  }
+
   Future<void> addReminderPreference({
     required ReminderLeadTime leadTime,
     required int hour,
@@ -295,6 +360,7 @@ class BlueprintController extends ChangeNotifier {
     required WellnessTreatment treatment,
     required DateTime date,
     String momentLabel = 'Planned',
+    TrainingRelation trainingRelation = TrainingRelation.independent,
   }) async {
     final key = dateKeyFor(date);
     final existing = List<PlannedSession>.from(_plans[key] ?? const []);
@@ -304,6 +370,7 @@ class BlueprintController extends ChangeNotifier {
           treatmentId: treatment.id,
           dateKey: key,
           momentLabel: momentLabel,
+          trainingRelation: trainingRelation,
         ),
       );
       existing.sort((a, b) => a.momentLabel.compareTo(b.momentLabel));
@@ -336,9 +403,13 @@ class BlueprintController extends ChangeNotifier {
     required WellnessTreatment treatment,
     required SessionStatus status,
     String momentLabel = 'Tracked',
+    TrainingRelation trainingRelation = TrainingRelation.independent,
   }) async {
     final key = dateKeyFor(date);
     final existing = List<PlannedSession>.from(_plans[key] ?? const []);
+    final matched = existing
+        .where((entry) => entry.treatmentId == treatment.id)
+        .toList(growable: false);
     existing.removeWhere((entry) => entry.treatmentId == treatment.id);
     if (existing.isEmpty) {
       _plans.remove(key);
@@ -353,6 +424,9 @@ class BlueprintController extends ChangeNotifier {
         dateKey: key,
         status: status,
         momentLabel: momentLabel,
+        trainingRelation: matched.isNotEmpty
+            ? matched.first.trainingRelation
+            : trainingRelation,
       ),
     );
     _history.sort((a, b) => b.loggedAtIso.compareTo(a.loggedAtIso));
@@ -363,7 +437,7 @@ class BlueprintController extends ChangeNotifier {
 
   String exportHistoryAsCsv() {
     final buffer = StringBuffer(
-      'date,status,treatment_id,treatment_title,moment,logged_at\n',
+      'date,status,treatment_id,treatment_title,moment,training_relation,logged_at\n',
     );
     for (final entry in _history) {
       final treatment = treatmentById(entry.treatmentId);
@@ -375,6 +449,7 @@ class BlueprintController extends ChangeNotifier {
           treatment?.title ??
               BlueprintStrings(_language).unknownTreatmentLabel(),
           entry.momentLabel,
+          entry.trainingRelation.name,
           entry.loggedAtIso,
         ].map(_csvEscape).join(','),
       );
@@ -389,6 +464,7 @@ class BlueprintController extends ChangeNotifier {
         ...entry.toJson(),
         'treatmentTitle': treatment?.title ??
             BlueprintStrings(_language).unknownTreatmentLabel(),
+        'trainingRelationLabel': entry.trainingRelation.name,
       };
     }).toList();
     return const JsonEncoder.withIndent('  ').convert(payload);
@@ -414,6 +490,12 @@ class BlueprintController extends ChangeNotifier {
       json.encode(_reminderSettings.toJson()),
     );
     await prefs.setString(_prefsLanguage, _language.name);
+    await prefs.setString(
+      _prefsRecentTraining,
+      json.encode(
+        _recentTraining.values.map((entry) => entry.toJson()).toList(),
+      ),
+    );
   }
 
   Future<void> _syncNotifications() async {
@@ -463,11 +545,13 @@ class BlueprintController extends ChangeNotifier {
           treatmentId: source[0].id,
           dateKey: dateKeyFor(today),
           momentLabel: 'Morning',
+          trainingRelation: TrainingRelation.afterTraining,
         ),
         PlannedSession(
           treatmentId: source[1].id,
           dateKey: dateKeyFor(today),
           momentLabel: 'Evening',
+          trainingRelation: TrainingRelation.independent,
         ),
       ],
       dateKeyFor(today.add(const Duration(days: 1))): [
@@ -475,6 +559,7 @@ class BlueprintController extends ChangeNotifier {
           treatmentId: source[2].id,
           dateKey: dateKeyFor(today.add(const Duration(days: 1))),
           momentLabel: 'Lunch break',
+          trainingRelation: TrainingRelation.beforeTraining,
         ),
       ],
       dateKeyFor(today.add(const Duration(days: 3))): [
@@ -482,6 +567,7 @@ class BlueprintController extends ChangeNotifier {
           treatmentId: source[3].id,
           dateKey: dateKeyFor(today.add(const Duration(days: 3))),
           momentLabel: 'Afternoon',
+          trainingRelation: TrainingRelation.afterTraining,
         ),
       ],
     };
@@ -497,6 +583,7 @@ class BlueprintController extends ChangeNotifier {
         dateKey: dateKeyFor(today.subtract(const Duration(days: 1))),
         status: SessionStatus.completed,
         momentLabel: 'Evening',
+        trainingRelation: TrainingRelation.afterTraining,
       ),
       SessionHistoryEntry(
         id: 'demo_2',
@@ -508,6 +595,7 @@ class BlueprintController extends ChangeNotifier {
         dateKey: dateKeyFor(today.subtract(const Duration(days: 2))),
         status: SessionStatus.completed,
         momentLabel: 'Morning',
+        trainingRelation: TrainingRelation.independent,
       ),
       SessionHistoryEntry(
         id: 'demo_3',
@@ -519,8 +607,32 @@ class BlueprintController extends ChangeNotifier {
         dateKey: dateKeyFor(today.subtract(const Duration(days: 3))),
         status: SessionStatus.skipped,
         momentLabel: 'Lunch break',
+        trainingRelation: TrainingRelation.beforeTraining,
       ),
     ];
+
+    _recentTraining = <TrainingType, RecentTrainingSession>{
+      TrainingType.hiit: RecentTrainingSession(
+        type: TrainingType.hiit,
+        performedAtIso: today
+            .subtract(const Duration(hours: 3))
+            .add(const Duration(minutes: 15))
+            .toIso8601String(),
+        exampleKey: 'rower_sprints',
+      ),
+      TrainingType.upperBodyStrength: RecentTrainingSession(
+        type: TrainingType.upperBodyStrength,
+        performedAtIso:
+            today.subtract(const Duration(hours: 22)).toIso8601String(),
+        exampleKey: 'bench_pull',
+      ),
+      TrainingType.yogaPilates: RecentTrainingSession(
+        type: TrainingType.yogaPilates,
+        performedAtIso:
+            today.subtract(const Duration(days: 2, hours: 2)).toIso8601String(),
+        exampleKey: 'mat_pilates',
+      ),
+    };
 
     _reminderSettings = const ReminderSettings(
       enabled: true,

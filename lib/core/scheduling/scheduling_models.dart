@@ -1,4 +1,5 @@
 import 'package:mega_panel_ai/core/treatments/treatment.dart';
+import 'package:mega_panel_ai/core/training/training_models.dart';
 
 enum SessionStatus {
   completed,
@@ -10,16 +11,19 @@ class PlannedSession {
     required this.treatmentId,
     required this.dateKey,
     required this.momentLabel,
+    this.trainingRelation = TrainingRelation.independent,
   });
 
   final String treatmentId;
   final String dateKey;
   final String momentLabel;
+  final TrainingRelation trainingRelation;
 
   Map<String, dynamic> toJson() => {
         'treatmentId': treatmentId,
         'dateKey': dateKey,
         'momentLabel': momentLabel,
+        'trainingRelation': trainingRelation.name,
       };
 
   factory PlannedSession.fromJson(Map<String, dynamic> json) {
@@ -27,6 +31,13 @@ class PlannedSession {
       treatmentId: json['treatmentId'] as String? ?? '',
       dateKey: json['dateKey'] as String? ?? '',
       momentLabel: json['momentLabel'] as String? ?? 'Planned',
+      trainingRelation: TrainingRelation.values.firstWhere(
+        (entry) =>
+            entry.name ==
+            (json['trainingRelation'] as String? ??
+                TrainingRelation.independent.name),
+        orElse: () => TrainingRelation.independent,
+      ),
     );
   }
 }
@@ -39,6 +50,7 @@ class SessionHistoryEntry {
     required this.dateKey,
     required this.status,
     required this.momentLabel,
+    this.trainingRelation = TrainingRelation.independent,
   });
 
   final String id;
@@ -47,6 +59,7 @@ class SessionHistoryEntry {
   final String dateKey;
   final SessionStatus status;
   final String momentLabel;
+  final TrainingRelation trainingRelation;
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -55,6 +68,7 @@ class SessionHistoryEntry {
         'dateKey': dateKey,
         'status': status.name,
         'momentLabel': momentLabel,
+        'trainingRelation': trainingRelation.name,
       };
 
   factory SessionHistoryEntry.fromJson(Map<String, dynamic> json) {
@@ -68,6 +82,13 @@ class SessionHistoryEntry {
           ? SessionStatus.skipped
           : SessionStatus.completed,
       momentLabel: json['momentLabel'] as String? ?? 'Tracked',
+      trainingRelation: TrainingRelation.values.firstWhere(
+        (entry) =>
+            entry.name ==
+            (json['trainingRelation'] as String? ??
+                TrainingRelation.independent.name),
+        orElse: () => TrainingRelation.independent,
+      ),
     );
   }
 }

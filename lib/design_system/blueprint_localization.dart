@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:mega_panel_ai/core/evidence/evidence_level.dart';
 import 'package:mega_panel_ai/core/scheduling/scheduling_models.dart';
 import 'package:mega_panel_ai/core/treatments/treatment.dart';
+import 'package:mega_panel_ai/core/training/training_models.dart';
 
 enum AppLanguage {
   english,
@@ -48,6 +49,7 @@ class BlueprintStrings {
   String get spanishLabel => isSpanish ? 'Castellano' : 'Spanish';
 
   String get navOverview => isSpanish ? 'Resumen' : 'Overview';
+  String get navContext => isSpanish ? 'Contexto' : 'Context';
   String get navTreatments => isSpanish ? 'Tratamientos' : 'Treatments';
   String get navCalendar => isSpanish ? 'Calendario' : 'Calendar';
   String get navHistory => isSpanish ? 'Historial' : 'History';
@@ -88,6 +90,46 @@ class BlueprintStrings {
       : 'Nothing planned yet. Open the catalogue and add a treatment to your calendar.';
   String get whatYouCanDoHere =>
       isSpanish ? 'Que puedes hacer aqui' : 'What you can do here';
+  String get trainingContextTitle =>
+      isSpanish ? 'Contexto de entrenamiento' : 'Training context';
+  String get trainingContextBody => isSpanish
+      ? 'Registra que tipos de entrenamiento has hecho recientemente para que la app pueda orientar si un tratamiento es razonable ahora, antes de entrenar o despues.'
+      : 'Log which training types you have done recently so the app can guide whether a treatment is reasonable now, before training or after training.';
+  String get recentTrainingLogged => isSpanish
+      ? 'Entrenamiento reciente registrado'
+      : 'Recent training logged';
+  String get noTrainingLogged => isSpanish
+      ? 'No hay entrenamiento reciente registrado. La app asumira que no has entrenado recientemente.'
+      : 'No recent training is logged. The app will assume you have not trained recently.';
+  String get clearTrainingContext =>
+      isSpanish ? 'Borrar contexto' : 'Clear context';
+  String get removeTrainingLog =>
+      isSpanish ? 'Eliminar registro' : 'Remove log';
+  String get logNow => isSpanish ? 'Registrar ahora' : 'Log now';
+  String get chooseDateAndTime =>
+      isSpanish ? 'Elegir fecha y hora' : 'Choose date and time';
+  String get selectTrainingExample => isSpanish
+      ? 'Selecciona un ejemplo de sesion'
+      : 'Select a session example';
+  String get chooseTime => isSpanish ? 'Elegir hora' : 'Choose time';
+  String get compatibilityTitle => isSpanish
+      ? 'Compatibilidad con entrenamiento'
+      : 'Training compatibility';
+  String get compatibilityBody => isSpanish
+      ? 'La app cruza tu contexto reciente de entrenamiento con la evidencia disponible para orientar si conviene usar este tratamiento ahora, antes de entrenar o despues.'
+      : 'The app cross-checks your recent training context with the available evidence to guide whether this treatment makes sense now, before training or after training.';
+  String get noRecentTrainingCompatibility => isSpanish
+      ? 'No hay entrenamientos recientes registrados, asi que este tratamiento se considera independiente de entrenamiento por defecto.'
+      : 'No recent training is logged, so this treatment is treated as training-independent by default.';
+  String get planRelationTitle => isSpanish
+      ? 'Relacion con el entrenamiento'
+      : 'Relation to training';
+  String get choosePlanRelation => isSpanish
+      ? 'Elige si lo quieres dejar como plan independiente, antes de entrenar o despues.'
+      : 'Choose whether to keep it as an independent plan, before training or after training.';
+  String get genericEvidenceNote => isSpanish
+      ? 'La literatura deportiva en PBM es heterogenea. Estas notas deben leerse como orientacion prudente, no como garantia de efecto.'
+      : 'The sports PBM literature is heterogeneous. Treat these notes as cautious guidance, not as a guarantee of effect.';
   String get browseTreatments =>
       isSpanish ? 'Explorar tratamientos' : 'Browse treatments';
   String get browseTreatmentsBody => isSpanish
@@ -169,6 +211,8 @@ class BlueprintStrings {
   String get noTreatmentsScheduledForDay => isSpanish
       ? 'No hay tratamientos programados para este dia.'
       : 'No treatments scheduled for this day.';
+  String get trainingRelationPrefix =>
+      isSpanish ? 'Relacion' : 'Relation';
   String get completed => isSpanish ? 'Completada' : 'Completed';
   String get skipped => isSpanish ? 'Omitida' : 'Skipped';
   String get dayResults => isSpanish ? 'Resultados del dia' : 'Day results';
@@ -277,6 +321,199 @@ class BlueprintStrings {
 
   String reminderPreferenceSummary(ReminderPreference reminder) =>
       '${reminderLeadTimeLabel(reminder.leadTime)} ${isSpanish ? 'a las' : 'at'} ${reminder.timeLabel}';
+
+  String trainingTypeLabel(TrainingType type) {
+    switch (type) {
+      case TrainingType.hiit:
+        return 'HIIT';
+      case TrainingType.yogaPilates:
+        return isSpanish ? 'Yoga / Pilates' : 'Yoga / Pilates';
+      case TrainingType.upperBodyStrength:
+        return isSpanish ? 'Fuerza tren superior' : 'Upper-body strength';
+      case TrainingType.lowerBodyStrength:
+        return isSpanish ? 'Fuerza tren inferior' : 'Lower-body strength';
+      case TrainingType.cardio:
+        return isSpanish ? 'Cardio' : 'Cardio';
+    }
+  }
+
+  String trainingTypeBody(TrainingType type) {
+    switch (type) {
+      case TrainingType.hiit:
+        return isSpanish
+            ? 'Entrenamientos cortos y muy exigentes, con acumulacion rapida de fatiga, lactato y carga sistemica.'
+            : 'Short, very demanding sessions with rapid fatigue, lactate build-up and systemic load.';
+      case TrainingType.yogaPilates:
+        return isSpanish
+            ? 'Trabajo de movilidad, control motor, respiracion y carga mecanica habitualmente mas baja.'
+            : 'Mobility, motor-control and breathing work, usually with lower mechanical load.';
+      case TrainingType.upperBodyStrength:
+        return isSpanish
+            ? 'Sesiones con presses, remos, dominadas o trabajo accesorio de hombro, espalda y brazos.'
+            : 'Sessions with presses, rows, pull-ups or accessory work for shoulders, back and arms.';
+      case TrainingType.lowerBodyStrength:
+        return isSpanish
+            ? 'Sesiones con sentadillas, peso muerto, zancadas o trabajo dominante de cadera y rodilla.'
+            : 'Sessions with squats, deadlifts, lunges or hip- and knee-dominant strength work.';
+      case TrainingType.cardio:
+        return isSpanish
+            ? 'Trabajo continuo o por intervalos centrado en carrera, bici, remo o esfuerzos aerobicos prolongados.'
+            : 'Continuous or interval-based running, cycling, rowing or longer aerobic efforts.';
+    }
+  }
+
+  List<(String, String)> trainingExamples(TrainingType type) {
+    switch (type) {
+      case TrainingType.hiit:
+        return [
+          (
+            'assault_bike',
+            isSpanish ? 'Assault bike por intervalos' : 'Assault bike intervals'
+          ),
+          (
+            'rower_sprints',
+            isSpanish ? 'Sprints en remo' : 'Rowing sprints'
+          ),
+          (
+            'track_intervals',
+            isSpanish ? 'Series en pista' : 'Track intervals'
+          ),
+        ];
+      case TrainingType.yogaPilates:
+        return [
+          ('vinyasa', isSpanish ? 'Vinyasa fluido' : 'Vinyasa flow'),
+          ('mat_pilates', isSpanish ? 'Pilates de suelo' : 'Mat Pilates'),
+          ('mobility_core', isSpanish ? 'Movilidad y core' : 'Mobility and core'),
+        ];
+      case TrainingType.upperBodyStrength:
+        return [
+          ('bench_pull', isSpanish ? 'Press banca y remo' : 'Bench press and rows'),
+          ('push_pull', isSpanish ? 'Empuje y tiron' : 'Push and pull session'),
+          ('shoulder_arms', isSpanish ? 'Hombro y brazos' : 'Shoulders and arms'),
+        ];
+      case TrainingType.lowerBodyStrength:
+        return [
+          ('squat_day', isSpanish ? 'Dia de sentadilla' : 'Squat day'),
+          ('deadlift_day', isSpanish ? 'Dia de peso muerto' : 'Deadlift day'),
+          ('lunge_glute', isSpanish ? 'Zancadas y gluteo' : 'Lunges and glutes'),
+        ];
+      case TrainingType.cardio:
+        return [
+          ('easy_run', isSpanish ? 'Rodaje suave' : 'Easy run'),
+          ('tempo_run', isSpanish ? 'Carrera tempo' : 'Tempo run'),
+          ('bike_endurance', isSpanish ? 'Bici de resistencia' : 'Endurance ride'),
+        ];
+    }
+  }
+
+  String trainingExampleLabel(TrainingType type, String? exampleKey) {
+    if (exampleKey == null) {
+      return isSpanish ? 'Sin ejemplo concreto' : 'No specific example';
+    }
+    for (final example in trainingExamples(type)) {
+      if (example.$1 == exampleKey) return example.$2;
+    }
+    return exampleKey;
+  }
+
+  String trainingLoggedAt(DateTime date, String exampleLabel) => isSpanish
+      ? '$exampleLabel · ${isoDate(date)} ${timeLabel(date)}'
+      : '$exampleLabel · ${isoDate(date)} ${timeLabel(date)}';
+
+  String trainingLoggedChip(DateTime date) => isSpanish
+      ? 'Registrado ${timeAgo(date)}'
+      : 'Logged ${timeAgo(date)}';
+
+  String compatibilityStatusLabel(TrainingCompatibilityStatus status) {
+    switch (status) {
+      case TrainingCompatibilityStatus.generallyCompatible:
+        return isSpanish ? 'Generalmente compatible' : 'Generally compatible';
+      case TrainingCompatibilityStatus.compatibleWithCaution:
+        return isSpanish
+            ? 'Compatible con cautela'
+            : 'Compatible with caution';
+      case TrainingCompatibilityStatus.limitedEvidence:
+        return isSpanish ? 'Evidencia limitada' : 'Limited evidence';
+      case TrainingCompatibilityStatus.waitUntilRecovered:
+        return isSpanish ? 'Es mejor esperar' : 'Better to wait';
+    }
+  }
+
+  String compatibilityAssessmentSummary(
+    TrainingCompatibilityStatus status, {
+    required bool afterTraining,
+  }) {
+    switch (status) {
+      case TrainingCompatibilityStatus.generallyCompatible:
+        return afterTraining
+            ? (isSpanish
+                ? 'Generalmente compatible despues de entrenar'
+                : 'Generally compatible after training')
+            : (isSpanish
+                ? 'Generalmente compatible antes de entrenar'
+                : 'Generally compatible before training');
+      case TrainingCompatibilityStatus.compatibleWithCaution:
+        return afterTraining
+            ? (isSpanish
+                ? 'Compatible despues de entrenar con cautela practica'
+                : 'Compatible after training with practical caution')
+            : (isSpanish
+                ? 'Compatible antes de entrenar con cautela practica'
+                : 'Compatible before training with practical caution');
+      case TrainingCompatibilityStatus.limitedEvidence:
+        return afterTraining
+            ? (isSpanish
+                ? 'Posible despues de entrenar, pero con evidencia limitada'
+                : 'Possible after training, but evidence is limited')
+            : (isSpanish
+                ? 'Posible antes de entrenar, pero con evidencia limitada'
+                : 'Possible before training, but evidence is limited');
+      case TrainingCompatibilityStatus.waitUntilRecovered:
+        return isSpanish
+            ? 'Es mejor esperar a que pase la fase inmediata post-entreno'
+            : 'Wait until the immediate post-training period has settled';
+    }
+  }
+
+  String trainingRelationLabel(TrainingRelation relation) {
+    switch (relation) {
+      case TrainingRelation.independent:
+        return isSpanish ? 'Independiente' : 'Independent';
+      case TrainingRelation.beforeTraining:
+        return isSpanish ? 'Antes de entrenar' : 'Before training';
+      case TrainingRelation.afterTraining:
+        return isSpanish ? 'Despues de entrenar' : 'After training';
+    }
+  }
+
+  String timeAgo(DateTime date) {
+    final diff = DateTime.now().difference(date);
+    if (diff.inMinutes < 60) {
+      return isSpanish
+          ? 'hace ${diff.inMinutes} min'
+          : '${diff.inMinutes} min ago';
+    }
+    if (diff.inHours < 24) {
+      return isSpanish ? 'hace ${diff.inHours} h' : '${diff.inHours} h ago';
+    }
+    return isSpanish ? 'hace ${diff.inDays} dias' : '${diff.inDays} days ago';
+  }
+
+  String localizedCompatibilityText(String raw) {
+    if (!isSpanish) return raw;
+    const waitPrefix =
+        'A short recovery gap is advisable first. Approximate wait remaining: ';
+    if (raw.startsWith(waitPrefix)) {
+      final remainder = raw.substring(waitPrefix.length);
+      final splitIndex = remainder.indexOf(' min. ');
+      if (splitIndex != -1) {
+        final minutes = remainder.substring(0, splitIndex);
+        final tail = remainder.substring(splitIndex + 6);
+        return 'Conviene dejar primero una pequena ventana de recuperacion. Espera aproximada restante: $minutes min. ${localizedCompatibilityText(tail)}';
+      }
+    }
+    return _compatibilityTranslations[raw] ?? raw;
+  }
 
   String evidenceLabel(EvidenceLevel level) {
     switch (level) {
@@ -423,4 +660,71 @@ class BlueprintStrings {
     final values = isSpanish ? es : en;
     return values[(month - 1).clamp(0, 11)];
   }
+
+  static const Map<String, String> _compatibilityTranslations = {
+    'High-intensity pre-exercise PBM has mixed evidence. Some localized studies suggest less fatigue, but others show no clear ergogenic effect. Use only as an optional adjunct, not as a performance requirement.':
+        'La PBM antes de un esfuerzo de alta intensidad tiene evidencia mixta. Algunos estudios localizados sugieren menos fatiga, pero otros no muestran un efecto ergogenico claro. Debe verse como un apoyo opcional, no como un requisito de rendimiento.',
+    'After HIIT, localized PBM is generally compatible for recovery-oriented use once the initial cool-down has finished. Evidence supports possible fatigue/oxidative-stress modulation, but benefits are inconsistent across trials.':
+        'Despues de HIIT, la PBM localizada suele ser compatible para un uso orientado a la recuperacion una vez completado el enfriamiento inicial. La evidencia sugiere una posible modulacion de fatiga y estres oxidativo, pero los beneficios no son consistentes entre ensayos.',
+    'No exercise-specific incompatibility was identified before HIIT for this treatment family.':
+        'No se identifico una incompatibilidad especifica con HIIT antes de este tipo de tratamiento.',
+    'Generally compatible after HIIT, but practical comfort is better once skin temperature, sweat and breathing have normalized. Exercise-specific evidence for this treatment family is limited.':
+        'Generalmente compatible despues de HIIT, aunque la comodidad practica mejora cuando la temperatura cutanea, el sudor y la respiracion ya se han normalizado. La evidencia especifica para este tipo de tratamiento es limitada.',
+    'Whole-body or systemic PBM has not shown consistent performance benefits before intense conditioning work.':
+        'La PBM sistemica o de cuerpo completo no ha mostrado beneficios consistentes de rendimiento antes de trabajo de acondicionamiento intenso.',
+    'Compatible after HIIT for general wellness goals. Existing exercise studies do not show a clear incompatibility, but systemic benefits are less established than localized recovery use.':
+        'Compatible despues de HIIT para objetivos generales de bienestar. Los estudios de ejercicio no muestran una incompatibilidad clara, pero los beneficios sistemicos estan menos establecidos que el uso localizado para recuperacion.',
+    'Localized PBM before cardio has mixed evidence. Some endurance trials are neutral, so this should be considered optional rather than necessary.':
+        'La PBM localizada antes de cardio tiene evidencia mixta. Algunos ensayos de resistencia son neutros, asi que debe considerarse opcional y no necesaria.',
+    'Compatible after cardio for recovery-oriented treatments, especially when soreness or accumulated load is the target. Evidence is mixed and should not be framed as guaranteed performance enhancement.':
+        'Compatible despues de cardio para tratamientos orientados a recuperacion, sobre todo si el objetivo es la molestia o la carga acumulada. La evidencia es mixta y no debe presentarse como una mejora garantizada del rendimiento.',
+    'No direct incompatibility with cardio was identified for this treatment family.':
+        'No se identifico una incompatibilidad directa con cardio para este tipo de tratamiento.',
+    'Generally compatible after cardio once the user has cooled down and the skin is comfortable. Evidence is limited because most sports PBM studies focus on muscle outcomes.':
+        'Generalmente compatible despues de cardio una vez que la persona se ha enfriado y la piel esta confortable. La evidencia es limitada porque la mayoria de estudios deportivos de PBM se centran en resultados musculares.',
+    'Systemic PBM before cardio is not clearly supported for performance. Some endurance trials show no benefit.':
+        'La PBM sistemica antes de cardio no esta claramente respaldada para rendimiento. Algunos ensayos de resistencia no muestran beneficio.',
+    'Compatible after cardio for general wellness purposes, but evidence for systemic performance or recovery gains remains limited.':
+        'Compatible despues de cardio con objetivos generales de bienestar, pero la evidencia para mejoras sistemicas de rendimiento o recuperacion sigue siendo limitada.',
+    'This is the most studied combination. Some upper-body resistance trials report less fatigue when PBM is used before exercise, but results are not uniform across studies.':
+        'Esta es la combinacion mas estudiada. Algunos ensayos de fuerza de tren superior describen menos fatiga cuando la PBM se usa antes del ejercicio, pero los resultados no son uniformes entre estudios.',
+    'Compatible after upper-body strength work for recovery-oriented use on the trained area. Evidence suggests possible help with fatigue and oxidative-stress recovery, but not a guaranteed effect on strength or adaptation.':
+        'Compatible despues de trabajo de fuerza de tren superior para un uso orientado a recuperacion sobre la zona entrenada. La evidencia sugiere una posible ayuda sobre fatiga y recuperacion del estres oxidativo, pero no un efecto garantizado sobre fuerza o adaptacion.',
+    'No direct incompatibility was identified when the treatment target does not match the primary trained area.':
+        'No se identifico una incompatibilidad directa cuando la zona tratada no coincide con el area principal entrenada.',
+    'Generally compatible after upper-body strength work. Relevance is lower when the treated area was not the main driver of the session.':
+        'Generalmente compatible despues de fuerza de tren superior. La relevancia es menor cuando la zona tratada no fue el principal foco de la sesion.',
+    'No exercise-specific incompatibility was found before upper-body strength work for this treatment family.':
+        'No se encontro una incompatibilidad especifica con trabajo de fuerza de tren superior antes de este tipo de tratamiento.',
+    'Generally compatible after training, with a practical preference for waiting until sweat and skin heat settle.':
+        'Generalmente compatible despues del entrenamiento, con una preferencia practica por esperar a que el sudor y el calor cutaneo se normalicen.',
+    'Systemic use before strength sessions has less direct support than localized use on the working muscles.':
+        'El uso sistemico antes de sesiones de fuerza tiene menos apoyo directo que el uso localizado sobre la musculatura que va a trabajar.',
+    'Compatible after strength training for general wellness goals, but additional benefits over training alone are not consistently demonstrated in trained populations.':
+        'Compatible despues de entrenamiento de fuerza para objetivos generales de bienestar, pero los beneficios adicionales sobre entrenar solo no se demuestran de forma consistente en poblaciones ya entrenadas.',
+    'Lower-limb PBM before strength work is sometimes studied as a fatigue-management strategy, but results are mixed and should be treated as optional.':
+        'La PBM en miembros inferiores antes de fuerza se estudia a veces como estrategia de manejo de la fatiga, pero los resultados son mixtos y debe tratarse como algo opcional.',
+    'Compatible after lower-body strength work for soreness and load-management purposes. Evidence is mixed but generally supportive of recovery-focused use rather than performance claims.':
+        'Compatible despues de trabajo de fuerza de tren inferior para fines de control de molestia y carga. La evidencia es mixta, aunque en general apoya mas un uso centrado en recuperacion que en rendimiento.',
+    'No direct incompatibility was identified when the treated area is not the primary lower-body training target.':
+        'No se identifico una incompatibilidad directa cuando la zona tratada no es el principal objetivo del entrenamiento de tren inferior.',
+    'Generally compatible after lower-body strength work. Consider local soreness and fatigue only when the treatment overlaps the worked tissues.':
+        'Generalmente compatible despues de fuerza de tren inferior. Ten en cuenta la molestia y la fatiga local solo cuando el tratamiento coincide con los tejidos trabajados.',
+    'No exercise-specific incompatibility was found before lower-body strength work for this treatment family.':
+        'No se encontro una incompatibilidad especifica con trabajo de fuerza de tren inferior antes de este tipo de tratamiento.',
+    'Generally compatible after training, with a practical preference for waiting until local heat, sweat and friction have settled.':
+        'Generalmente compatible despues del entrenamiento, con una preferencia practica por esperar a que el calor local, el sudor y la friccion se normalicen.',
+    'Systemic PBM before lower-body lifting has limited direct support compared with localized muscle-focused use.':
+        'La PBM sistemica antes de levantar con tren inferior tiene un apoyo directo limitado frente al uso localizado sobre la musculatura objetivo.',
+    'Compatible after strength work for general wellness goals, but evidence for extra training adaptation benefits is inconsistent.':
+        'Compatible despues del trabajo de fuerza para objetivos generales de bienestar, pero la evidencia sobre beneficios extra en adaptacion al entrenamiento es inconsistente.',
+    'Generally compatible before lower-load mobility work when comfort and symptom goals align with the session.':
+        'Generalmente compatible antes de trabajo de movilidad de menor carga cuando los objetivos de confort y sintomas encajan con la sesion.',
+    'Direct evidence specific to yoga or Pilates timing is scarce. In rehabilitation-style Pilates studies, PBM did not add measurable benefit over Pilates alone, so use this more for symptom management than expected synergy.':
+        'La evidencia directa especifica sobre tiempos de yoga o Pilates es escasa. En estudios de Pilates con enfoque rehabilitador, la PBM no mostro un beneficio medible adicional frente a Pilates solo, por lo que conviene usarla mas para manejo de sintomas que esperando una sinergia clara.',
+    'No exercise-specific incompatibility was identified for low-load mobility sessions.':
+        'No se identifico una incompatibilidad especifica con sesiones de movilidad de baja carga.',
+    'Generally compatible after yoga or Pilates. Direct timing evidence is limited, but no meaningful conflict has been demonstrated.':
+        'Generalmente compatible despues de yoga o Pilates. La evidencia directa de tiempos es limitada, pero no se ha demostrado un conflicto relevante.',
+  };
 }

@@ -93,6 +93,9 @@ class SessionHistoryScreen extends StatelessWidget {
                         const SizedBox(height: 10),
                         Text(strings.scheduledDay(entry.dateKey)),
                         Text(strings.moment(entry.momentLabel)),
+                        Text(
+                          '${strings.trainingRelationPrefix}: ${strings.trainingRelationLabel(entry.trainingRelation)}',
+                        ),
                         if (loggedAt != null) Text(strings.loggedAt(loggedAt)),
                       ],
                     ),

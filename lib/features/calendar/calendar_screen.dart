@@ -194,7 +194,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           ),
                           title: Text(treatment.title),
                           subtitle: Text(
-                            '${strings.translateMomentLabel(plan.momentLabel)} - ${controller.reminderSummaryForPlan(plan, strings)}',
+                            '${strings.translateMomentLabel(plan.momentLabel)} - ${controller.reminderSummaryForPlan(plan, strings)}\n${strings.trainingRelationPrefix}: ${strings.trainingRelationLabel(plan.trainingRelation)}',
                           ),
                           onTap: () {
                             Navigator.of(context).push(
@@ -215,6 +215,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                     treatment: treatment,
                                     status: SessionStatus.completed,
                                     momentLabel: plan.momentLabel,
+                                    trainingRelation: plan.trainingRelation,
                                   );
                                 },
                                 icon: const Icon(Icons.check_circle_outline),
@@ -227,6 +228,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                     treatment: treatment,
                                     status: SessionStatus.skipped,
                                     momentLabel: plan.momentLabel,
+                                    trainingRelation: plan.trainingRelation,
                                   );
                                 },
                                 icon: const Icon(Icons.skip_next_outlined),
@@ -263,7 +265,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       return ListTile(
                         contentPadding: EdgeInsets.zero,
                         title: Text(treatment?.title ?? entry.treatmentId),
-                        subtitle: Text(strings.historyEntryLine(entry)),
+                        subtitle: Text(
+                          '${strings.historyEntryLine(entry)}\n${strings.trainingRelationPrefix}: ${strings.trainingRelationLabel(entry.trainingRelation)}',
+                        ),
                       );
                     },
                   ),

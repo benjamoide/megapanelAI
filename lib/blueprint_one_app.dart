@@ -5,6 +5,7 @@ import 'package:mega_panel_ai/design_system/blueprint_theme.dart';
 import 'package:mega_panel_ai/features/calendar/calendar_screen.dart';
 import 'package:mega_panel_ai/features/session_history/session_history_screen.dart';
 import 'package:mega_panel_ai/features/settings/settings_screen.dart';
+import 'package:mega_panel_ai/features/training_context/training_context_screen.dart';
 import 'package:mega_panel_ai/features/treatment_catalog/treatment_catalog_screen.dart';
 import 'package:provider/provider.dart';
 
@@ -47,6 +48,7 @@ class _BlueprintShellState extends State<BlueprintShell> {
     final strings = BlueprintStrings(controller.language);
     const pages = <Widget>[
       _OverviewScreen(),
+      TrainingContextScreen(),
       TreatmentCatalogScreen(),
       CalendarScreen(),
       SessionHistoryScreen(),
@@ -54,6 +56,7 @@ class _BlueprintShellState extends State<BlueprintShell> {
     ];
     final labels = [
       strings.navOverview,
+      strings.navContext,
       strings.navTreatments,
       strings.navCalendar,
       strings.navHistory,
@@ -86,12 +89,14 @@ class _BlueprintShellState extends State<BlueprintShell> {
       case 0:
         return Icons.wb_sunny_outlined;
       case 1:
-        return Icons.auto_awesome_mosaic_outlined;
+        return Icons.fitness_center_outlined;
       case 2:
-        return Icons.calendar_month_outlined;
+        return Icons.auto_awesome_mosaic_outlined;
       case 3:
-        return Icons.history_edu_outlined;
+        return Icons.calendar_month_outlined;
       case 4:
+        return Icons.history_edu_outlined;
+      case 5:
         return Icons.notifications_active_outlined;
       default:
         return Icons.circle_outlined;
@@ -102,13 +107,15 @@ class _BlueprintShellState extends State<BlueprintShell> {
     final tab = Uri.base.queryParameters['tab']?.toLowerCase().trim();
     switch (tab) {
       case 'treatments':
+        return 2;
+      case 'context':
         return 1;
       case 'calendar':
-        return 2;
-      case 'history':
         return 3;
-      case 'settings':
+      case 'history':
         return 4;
+      case 'settings':
+        return 5;
       case 'overview':
       default:
         return 0;
@@ -130,6 +137,7 @@ class _OverviewScreen extends StatelessWidget {
     final enabledReminders = controller.reminderSettings.reminders
         .where((entry) => entry.enabled)
         .length;
+    final recentTraining = controller.recentTrainingSessions.take(3).toList();
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
@@ -241,6 +249,33 @@ class _OverviewScreen extends StatelessWidget {
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  strings.trainingContextTitle,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 10),
+                if (recentTraining.isEmpty)
+                  Text(strings.noTrainingLogged)
+                else
+                  ...recentTraining.map(
+                    (entry) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        '${strings.trainingTypeLabel(entry.type)} - ${strings.trainingLoggedAt(entry.performedAt.toLocal(), strings.trainingExampleLabel(entry.type, entry.exampleKey))}',
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),

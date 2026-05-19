@@ -108,6 +108,12 @@ class _TreatmentCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final strings =
         BlueprintStrings(context.watch<BlueprintController>().language);
+    final controller = context.watch<BlueprintController>();
+    final compatibility = controller.compatibilityForTreatment(
+      treatment: treatment,
+    );
+    final topCompatibility =
+        compatibility.isEmpty ? null : compatibility.first;
 
     return Card(
       child: InkWell(
@@ -150,6 +156,14 @@ class _TreatmentCard extends StatelessWidget {
                                 strings.evidenceLabel(treatment.evidenceLevel),
                               ),
                             ),
+                            if (topCompatibility != null)
+                              Chip(
+                                label: Text(
+                                  strings.compatibilityStatusLabel(
+                                    topCompatibility.status,
+                                  ),
+                                ),
+                              ),
                           ],
                         ),
                       ],
@@ -170,6 +184,13 @@ class _TreatmentCard extends StatelessWidget {
                 '${strings.distancePrefix}: ${treatment.distanceGuidance}',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
+              if (topCompatibility != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  '${strings.trainingTypeLabel(topCompatibility.training.type)}: ${strings.compatibilityAssessmentSummary(topCompatibility.status, afterTraining: true)}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
               const SizedBox(height: 4),
               Text(
                 '${strings.intensityPrefix}: ${strings.intensitySummary(treatment)}',

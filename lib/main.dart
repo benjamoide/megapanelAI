@@ -9,6 +9,7 @@ import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:intl/intl.dart';
 import 'package:mega_panel_ai/blueprint_one_app.dart';
 import 'package:mega_panel_ai/core/evidence/evidence_level.dart';
+import 'package:mega_panel_ai/core/evidence/training_compatibility.dart';
 import 'package:mega_panel_ai/core/scheduling/blueprint_controller.dart';
 import 'package:mega_panel_ai/core/treatments/treatment.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -5154,6 +5155,10 @@ List<WellnessTreatment> _buildBlueprintTreatments() {
       sourceReferences: sourceReferences,
       beforeSessionTips: beforeSessionTips,
       afterSessionTips: afterSessionTips,
+      trainingGuidance: buildTrainingGuidance(
+        category: entry.zona.trim().isEmpty ? 'General wellness' : entry.zona,
+        title: treatment.nombre,
+      ),
     );
   }).whereType<WellnessTreatment>().toList();
 
