@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:mega_panel_ai/core/scheduling/blueprint_controller.dart';
 import 'package:mega_panel_ai/core/training/training_models.dart';
 import 'package:mega_panel_ai/design_system/blueprint_localization.dart';
+import 'package:mega_panel_ai/design_system/blueprint_theme.dart';
 import 'package:provider/provider.dart';
 
 class TrainingContextScreen extends StatelessWidget {
@@ -18,12 +19,27 @@ class TrainingContextScreen extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
       children: [
-        Text(
-          strings.trainingContextTitle,
-          style: Theme.of(context).textTheme.headlineMedium,
+        Container(
+          padding: const EdgeInsets.all(22),
+          decoration: BlueprintTheme.heroGradient(
+            primary: BlueprintTheme.ruby,
+            secondary: BlueprintTheme.gold,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                strings.trainingContextTitle,
+                style: Theme.of(context).textTheme.headlineMedium,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                strings.trainingContextBody,
+                style: Theme.of(context).textTheme.bodyLarge,
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: 8),
-        Text(strings.trainingContextBody),
         const SizedBox(height: 18),
         Card(
           child: Padding(
@@ -31,41 +47,84 @@ class TrainingContextScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  strings.recentTrainingLogged,
-                  style: Theme.of(context).textTheme.titleLarge,
+                Row(
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: BlueprintTheme.seafoam.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.history_toggle_off_outlined,
+                        color: BlueprintTheme.seafoam,
+                        size: 18,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        strings.recentTrainingLogged,
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 14),
                 if (sessions.isEmpty)
                   Text(strings.noTrainingLogged)
                 else
                   ...sessions.entries.map(
                     (entry) => Padding(
                       padding: const EdgeInsets.only(bottom: 10),
-                      child: ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(strings.trainingTypeLabel(entry.key)),
-                        subtitle: Text(
-                          strings.trainingLoggedAt(
-                            entry.value.performedAt.toLocal(),
-                            strings.trainingExampleLabel(
-                              entry.key,
-                              entry.value.exampleKey,
-                            ),
-                          ),
+                      child: Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: BlueprintTheme.panelRaised,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(color: BlueprintTheme.outline),
                         ),
-                        trailing: IconButton(
-                          tooltip: strings.removeTrainingLog,
-                          onPressed: () async {
-                            await controller.removeTrainingSession(entry.key);
-                          },
-                          icon: const Icon(Icons.delete_outline),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    strings.trainingTypeLabel(entry.key),
+                                    style:
+                                        Theme.of(context).textTheme.titleSmall,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    strings.trainingLoggedAt(
+                                      entry.value.performedAt.toLocal(),
+                                      strings.trainingExampleLabel(
+                                        entry.key,
+                                        entry.value.exampleKey,
+                                      ),
+                                    ),
+                                    style:
+                                        Theme.of(context).textTheme.bodySmall,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: strings.removeTrainingLog,
+                              onPressed: () async {
+                                await controller.removeTrainingSession(entry.key);
+                              },
+                              icon: const Icon(Icons.delete_outline),
+                            ),
+                          ],
                         ),
                       ),
                     ),
                   ),
                 if (sessions.isNotEmpty) ...[
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 8),
                   OutlinedButton.icon(
                     onPressed: () async {
                       await controller.clearTrainingSessions();
@@ -108,7 +167,8 @@ class _TrainingTypeCard extends StatelessWidget {
     final strings = BlueprintStrings(controller.language);
     final selectedExample = session?.exampleKey;
 
-    return Card(
+    return DecoratedBox(
+      decoration: BlueprintTheme.softPanel(),
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(
@@ -132,7 +192,7 @@ class _TrainingTypeCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(strings.trainingTypeBody(type)),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -140,7 +200,7 @@ class _TrainingTypeCard extends StatelessWidget {
                 return Chip(label: Text(example.$2));
               }).toList(growable: false),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
             Wrap(
               spacing: 10,
               runSpacing: 10,

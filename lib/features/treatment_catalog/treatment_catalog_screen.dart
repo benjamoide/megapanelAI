@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:mega_panel_ai/core/scheduling/blueprint_controller.dart';
 import 'package:mega_panel_ai/core/treatments/treatment.dart';
 import 'package:mega_panel_ai/design_system/blueprint_localization.dart';
+import 'package:mega_panel_ai/design_system/blueprint_theme.dart';
 import 'package:mega_panel_ai/features/treatment_catalog/treatment_detail_screen.dart';
 import 'package:provider/provider.dart';
 
@@ -42,14 +43,26 @@ class _TreatmentCatalogScreenState extends State<TreatmentCatalogScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
       children: [
-        Text(
-          strings.treatmentCatalogue,
-          style: Theme.of(context).textTheme.headlineMedium,
-        ),
-        const SizedBox(height: 8),
-        Text(
-          strings.treatmentCatalogueBody,
-          style: Theme.of(context).textTheme.bodyLarge,
+        Container(
+          padding: const EdgeInsets.all(22),
+          decoration: BlueprintTheme.heroGradient(
+            primary: BlueprintTheme.coral,
+            secondary: BlueprintTheme.seafoam,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                strings.treatmentCatalogue,
+                style: Theme.of(context).textTheme.headlineMedium,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                strings.treatmentCatalogueBody,
+                style: Theme.of(context).textTheme.bodyLarge,
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 18),
         TextField(
@@ -59,7 +72,7 @@ class _TreatmentCatalogScreenState extends State<TreatmentCatalogScreen> {
           ),
           onChanged: (value) => setState(() => _query = value),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         SizedBox(
           height: 42,
           child: ListView.separated(
@@ -115,9 +128,10 @@ class _TreatmentCard extends StatelessWidget {
     final topCompatibility =
         compatibility.isEmpty ? null : compatibility.first;
 
-    return Card(
+    return DecoratedBox(
+      decoration: BlueprintTheme.softPanel(),
       child: InkWell(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(28),
         onTap: () {
           Navigator.of(context).push(
             MaterialPageRoute(
@@ -137,11 +151,23 @@ class _TreatmentCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          treatment.title,
-                          style: Theme.of(context).textTheme.titleLarge,
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                treatment.title,
+                                style: Theme.of(context).textTheme.titleLarge,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Icon(
+                              Icons.arrow_forward_rounded,
+                              color: BlueprintTheme.fog.withValues(alpha: 0.8),
+                              size: 18,
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 10),
                         Wrap(
                           spacing: 8,
                           runSpacing: 8,
@@ -158,6 +184,8 @@ class _TreatmentCard extends StatelessWidget {
                             ),
                             if (topCompatibility != null)
                               Chip(
+                                backgroundColor:
+                                    BlueprintTheme.seafoam.withValues(alpha: 0.12),
                                 label: Text(
                                   strings.compatibilityStatusLabel(
                                     topCompatibility.status,
@@ -170,31 +198,61 @@ class _TreatmentCard extends StatelessWidget {
                     ),
                   ),
                   if (plannedToday)
-                    const Icon(Icons.event_available, color: Colors.green),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: BlueprintTheme.seafoam.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(
+                          color: BlueprintTheme.seafoam.withValues(alpha: 0.18),
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.event_available,
+                        color: BlueprintTheme.seafoam,
+                        size: 18,
+                      ),
+                    ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
               Text(
                 treatment.summary,
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 12),
-              Text(
-                '${strings.distancePrefix}: ${treatment.distanceGuidance}',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              if (topCompatibility != null) ...[
-                const SizedBox(height: 4),
-                Text(
-                  '${strings.trainingTypeLabel(topCompatibility.training.type)}: ${strings.compatibilityAssessmentSummary(topCompatibility.status, afterTraining: true)}',
-                  style: Theme.of(context).textTheme.bodySmall,
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: BlueprintTheme.panelRaised,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: BlueprintTheme.outline),
                 ),
-              ],
-              const SizedBox(height: 4),
-              Text(
-                '${strings.intensityPrefix}: ${strings.intensitySummary(treatment)}',
-                style: Theme.of(context).textTheme.bodySmall,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${strings.distancePrefix}: ${treatment.distanceGuidance}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${strings.intensityPrefix}: ${strings.intensitySummary(treatment)}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    if (topCompatibility != null) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        '${strings.trainingTypeLabel(topCompatibility.training.type)}: ${strings.compatibilityAssessmentSummary(topCompatibility.status, afterTraining: true)}',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ],
           ),

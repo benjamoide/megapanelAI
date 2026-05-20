@@ -32,14 +32,10 @@ class TreatmentDetailScreen extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
         children: [
           Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFFFFF7EC), Color(0xFFEAF3F7)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(28),
+            padding: const EdgeInsets.all(22),
+            decoration: BlueprintTheme.heroGradient(
+              primary: treatment.evidenceLevel.color,
+              secondary: BlueprintTheme.seafoam,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -133,8 +129,9 @@ class TreatmentDetailScreen extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.025),
+                        color: BlueprintTheme.panelRaised,
                         borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: BlueprintTheme.outline),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -199,8 +196,9 @@ class TreatmentDetailScreen extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
+                      color: BlueprintTheme.panelRaised,
                       border: Border.all(
-                        color: Colors.black.withValues(alpha: 0.08),
+                        color: BlueprintTheme.outline,
                       ),
                       borderRadius: BorderRadius.circular(18),
                     ),
@@ -241,7 +239,7 @@ class TreatmentDetailScreen extends StatelessWidget {
           Text(
             strings.disclaimer,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: BlueprintTheme.ink.withValues(alpha: 0.66),
+                  color: BlueprintTheme.fog,
                 ),
           ),
           const SizedBox(height: 18),
@@ -449,7 +447,15 @@ class _SectionCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(icon, color: BlueprintTheme.ink),
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: BlueprintTheme.seafoam.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, color: BlueprintTheme.seafoam, size: 18),
+                ),
                 const SizedBox(width: 8),
                 Text(title, style: Theme.of(context).textTheme.titleLarge),
               ],
