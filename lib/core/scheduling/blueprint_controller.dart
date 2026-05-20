@@ -742,7 +742,7 @@ class BlueprintController extends ChangeNotifier {
     required String suffix,
   }) {
     final normalizedSuffix = suffix.replaceAll(RegExp(r'[^a-zA-Z0-9_]+'), '_');
-    return '${treatmentId}_${dateKey}_$normalizedSuffix_${DateTime.now().microsecondsSinceEpoch}';
+    return '${treatmentId}_${dateKey}_${normalizedSuffix}_${DateTime.now().microsecondsSinceEpoch}';
   }
 
   String _buildCourseId(String treatmentId) =>

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mega_panel_ai/core/evidence/evidence_level.dart';
 import 'package:mega_panel_ai/core/scheduling/blueprint_controller.dart';
-import 'package:mega_panel_ai/core/scheduling/scheduling_models.dart';
 import 'package:mega_panel_ai/core/treatments/treatment.dart';
 import 'package:mega_panel_ai/core/training/training_models.dart';
 import 'package:mega_panel_ai/design_system/blueprint_localization.dart';
