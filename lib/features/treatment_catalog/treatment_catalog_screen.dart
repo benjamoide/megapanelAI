@@ -23,7 +23,7 @@ class _TreatmentCatalogScreenState extends State<TreatmentCatalogScreen> {
     final strings = BlueprintStrings(controller.language);
     final categories = <String>{
       '__all__',
-      ...controller.treatments.map((t) => t.category),
+      ...controller.treatments.map((t) => t.categoryEs),
     }.toList()
       ..sort((a, b) {
         if (a == '__all__') return -1;
@@ -32,9 +32,10 @@ class _TreatmentCatalogScreenState extends State<TreatmentCatalogScreen> {
       });
 
     final visible = controller.treatments.where((t) {
-      final categoryOk = _category == '__all__' || t.category == _category;
+      final categoryOk = _category == '__all__' || t.categoryEs == _category;
       final haystack =
-          '${t.title} ${t.category} ${t.goal} ${t.summary}'.toLowerCase();
+          '${t.title(strings.isSpanish)} ${t.category(strings.isSpanish)} ${t.goal(strings.isSpanish)} ${t.summary(strings.isSpanish)}'
+              .toLowerCase();
       final queryOk = _query.trim().isEmpty ||
           haystack.contains(_query.trim().toLowerCase());
       return categoryOk && queryOk;
@@ -84,7 +85,11 @@ class _TreatmentCatalogScreenState extends State<TreatmentCatalogScreen> {
               final selected = category == _category;
               return ChoiceChip(
                 label: Text(
-                  category == '__all__' ? strings.allCategory : category,
+                  category == '__all__'
+                      ? strings.allCategory
+                      : controller.treatments
+                          .firstWhere((t) => t.categoryEs == category)
+                          .category(strings.isSpanish),
                 ),
                 selected: selected,
                 onSelected: (_) => setState(() => _category = category),
@@ -155,7 +160,7 @@ class _TreatmentCard extends StatelessWidget {
                           children: [
                             Expanded(
                               child: Text(
-                                treatment.title,
+                                treatment.title(strings.isSpanish),
                                 style: Theme.of(context).textTheme.titleLarge,
                               ),
                             ),
@@ -172,7 +177,11 @@ class _TreatmentCard extends StatelessWidget {
                           spacing: 8,
                           runSpacing: 8,
                           children: [
-                            Chip(label: Text(treatment.category)),
+                            Chip(
+                              label: Text(
+                                treatment.category(strings.isSpanish),
+                              ),
+                            ),
                             Chip(
                               label: Text(strings
                                   .minutesLabel(treatment.durationMinutes)),
@@ -220,7 +229,7 @@ class _TreatmentCard extends StatelessWidget {
               ),
               const SizedBox(height: 14),
               Text(
-                treatment.summary,
+                treatment.summary(strings.isSpanish),
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -236,7 +245,7 @@ class _TreatmentCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '${strings.distancePrefix}: ${treatment.distanceGuidance}',
+                      '${strings.distancePrefix}: ${treatment.distanceGuidance(strings.isSpanish)}',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                     const SizedBox(height: 4),

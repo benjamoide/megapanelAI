@@ -100,7 +100,8 @@ class SessionHistoryScreen extends StatelessWidget {
                           children: [
                             Expanded(
                               child: Text(
-                                treatment?.title ?? entry.treatmentId,
+                                treatment?.title(strings.isSpanish) ??
+                                    entry.treatmentId,
                                 style: Theme.of(context).textTheme.titleLarge,
                               ),
                             ),

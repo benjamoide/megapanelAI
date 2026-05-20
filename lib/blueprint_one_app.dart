@@ -263,7 +263,7 @@ class _OverviewScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      nextSession.treatment.title,
+                      nextSession.treatment.title(strings.isSpanish),
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                     const SizedBox(height: 8),

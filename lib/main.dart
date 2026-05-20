@@ -5013,6 +5013,102 @@ bool _isBlueprintTrainingReference(String value) {
       lower.contains('workout');
 }
 
+const Map<String, String> _blueprintTitleTranslations = {
+  'Epicondilitis (Tenista)': 'Lateral epicondylitis (tennis elbow)',
+  'Epitrocleitis (Golfista)': 'Medial epicondylitis (golfer\'s elbow)',
+  'Calcificacion': 'Calcification',
+  'Bursitis (Apoyo)': 'Bursitis (support)',
+  'Cervicalgia (Cuello)': 'Neck pain (cervical)',
+  'Dorsalgia (Alta)': 'Upper back pain',
+  'Lumbalgia (Baja)': 'Low back pain',
+  'Sobrecarga': 'Overload',
+  'Tendinitis': 'Tendinitis',
+  'Tunel Carpiano': 'Carpal tunnel',
+  'Articular (General)': 'Joint pain (general)',
+  'Cintilla Iliotibial': 'Iliotibial band',
+  'Sobrecarga Femoral': 'Femoral overload',
+  'Fascitis Plantar': 'Plantar fasciitis',
+  'Esguince (Dorsal)': 'Sprain (dorsal foot)',
+  'Lateral (5o Metatarso)': 'Lateral pain (5th metatarsal)',
+  'Tendinopatia Supraespinoso': 'Supraspinatus tendinopathy',
+  'General/Menisco': 'General / meniscus',
+  'Dolor Patelofemoral': 'Patellofemoral pain',
+  'Tendinopatia Rotuliana': 'Patellar tendinopathy',
+  'Tendinopatia de Aquiles': 'Achilles tendinopathy',
+  'Dolor Temporomandibular (ATM)': 'Temporomandibular pain (TMJ)',
+  'Cicatrices': 'Scars',
+  'Acne': 'Acne',
+  'Quemaduras': 'Burns',
+  'Ulcera Pie Diabetico (Apoyo)': 'Diabetic foot ulcer (support)',
+  'Mucositis Oral (Oncologia, Apoyo)': 'Oral mucositis (oncology support)',
+  'Grasa Abdomen Frontal': 'Upper abdominal fat',
+  'Facial Rejuvenecimiento': 'Facial rejuvenation',
+  'Antiaging Cuello': 'Neck anti-ageing',
+  'Antiaging Manos': 'Hand anti-ageing',
+  'Testosterona': 'Testosterone',
+  'Sueno / Melatonina': 'Sleep / melatonin',
+  'Energia Sistemica': 'Systemic energy',
+  'Circulacion': 'Circulation',
+  'Migrana': 'Migraine',
+  'Salud Cerebral': 'Brain health',
+  'Recuperacion Gluteos/Isquios (Post)': 'Glute and hamstring recovery (post)',
+  'Recuperacion Gemelos/Tobillo (Post)': 'Calf and ankle recovery (post)',
+  'Activacion Pre-entreno (Prime Movers)': 'Pre-session activation (prime movers)',
+  'Activacion Estabilizadores (Core/Escapula)':
+      'Stabiliser activation (core / scapula)',
+  'Activacion Transferencia de Fuerza (Cadera/Escapula)':
+      'Force transfer activation (hip / scapula)',
+  'Dia Pierna (Cuadriceps + Gluteos)': 'Leg day (quadriceps + glutes)',
+  'Dia Tiron (Dorsales + Espalda Media)':
+      'Pull day (lats + mid back)',
+  'Dia Empuje (Pecho + Hombro)': 'Push day (chest + shoulder)',
+  'WOD Crossfit (Cadera + Dorsales)': 'Cross-training WOD (hips + lats)',
+  'Grasa Abdomen Bajo': 'Lower abdominal fat',
+  'Grasa Flancos': 'Flank fat',
+  'Grasa Caderas': 'Hip fat',
+  'Grasa Muslo Externo': 'Outer thigh fat',
+  'Grasa Lumbar Baja': 'Lower back fat',
+  'Puntos Gatillo Miofasciales': 'Myofascial trigger points',
+  'Contractura Trapecio/Lumbar': 'Trapezius / lumbar contracture',
+  'Estrias (Apoyo)': 'Stretch marks (support)',
+  'Cicatriz Reciente (Cerrada)': 'Recent scar (closed)',
+  'Cicatriz Antigua/Fibrosis (Apoyo)': 'Older scar / fibrosis (support)',
+};
+
+const Map<String, String> _blueprintCategoryTranslations = {
+  'Abdomen': 'Abdomen',
+  'Antebrazo': 'Forearm',
+  'Boca': 'Mouth',
+  'Cabeza': 'Head',
+  'Cadera': 'Hip',
+  'Cara': 'Face',
+  'Codo': 'Elbow',
+  'Cuerpo': 'Body',
+  'Espalda': 'Back',
+  'Hombro': 'Shoulder',
+  'Mano': 'Hand',
+  'Muneca': 'Wrist',
+  'Pie': 'Foot',
+  'Piel': 'Skin',
+  'Pierna': 'Leg',
+  'Rodilla': 'Knee',
+  'Tobillo': 'Ankle',
+  'Zona Afectada': 'Affected area',
+  'General wellness': 'General wellness',
+};
+
+String _translateBlueprintTitleToEnglish(String value) {
+  final sanitized = _sanitizeBlueprintText(value);
+  return _blueprintTitleTranslations[sanitized] ??
+      _translateBlueprintTextToEnglish(sanitized);
+}
+
+String _translateBlueprintCategoryToEnglish(String value) {
+  final sanitized = _sanitizeBlueprintText(value);
+  return _blueprintCategoryTranslations[sanitized] ??
+      _translateBlueprintTextToEnglish(sanitized);
+}
+
 String _sanitizeBlueprintText(String value) {
   var text = value.trim();
   if (text.isEmpty) return text;
@@ -5039,6 +5135,134 @@ String _sanitizeBlueprintText(String value) {
   replacements.forEach((from, to) {
     text = text.replaceAll(from, to);
   });
+  return text.replaceAll(RegExp(r'\s+'), ' ').trim();
+}
+
+String _translateBlueprintTextToEnglish(String value) {
+  var text = _sanitizeBlueprintText(value).trim();
+  if (text.isEmpty) return text;
+
+  const exact = <String, String>{
+    'CW': 'CW',
+    'Protocol dependent': 'Protocol dependent',
+    'Published protocol summary available in the treatment notes.':
+        'Published protocol summary available in the treatment notes.',
+  };
+  if (exact.containsKey(text)) {
+    return exact[text]!;
+  }
+
+  final replacements = <MapEntry<Pattern, String>>[
+    const MapEntry('Fuente:', 'Source:'),
+    const MapEntry('Apoyo', 'Support'),
+    const MapEntry('Oncologia', 'Oncology'),
+    const MapEntry('No usar', 'Do not use'),
+    const MapEntry('Consultar si', 'Seek medical advice if'),
+    const MapEntry('Urgencias si', 'Seek urgent care if'),
+    const MapEntry('Derivar si', 'Refer for evaluation if'),
+    const MapEntry('Suspender si', 'Stop use if'),
+    const MapEntry('Dolor', 'Pain'),
+    const MapEntry('dolor', 'pain'),
+    const MapEntry('Rigidez', 'Stiffness'),
+    const MapEntry('rigidez', 'stiffness'),
+    const MapEntry('Fatiga', 'Fatigue'),
+    const MapEntry('fatiga', 'fatigue'),
+    const MapEntry('Recuperacion', 'Recovery'),
+    const MapEntry('recuperacion', 'recovery'),
+    const MapEntry('Sugiere', 'Suggested'),
+    const MapEntry('Sugerida', 'Suggested'),
+    const MapEntry('zona', 'area'),
+    const MapEntry('sobre', 'over'),
+    const MapEntry('sin contacto', 'without contact'),
+    const MapEntry('alrededor de', 'around'),
+    const MapEntry('posterior', 'posterior'),
+    const MapEntry('anterior', 'anterior'),
+    const MapEntry('lateral', 'lateral'),
+    const MapEntry('medial', 'medial'),
+    const MapEntry('interna', 'inner'),
+    const MapEntry('externa', 'outer'),
+    const MapEntry('mecanico', 'mechanical'),
+    const MapEntry('miofascial', 'myofascial'),
+    const MapEntry('inespecifica', 'nonspecific'),
+    const MapEntry('cronica', 'chronic'),
+    const MapEntry('subaguda', 'subacute'),
+    const MapEntry('cronico/subaguda', 'chronic / subacute'),
+    const MapEntry('leve/moderado', 'mild / moderate'),
+    const MapEntry('leve-moderados', 'mild to moderate'),
+    const MapEntry('aguda', 'acute'),
+    const MapEntry('no aguda', 'non-acute'),
+    const MapEntry('no septica', 'non-septic'),
+    const MapEntry('sobreuso', 'overuse'),
+    const MapEntry('tendinoso', 'tendon-related'),
+    const MapEntry('tendinopatia', 'tendinopathy'),
+    const MapEntry('tendon', 'tendon'),
+    const MapEntry('muscular', 'muscular'),
+    const MapEntry('articular', 'joint'),
+    const MapEntry('hormigueo', 'tingling'),
+    const MapEntry('hinchazon', 'swelling'),
+    const MapEntry('pesadez', 'heaviness'),
+    const MapEntry('molestia', 'discomfort'),
+    const MapEntry('presion', 'pressure'),
+    const MapEntry('movimiento', 'movement'),
+    const MapEntry('trayecto tendinoso', 'tendon path'),
+    const MapEntry('trayecto', 'path'),
+    const MapEntry('banda iliotibial', 'iliotibial band'),
+    const MapEntry('musculo', 'muscle'),
+    const MapEntry('muslo', 'thigh'),
+    const MapEntry('rodilla', 'knee'),
+    const MapEntry('talon', 'heel'),
+    const MapEntry('tobillo', 'ankle'),
+    const MapEntry('empeine', 'instep'),
+    const MapEntry('lumbar', 'lumbar'),
+    const MapEntry('dorsal', 'dorsal'),
+    const MapEntry('cervical', 'cervical'),
+    const MapEntry('escapulas', 'shoulder blades'),
+    const MapEntry('paravertebral', 'paravertebral'),
+    const MapEntry('epicondilo', 'epicondyle'),
+    const MapEntry('epitroclea', 'medial epicondyle'),
+    const MapEntry('muneca', 'wrist'),
+    const MapEntry('palma arriba', 'palm facing up'),
+    const MapEntry('cara interna', 'inner side'),
+    const MapEntry('cara externa', 'outer side'),
+    const MapEntry('cara lateral', 'lateral side'),
+    const MapEntry('cara', 'side'),
+    const MapEntry('toracico', 'thoracic'),
+    const MapEntry('cauda equina', 'cauda equina'),
+    const MapEntry('deficit neurologico', 'neurological deficit'),
+    const MapEntry('fractura aguda', 'acute fracture'),
+    const MapEntry('rotura completa', 'complete tear'),
+    const MapEntry('rotura fascial', 'fascial tear'),
+    const MapEntry('infeccion local activa', 'active local infection'),
+    const MapEntry('infeccion activa', 'active infection'),
+    const MapEntry('fiebre', 'fever'),
+    const MapEntry('sospechada', 'suspected'),
+    const MapEntry('sospechado', 'suspected'),
+    const MapEntry('tumor local', 'local tumour'),
+    const MapEntry('TUMOR local', 'local tumour'),
+    const MapEntry('severa', 'severe'),
+    const MapEntry('grave', 'serious'),
+    const MapEntry('General wellness guidance for',
+        'General wellness guidance for'),
+    const MapEntry('Support for', 'Support for'),
+    const MapEntry('Suggested placement:', 'Suggested placement:'),
+  ];
+
+  for (final replacement in replacements) {
+    text = text.replaceAll(replacement.key, replacement.value);
+  }
+
+  text = text
+      .replaceAll(RegExp(r'\bde\b'), 'of')
+      .replaceAll(RegExp(r'\by\b'), 'and')
+      .replaceAll(RegExp(r'\bcon\b'), 'with')
+      .replaceAll(RegExp(r'\ben\b'), 'on')
+      .replaceAll(RegExp(r'\bpor\b'), 'due to')
+      .replaceAll(RegExp(r'\bpara\b'), 'for')
+      .replaceAll(RegExp(r'\bsi hay\b'), 'if there is')
+      .replaceAll(RegExp(r'\bsi\b'), 'if')
+      .replaceAll(RegExp(r'\bal\b'), 'when')
+      .replaceAll(RegExp(r'\bo\b'), 'or');
+
   return text.replaceAll(RegExp(r'\s+'), ' ').trim();
 }
 
@@ -5112,60 +5336,112 @@ List<WellnessTreatment> _buildBlueprintTreatments() {
     final sourceReferences = _extractBlueprintSourceReferences(treatment)
         .where((reference) => !_isBlueprintTrainingReference(reference))
         .toList();
-    final safetyNotes = _cleanBlueprintNotes(treatment.prohibidos)
+    final safetyNotesEs = _cleanBlueprintNotes(treatment.prohibidos)
         .map(_sanitizeBlueprintText)
         .where((note) => !_isBlueprintTrainingReference(note))
         .toList();
-    final beforeSessionTips = _cleanBlueprintNotes(
+    final safetyNotesEn = safetyNotesEs
+        .map(_translateBlueprintTextToEnglish)
+        .toList(growable: false);
+    final beforeSessionTipsEs = _cleanBlueprintNotes(
       treatment.tipsAntes,
       excludeSourceReferences: true,
     )
         .map(_sanitizeBlueprintText)
         .where((note) => !_isBlueprintTrainingReference(note))
         .toList();
-    final afterSessionTips = _cleanBlueprintNotes(
+    final beforeSessionTipsEn = beforeSessionTipsEs
+        .map(_translateBlueprintTextToEnglish)
+        .toList(growable: false);
+    final afterSessionTipsEs = _cleanBlueprintNotes(
       treatment.tipsDespues,
       excludeSourceReferences: true,
     )
         .map(_sanitizeBlueprintText)
         .where((note) => !_isBlueprintTrainingReference(note))
         .toList();
+    final afterSessionTipsEn = afterSessionTipsEs
+        .map(_translateBlueprintTextToEnglish)
+        .toList(growable: false);
+    final sourceReferencesEs = sourceReferences
+        .map(_sanitizeBlueprintText)
+        .toList(growable: false);
+    final sourceReferencesEn = sourceReferencesEs
+        .map(_translateBlueprintTextToEnglish)
+        .toList(growable: false);
+    final titleEs = _sanitizeBlueprintText(treatment.nombre);
+    final titleEn = _translateBlueprintTitleToEnglish(treatment.nombre);
+    final categoryEs = entry.zona.trim().isEmpty ? 'General wellness' : entry.zona;
+    final categoryEn = _translateBlueprintCategoryToEnglish(categoryEs);
+    final goalEs = _deriveBlueprintGoal(treatment);
+    final goalEn = treatment.descripcion.trim().isNotEmpty
+        ? _translateBlueprintTextToEnglish(treatment.descripcion.trim())
+        : treatment.sintomas.trim().isNotEmpty
+            ? 'Support for ${_translateBlueprintTextToEnglish(treatment.sintomas.trim().toLowerCase())}.'
+            : 'General wellness guidance for ${titleEn.toLowerCase()}.';
+    final summaryEs = _deriveBlueprintSummary(treatment);
+    final summaryEn = treatment.sintomas.trim().isNotEmpty
+        ? _translateBlueprintTextToEnglish(treatment.sintomas.trim())
+        : treatment.posicion.trim().isNotEmpty
+            ? 'Suggested placement: ${_translateBlueprintTextToEnglish(treatment.posicion.trim())}'
+            : 'Published protocol summary available in the treatment notes.';
+    final distanceGuidanceEs = treatment.posicion.trim().isEmpty
+        ? 'Sigue la distancia usada en el protocolo citado y ajusta segun comodidad.'
+        : _sanitizeBlueprintText(treatment.posicion.trim());
+    final distanceGuidanceEn = treatment.posicion.trim().isEmpty
+        ? 'Follow the distance used in the cited protocol and adjust for comfort.'
+        : _translateBlueprintTextToEnglish(treatment.posicion.trim());
+    final pulseGuidanceEs =
+        treatment.hz.trim().isEmpty ? 'Segun protocolo' : treatment.hz;
+    final pulseGuidanceEn =
+        treatment.hz.trim().isEmpty ? 'Protocol dependent' : treatment.hz;
     return WellnessTreatment(
       id: treatment.id,
-      title: _sanitizeBlueprintText(treatment.nombre),
-      category: entry.zona.trim().isEmpty ? 'General wellness' : entry.zona,
-      goal: _deriveBlueprintGoal(treatment),
-      summary: _deriveBlueprintSummary(treatment),
+      titleEs: titleEs,
+      titleEn: titleEn,
+      categoryEs: categoryEs,
+      categoryEn: categoryEn,
+      goalEs: goalEs,
+      goalEn: goalEn,
+      summaryEs: summaryEs,
+      summaryEn: summaryEn,
       durationMinutes: int.tryParse(treatment.duracion) ?? 10,
-      distanceGuidance: treatment.posicion.trim().isEmpty
-          ? 'Follow the distance used in the cited protocol and adjust for comfort.'
-          : _sanitizeBlueprintText(treatment.posicion.trim()),
-      pulseGuidance:
-          treatment.hz.trim().isEmpty ? 'Protocol dependent' : treatment.hz,
+      distanceGuidanceEs: distanceGuidanceEs,
+      distanceGuidanceEn: distanceGuidanceEn,
+      pulseGuidanceEs: pulseGuidanceEs,
+      pulseGuidanceEn: pulseGuidanceEn,
       intensityDistribution: _mapBlueprintIntensity(treatment.frecuencias),
       evidenceLevel: deriveEvidenceLevel(
-        sourceReferences: sourceReferences,
-        safetyNotes: safetyNotes,
+        sourceReferences: sourceReferencesEs,
+        safetyNotes: safetyNotesEs,
       ),
-      safetyNotes: safetyNotes.isEmpty
+      safetyNotesEs: safetyNotesEs.isEmpty
+          ? const [
+              'Deten la sesion si los sintomas empeoran o aparece molestia.',
+            ]
+          : safetyNotesEs,
+      safetyNotesEn: safetyNotesEn.isEmpty
           ? const [
               'Stop the session if symptoms worsen or discomfort appears.',
             ]
-          : safetyNotes,
-      sourceReferences: sourceReferences,
-      beforeSessionTips: beforeSessionTips,
-      afterSessionTips: afterSessionTips,
+          : safetyNotesEn,
+      sourceReferencesEs: sourceReferencesEs,
+      sourceReferencesEn: sourceReferencesEn,
+      beforeSessionTipsEs: beforeSessionTipsEs,
+      beforeSessionTipsEn: beforeSessionTipsEn,
+      afterSessionTipsEs: afterSessionTipsEs,
+      afterSessionTipsEn: afterSessionTipsEn,
       trainingGuidance: buildTrainingGuidance(
-        category: entry.zona.trim().isEmpty ? 'General wellness' : entry.zona,
+        category: categoryEs,
         title: treatment.nombre,
       ),
     );
   }).whereType<WellnessTreatment>().toList();
 
   treatments.sort((a, b) {
-    final category = a.category.compareTo(b.category);
+    final category = a.categoryEn.compareTo(b.categoryEn);
     if (category != 0) return category;
-    return a.title.compareTo(b.title);
+    return a.titleEn.compareTo(b.titleEn);
   });
   return treatments;
 }

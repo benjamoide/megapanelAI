@@ -154,7 +154,7 @@ class NotificationService {
 
         await _plugin.zonedSchedule(
           notificationId++,
-          entry.treatment.title,
+          entry.treatment.title(strings.isSpanish),
           '$leadLabel - ${strings.translateMomentLabel(entry.session.momentLabel)}',
           scheduled,
           const NotificationDetails(

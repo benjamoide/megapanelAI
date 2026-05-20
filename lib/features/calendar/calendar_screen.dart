@@ -160,7 +160,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      strings.nextTreatmentLine(nextSession.treatment.title),
+                      strings.nextTreatmentLine(
+                        nextSession.treatment.title(strings.isSpanish),
+                      ),
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: 6),
@@ -208,7 +210,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                treatment.title,
+                                treatment.title(strings.isSpanish),
                                 style: Theme.of(context).textTheme.titleMedium,
                               ),
                               const SizedBox(height: 6),
@@ -297,7 +299,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              treatment?.title ?? entry.treatmentId,
+                              treatment?.title(strings.isSpanish) ??
+                                  entry.treatmentId,
                               style: Theme.of(context).textTheme.titleMedium,
                             ),
                             const SizedBox(height: 6),

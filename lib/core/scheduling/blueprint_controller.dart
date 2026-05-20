@@ -446,7 +446,7 @@ class BlueprintController extends ChangeNotifier {
           entry.dateKey,
           entry.status.name,
           entry.treatmentId,
-          treatment?.title ??
+          treatment?.title(_language == AppLanguage.spanish) ??
               BlueprintStrings(_language).unknownTreatmentLabel(),
           entry.momentLabel,
           entry.trainingRelation.name,
@@ -462,7 +462,7 @@ class BlueprintController extends ChangeNotifier {
       final treatment = treatmentById(entry.treatmentId);
       return {
         ...entry.toJson(),
-        'treatmentTitle': treatment?.title ??
+        'treatmentTitle': treatment?.title(_language == AppLanguage.spanish) ??
             BlueprintStrings(_language).unknownTreatmentLabel(),
         'trainingRelationLabel': entry.trainingRelation.name,
       };

@@ -26,7 +26,7 @@ class TreatmentDetailScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(treatment.title),
+        title: Text(treatment.title(strings.isSpanish)),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
@@ -44,7 +44,9 @@ class TreatmentDetailScreen extends StatelessWidget {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    Chip(label: Text(treatment.category)),
+                    Chip(
+                      label: Text(treatment.category(strings.isSpanish)),
+                    ),
                     Chip(
                       label:
                           Text(strings.evidenceLabel(treatment.evidenceLevel)),
@@ -55,11 +57,11 @@ class TreatmentDetailScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 14),
                 Text(
-                  treatment.goal,
+                  treatment.goal(strings.isSpanish),
                   style: Theme.of(context).textTheme.headlineMedium,
                 ),
                 const SizedBox(height: 10),
-                Text(treatment.summary),
+                Text(treatment.summary(strings.isSpanish)),
               ],
             ),
           ),
@@ -69,8 +71,14 @@ class TreatmentDetailScreen extends StatelessWidget {
             rows: [
               _MetricRow(strings.duration,
                   strings.minutesLabel(treatment.durationMinutes)),
-              _MetricRow(strings.distance, treatment.distanceGuidance),
-              _MetricRow(strings.pulseMode, treatment.pulseGuidance),
+              _MetricRow(
+                strings.distance,
+                treatment.distanceGuidance(strings.isSpanish),
+              ),
+              _MetricRow(
+                strings.pulseMode,
+                treatment.pulseGuidance(strings.isSpanish),
+              ),
               _MetricRow(strings.suggestedIntensity,
                   strings.intensitySummary(treatment)),
               _MetricRow(
@@ -83,7 +91,8 @@ class TreatmentDetailScreen extends StatelessWidget {
           _SectionCard(
             title: strings.safetyNotes,
             icon: Icons.shield_outlined,
-            children: treatment.safetyNotes
+            children: treatment
+                .safetyNotes(strings.isSpanish)
                 .map((note) => _BulletLine(text: note))
                 .toList(growable: false),
           ),
@@ -91,7 +100,8 @@ class TreatmentDetailScreen extends StatelessWidget {
           _SectionCard(
             title: strings.beforeSession,
             icon: Icons.wb_sunny_outlined,
-            children: treatment.beforeSessionTips
+            children: treatment
+                .beforeSessionTips(strings.isSpanish)
                 .map((note) => _BulletLine(text: note))
                 .toList(growable: false),
           ),
@@ -99,7 +109,8 @@ class TreatmentDetailScreen extends StatelessWidget {
           _SectionCard(
             title: strings.afterSession,
             icon: Icons.self_improvement_outlined,
-            children: treatment.afterSessionTips
+            children: treatment
+                .afterSessionTips(strings.isSpanish)
                 .map((note) => _BulletLine(text: note))
                 .toList(growable: false),
           ),
@@ -107,7 +118,8 @@ class TreatmentDetailScreen extends StatelessWidget {
           _SectionCard(
             title: strings.sourceReferences,
             icon: Icons.menu_book_outlined,
-            children: treatment.sourceReferences
+            children: treatment
+                .sourceReferences(strings.isSpanish)
                 .map((note) => _BulletLine(text: note))
                 .toList(growable: false),
           ),
