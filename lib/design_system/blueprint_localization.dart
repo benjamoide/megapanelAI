@@ -176,6 +176,89 @@ class BlueprintStrings {
       isSpanish ? 'Despues de la sesion' : 'After session';
   String get sourceReferences =>
       isSpanish ? 'Referencias cientificas' : 'Source references';
+  String get fullCourseTitle =>
+      isSpanish ? 'Tratamiento completo' : 'Full treatment plan';
+  String get fullCourseBody => isSpanish
+      ? 'Algunas dolencias responden mejor cuando se mantiene una serie de sesiones a lo largo de varias semanas. Si quieres, puedes planificar el ciclo completo en lugar de una sola dosis puntual.'
+      : 'Some conditions respond better when sessions are sustained across several weeks. If you want, you can plan the full cycle instead of a one-off dose.';
+  String get courseWindow =>
+      isSpanish ? 'Ventana sugerida' : 'Suggested range';
+  String get courseCadence =>
+      isSpanish ? 'Cadencia sugerida' : 'Suggested cadence';
+  String get planFullCourse =>
+      isSpanish ? 'Planificar tratamiento completo' : 'Plan full treatment plan';
+  String get planTreatment =>
+      isSpanish ? 'Planificar tratamiento' : 'Plan treatment';
+  String get courseStartDate =>
+      isSpanish ? 'Fecha de inicio' : 'Start date';
+  String get courseTotalSessions =>
+      isSpanish ? 'Numero de sesiones' : 'Number of sessions';
+  String get courseSpacing =>
+      isSpanish ? 'Separacion entre sesiones' : 'Session spacing';
+  String get planShape =>
+      isSpanish ? 'Tipo de plan' : 'Plan type';
+  String get singleDose =>
+      isSpanish ? 'Dosis puntual' : 'Single dose';
+  String get repeatedPlan =>
+      isSpanish ? 'Varias sesiones' : 'Multiple sessions';
+  String get planningCadence =>
+      isSpanish ? 'Periodicidad' : 'Cadence';
+  String get dailyCadence =>
+      isSpanish ? 'Diario' : 'Daily';
+  String get alternateCadence =>
+      isSpanish ? 'Dias alternos' : 'Alternate days';
+  String get weeklyCadence =>
+      isSpanish ? 'Semanal' : 'Weekly';
+  String get fortnightlyCadence =>
+      isSpanish ? 'Quincenal' : 'Fortnightly';
+  String get customCadence =>
+      isSpanish ? 'Otros dias' : 'Custom days';
+  String get selectedDays =>
+      isSpanish ? 'Dias seleccionados' : 'Selected days';
+  String get addCalendarDay =>
+      isSpanish ? 'Anadir dia' : 'Add day';
+  String get startDateRequired =>
+      isSpanish ? 'Debes seleccionar al menos un dia de inicio.'
+      : 'You need to select at least one start day.';
+  String get addAtLeastOneExtraDay =>
+      isSpanish
+          ? 'Si eliges varias sesiones con dias personalizados, anade al menos un dia adicional.'
+          : 'If you choose multiple sessions with custom days, add at least one additional day.';
+  String get planSaved =>
+      isSpanish ? 'Tratamiento planificado' : 'Treatment planned';
+  String get compatibilityForSelectedDay =>
+      isSpanish ? 'Compatibilidad para el dia elegido'
+      : 'Compatibility for the selected day';
+  String get suitableForSelectedDay =>
+      isSpanish ? 'Compatible para ese dia'
+      : 'Suitable for that day';
+  String get cautionForSelectedDay =>
+      isSpanish ? 'Conviene dejar un margen antes de usarlo ese dia'
+      : 'A short gap is advisable before using it on that day';
+  String get youCanStillPlanFuture =>
+      isSpanish ? 'Aun asi puedes planificar el inicio en otra fecha.'
+      : 'You can still plan the start on a different date.';
+  String get coursePlanTitle =>
+      isSpanish ? 'Configurar tratamiento completo' : 'Configure full treatment plan';
+  String courseRangeLabel(int min, int max) => isSpanish
+      ? '$min-$max sesiones'
+      : '$min-$max sessions';
+  String everyXDays(int days) => isSpanish
+      ? (days == 1 ? 'Cada dia' : 'Cada $days dias')
+      : (days == 1 ? 'Every day' : 'Every $days days');
+  String coursePlannedResult(int planned, int requested) => isSpanish
+      ? 'Se han planificado $planned de $requested sesiones.'
+      : '$planned of $requested sessions have been planned.';
+  String courseProgressLine(int completed, int skipped, int target) => isSpanish
+      ? '$completed completadas, $skipped omitidas, objetivo $target'
+      : '$completed completed, $skipped skipped, target $target';
+  String courseSessionLabel(int index, int total) => isSpanish
+      ? 'Sesion $index de $total'
+      : 'Session $index of $total';
+  String get activeCourse =>
+      isSpanish ? 'Curso activo' : 'Active course';
+  String get nextCourseSession =>
+      isSpanish ? 'Proxima sesion del curso' : 'Next course session';
   String get planForToday =>
       isSpanish ? 'Planificar para hoy' : 'Plan for today';
   String get chooseDate => isSpanish ? 'Elegir fecha' : 'Choose a date';

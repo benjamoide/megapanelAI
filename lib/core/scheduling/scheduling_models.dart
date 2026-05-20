@@ -8,29 +8,51 @@ enum SessionStatus {
 
 class PlannedSession {
   const PlannedSession({
+    required this.id,
     required this.treatmentId,
     required this.dateKey,
     required this.momentLabel,
     this.trainingRelation = TrainingRelation.independent,
+    this.courseId,
+    this.courseSessionIndex,
+    this.courseSessionTarget,
   });
 
+  final String id;
   final String treatmentId;
   final String dateKey;
   final String momentLabel;
   final TrainingRelation trainingRelation;
+  final String? courseId;
+  final int? courseSessionIndex;
+  final int? courseSessionTarget;
+
+  bool get isPartOfCourse =>
+      courseId != null &&
+      courseId!.isNotEmpty &&
+      courseSessionIndex != null &&
+      courseSessionTarget != null;
 
   Map<String, dynamic> toJson() => {
+        'id': id,
         'treatmentId': treatmentId,
         'dateKey': dateKey,
         'momentLabel': momentLabel,
         'trainingRelation': trainingRelation.name,
+        'courseId': courseId,
+        'courseSessionIndex': courseSessionIndex,
+        'courseSessionTarget': courseSessionTarget,
       };
 
   factory PlannedSession.fromJson(Map<String, dynamic> json) {
+    final treatmentId = json['treatmentId'] as String? ?? '';
+    final dateKey = json['dateKey'] as String? ?? '';
+    final momentLabel = json['momentLabel'] as String? ?? 'Planned';
     return PlannedSession(
-      treatmentId: json['treatmentId'] as String? ?? '',
-      dateKey: json['dateKey'] as String? ?? '',
-      momentLabel: json['momentLabel'] as String? ?? 'Planned',
+      id: json['id'] as String? ?? '${treatmentId}_${dateKey}_$momentLabel',
+      treatmentId: treatmentId,
+      dateKey: dateKey,
+      momentLabel: momentLabel,
       trainingRelation: TrainingRelation.values.firstWhere(
         (entry) =>
             entry.name ==
@@ -38,6 +60,9 @@ class PlannedSession {
                 TrainingRelation.independent.name),
         orElse: () => TrainingRelation.independent,
       ),
+      courseId: json['courseId'] as String?,
+      courseSessionIndex: (json['courseSessionIndex'] as num?)?.toInt(),
+      courseSessionTarget: (json['courseSessionTarget'] as num?)?.toInt(),
     );
   }
 }
@@ -50,7 +75,11 @@ class SessionHistoryEntry {
     required this.dateKey,
     required this.status,
     required this.momentLabel,
+    this.plannedSessionId,
     this.trainingRelation = TrainingRelation.independent,
+    this.courseId,
+    this.courseSessionIndex,
+    this.courseSessionTarget,
   });
 
   final String id;
@@ -59,7 +88,17 @@ class SessionHistoryEntry {
   final String dateKey;
   final SessionStatus status;
   final String momentLabel;
+  final String? plannedSessionId;
   final TrainingRelation trainingRelation;
+  final String? courseId;
+  final int? courseSessionIndex;
+  final int? courseSessionTarget;
+
+  bool get isPartOfCourse =>
+      courseId != null &&
+      courseId!.isNotEmpty &&
+      courseSessionIndex != null &&
+      courseSessionTarget != null;
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -68,7 +107,11 @@ class SessionHistoryEntry {
         'dateKey': dateKey,
         'status': status.name,
         'momentLabel': momentLabel,
+        'plannedSessionId': plannedSessionId,
         'trainingRelation': trainingRelation.name,
+        'courseId': courseId,
+        'courseSessionIndex': courseSessionIndex,
+        'courseSessionTarget': courseSessionTarget,
       };
 
   factory SessionHistoryEntry.fromJson(Map<String, dynamic> json) {
@@ -82,6 +125,7 @@ class SessionHistoryEntry {
           ? SessionStatus.skipped
           : SessionStatus.completed,
       momentLabel: json['momentLabel'] as String? ?? 'Tracked',
+      plannedSessionId: json['plannedSessionId'] as String?,
       trainingRelation: TrainingRelation.values.firstWhere(
         (entry) =>
             entry.name ==
@@ -89,6 +133,9 @@ class SessionHistoryEntry {
                 TrainingRelation.independent.name),
         orElse: () => TrainingRelation.independent,
       ),
+      courseId: json['courseId'] as String?,
+      courseSessionIndex: (json['courseSessionIndex'] as num?)?.toInt(),
+      courseSessionTarget: (json['courseSessionTarget'] as num?)?.toInt(),
     );
   }
 }
@@ -225,4 +272,26 @@ class ResolvedPlannedSession {
   final WellnessTreatment treatment;
   final PlannedSession session;
   final DateTime date;
+}
+
+class TreatmentCourseProgress {
+  const TreatmentCourseProgress({
+    required this.courseId,
+    required this.treatment,
+    required this.targetSessions,
+    required this.completedSessions,
+    required this.skippedSessions,
+    required this.nextPlannedDate,
+  });
+
+  final String courseId;
+  final WellnessTreatment treatment;
+  final int targetSessions;
+  final int completedSessions;
+  final int skippedSessions;
+  final DateTime? nextPlannedDate;
+
+  int get plannedSessions => completedSessions + skippedSessions;
+  int get remainingSessions => targetSessions - plannedSessions;
+  bool get isComplete => plannedSessions >= targetSessions;
 }

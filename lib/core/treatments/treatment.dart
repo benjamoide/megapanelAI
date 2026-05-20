@@ -11,6 +11,30 @@ class TreatmentIntensity {
   final int percentage;
 }
 
+class TreatmentCourseGuidance {
+  const TreatmentCourseGuidance({
+    required this.minSessions,
+    required this.maxSessions,
+    required this.recommendedSessions,
+    required this.recommendedSpacingDays,
+    required this.summaryEs,
+    required this.summaryEn,
+  }) : assert(minSessions > 0),
+       assert(maxSessions >= minSessions),
+       assert(recommendedSessions >= minSessions),
+       assert(recommendedSessions <= maxSessions),
+       assert(recommendedSpacingDays > 0);
+
+  final int minSessions;
+  final int maxSessions;
+  final int recommendedSessions;
+  final int recommendedSpacingDays;
+  final String summaryEs;
+  final String summaryEn;
+
+  String summary(bool isSpanish) => isSpanish ? summaryEs : summaryEn;
+}
+
 class WellnessTreatment {
   const WellnessTreatment({
     required this.id,
@@ -38,6 +62,7 @@ class WellnessTreatment {
     required this.afterSessionTipsEs,
     required this.afterSessionTipsEn,
     required this.trainingGuidance,
+    this.courseGuidance,
   });
 
   final String id;
@@ -65,6 +90,7 @@ class WellnessTreatment {
   final List<String> afterSessionTipsEs;
   final List<String> afterSessionTipsEn;
   final List<TreatmentTrainingGuidance> trainingGuidance;
+  final TreatmentCourseGuidance? courseGuidance;
 
   String title(bool isSpanish) => isSpanish ? titleEs : titleEn;
   String category(bool isSpanish) => isSpanish ? categoryEs : categoryEn;
@@ -82,6 +108,7 @@ class WellnessTreatment {
       isSpanish ? beforeSessionTipsEs : beforeSessionTipsEn;
   List<String> afterSessionTips(bool isSpanish) =>
       isSpanish ? afterSessionTipsEs : afterSessionTipsEn;
+  bool get supportsStructuredCourse => courseGuidance != null;
 
   String get intensitySummary {
     if (intensityDistribution.isEmpty) return 'No intensity guidance';

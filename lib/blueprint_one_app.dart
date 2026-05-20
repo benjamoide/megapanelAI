@@ -273,6 +273,18 @@ class _OverviewScreen extends StatelessWidget {
                         nextSession.session.momentLabel,
                       ),
                     ),
+                    if (nextSession.session.isPartOfCourse &&
+                        nextSession.session.courseSessionIndex != null &&
+                        nextSession.session.courseSessionTarget != null) ...[
+                      const SizedBox(height: 8),
+                      _MutedBanner(
+                        icon: Icons.timeline_outlined,
+                        text: strings.courseSessionLabel(
+                          nextSession.session.courseSessionIndex!,
+                          nextSession.session.courseSessionTarget!,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 10),
                     _MutedBanner(
                       icon: Icons.notifications_active_outlined,

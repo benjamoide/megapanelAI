@@ -221,6 +221,95 @@ class BlueprintController extends ChangeNotifier {
     return null;
   }
 
+  List<TreatmentCourseProgress> activeCoursesForTreatment(String treatmentId) {
+    return _courseProgressEntries()
+        .where((entry) => entry.treatment.id == treatmentId)
+        .toList(growable: false);
+  }
+
+  List<TreatmentCourseProgress> _courseProgressEntries() {
+    final groupedPlans = <String, List<ResolvedPlannedSession>>{};
+    final groupedHistory = <String, List<SessionHistoryEntry>>{};
+
+    final sortedKeys = _plans.keys.toList()..sort();
+    for (final key in sortedKeys) {
+      final date = dateFromKey(key);
+      for (final session in _plans[key] ?? const []) {
+        if (!session.isPartOfCourse) continue;
+        final treatment = treatmentById(session.treatmentId);
+        final courseId = session.courseId;
+        if (treatment == null || courseId == null) continue;
+        groupedPlans.putIfAbsent(courseId, () => <ResolvedPlannedSession>[]).add(
+              ResolvedPlannedSession(
+                treatment: treatment,
+                session: session,
+                date: date,
+              ),
+            );
+      }
+    }
+
+    for (final entry in _history) {
+      if (!entry.isPartOfCourse) continue;
+      final courseId = entry.courseId;
+      if (courseId == null) continue;
+      groupedHistory.putIfAbsent(courseId, () => <SessionHistoryEntry>[]).add(entry);
+    }
+
+    final courseIds = {...groupedPlans.keys, ...groupedHistory.keys}.toList()..sort();
+    final result = <TreatmentCourseProgress>[];
+    for (final courseId in courseIds) {
+      final planEntries = groupedPlans[courseId] ?? const <ResolvedPlannedSession>[];
+      final historyEntries = groupedHistory[courseId] ?? const <SessionHistoryEntry>[];
+      final treatment = planEntries.isNotEmpty
+          ? planEntries.first.treatment
+          : treatmentById(historyEntries.first.treatmentId);
+      if (treatment == null) continue;
+      final targetSessions = [
+        ...planEntries
+            .map((entry) => entry.session.courseSessionTarget)
+            .whereType<int>(),
+        ...historyEntries
+            .map((entry) => entry.courseSessionTarget)
+            .whereType<int>(),
+      ].fold<int>(0, (current, value) => value > current ? value : current);
+      if (targetSessions <= 0) continue;
+      final completedSessions = historyEntries
+          .where((entry) => entry.status == SessionStatus.completed)
+          .length;
+      final skippedSessions = historyEntries
+          .where((entry) => entry.status == SessionStatus.skipped)
+          .length;
+      final nextPlannedDate = planEntries.isEmpty
+          ? null
+          : (planEntries.toList()..sort((a, b) => a.date.compareTo(b.date))).first.date;
+      final progress = TreatmentCourseProgress(
+        courseId: courseId,
+        treatment: treatment,
+        targetSessions: targetSessions,
+        completedSessions: completedSessions,
+        skippedSessions: skippedSessions,
+        nextPlannedDate: nextPlannedDate,
+      );
+      if (progress.isComplete && nextPlannedDate == null) {
+        continue;
+      }
+      result.add(progress);
+    }
+    result.sort((a, b) {
+      final aDate = a.nextPlannedDate;
+      final bDate = b.nextPlannedDate;
+      if (aDate == null && bDate == null) {
+        return a.treatment.title(_language == AppLanguage.spanish)
+            .compareTo(b.treatment.title(_language == AppLanguage.spanish));
+      }
+      if (aDate == null) return 1;
+      if (bDate == null) return -1;
+      return aDate.compareTo(bDate);
+    });
+    return result;
+  }
+
   String reminderSummaryForPlan(
     PlannedSession session,
     BlueprintStrings strings,
@@ -367,6 +456,11 @@ class BlueprintController extends ChangeNotifier {
     if (!existing.any((entry) => entry.treatmentId == treatment.id)) {
       existing.add(
         PlannedSession(
+          id: _buildSessionId(
+            treatmentId: treatment.id,
+            dateKey: key,
+            suffix: momentLabel,
+          ),
           treatmentId: treatment.id,
           dateKey: key,
           momentLabel: momentLabel,
@@ -381,13 +475,100 @@ class BlueprintController extends ChangeNotifier {
     }
   }
 
+  Future<int> scheduleTreatmentSeries({
+    required WellnessTreatment treatment,
+    required List<DateTime> dates,
+    String momentLabel = 'Scheduled',
+    TrainingRelation trainingRelation = TrainingRelation.independent,
+  }) async {
+    final normalizedDates = dates
+        .map((date) => DateTime(date.year, date.month, date.day))
+        .toSet()
+        .toList()
+      ..sort();
+    if (normalizedDates.isEmpty) return 0;
+
+    final createCourseGroup =
+        normalizedDates.length > 1 || treatment.courseGuidance != null;
+    final courseId = createCourseGroup ? _buildCourseId(treatment.id) : null;
+    final totalSessions = normalizedDates.length;
+    var added = 0;
+    for (final date in normalizedDates) {
+      final key = dateKeyFor(date);
+      final existing = List<PlannedSession>.from(_plans[key] ?? const []);
+      final alreadyPlanned =
+          existing.any((entry) => entry.treatmentId == treatment.id);
+      if (!alreadyPlanned) {
+        added++;
+        existing.add(
+          PlannedSession(
+            id: _buildSessionId(
+              treatmentId: treatment.id,
+              dateKey: key,
+              suffix: createCourseGroup
+                  ? 'course_${courseId}_$added'
+                  : momentLabel,
+            ),
+            treatmentId: treatment.id,
+            dateKey: key,
+            momentLabel: momentLabel,
+            trainingRelation: trainingRelation,
+            courseId: createCourseGroup ? courseId : null,
+            courseSessionIndex: createCourseGroup ? added : null,
+            courseSessionTarget: createCourseGroup ? totalSessions : null,
+          ),
+        );
+        existing.sort((a, b) => a.momentLabel.compareTo(b.momentLabel));
+        _plans[key] = existing;
+      }
+    }
+
+    if (added > 0) {
+      await _persist();
+      await _syncNotifications();
+      notifyListeners();
+    }
+    return added;
+  }
+
+  Future<int> scheduleTreatmentCourse({
+    required WellnessTreatment treatment,
+    required DateTime startDate,
+    required int totalSessions,
+    required int spacingDays,
+    String momentLabel = 'Scheduled',
+    TrainingRelation trainingRelation = TrainingRelation.independent,
+  }) async {
+    final normalizedSpacing = spacingDays < 1 ? 1 : spacingDays;
+    final dates = List<DateTime>.generate(
+      totalSessions,
+      (index) => DateTime(
+        startDate.year,
+        startDate.month,
+        startDate.day + (normalizedSpacing * index),
+      ),
+    );
+    return scheduleTreatmentSeries(
+      treatment: treatment,
+      dates: dates,
+      momentLabel: momentLabel,
+      trainingRelation: trainingRelation,
+    );
+  }
+
   Future<void> unscheduleTreatment({
     required DateTime date,
-    required String treatmentId,
+    String? treatmentId,
+    String? sessionId,
   }) async {
     final key = dateKeyFor(date);
     final existing = List<PlannedSession>.from(_plans[key] ?? const []);
-    existing.removeWhere((entry) => entry.treatmentId == treatmentId);
+    existing.removeWhere((entry) {
+      if (sessionId != null && sessionId.isNotEmpty) {
+        return entry.id == sessionId;
+      }
+      return treatmentId != null && entry.treatmentId == treatmentId;
+    });
     if (existing.isEmpty) {
       _plans.remove(key);
     } else {
@@ -402,15 +583,24 @@ class BlueprintController extends ChangeNotifier {
     required DateTime date,
     required WellnessTreatment treatment,
     required SessionStatus status,
+    PlannedSession? session,
     String momentLabel = 'Tracked',
     TrainingRelation trainingRelation = TrainingRelation.independent,
   }) async {
     final key = dateKeyFor(date);
     final existing = List<PlannedSession>.from(_plans[key] ?? const []);
-    final matched = existing
-        .where((entry) => entry.treatmentId == treatment.id)
-        .toList(growable: false);
-    existing.removeWhere((entry) => entry.treatmentId == treatment.id);
+    final matched = session != null
+        ? existing
+            .where((entry) => entry.id == session.id)
+            .toList(growable: false)
+        : existing
+            .where((entry) => entry.treatmentId == treatment.id)
+            .toList(growable: false);
+    existing.removeWhere(
+      (entry) => session != null
+          ? entry.id == session.id
+          : entry.treatmentId == treatment.id,
+    );
     if (existing.isEmpty) {
       _plans.remove(key);
     } else {
@@ -423,10 +613,18 @@ class BlueprintController extends ChangeNotifier {
         loggedAtIso: DateTime.now().toIso8601String(),
         dateKey: key,
         status: status,
-        momentLabel: momentLabel,
+        momentLabel: matched.isNotEmpty ? matched.first.momentLabel : momentLabel,
+        plannedSessionId: matched.isNotEmpty ? matched.first.id : session?.id,
         trainingRelation: matched.isNotEmpty
             ? matched.first.trainingRelation
             : trainingRelation,
+        courseId: matched.isNotEmpty ? matched.first.courseId : session?.courseId,
+        courseSessionIndex: matched.isNotEmpty
+            ? matched.first.courseSessionIndex
+            : session?.courseSessionIndex,
+        courseSessionTarget: matched.isNotEmpty
+            ? matched.first.courseSessionTarget
+            : session?.courseSessionTarget,
       ),
     );
     _history.sort((a, b) => b.loggedAtIso.compareTo(a.loggedAtIso));
@@ -437,7 +635,7 @@ class BlueprintController extends ChangeNotifier {
 
   String exportHistoryAsCsv() {
     final buffer = StringBuffer(
-      'date,status,treatment_id,treatment_title,moment,training_relation,logged_at\n',
+      'date,status,treatment_id,treatment_title,moment,training_relation,course_id,course_session_index,course_session_target,logged_at\n',
     );
     for (final entry in _history) {
       final treatment = treatmentById(entry.treatmentId);
@@ -450,6 +648,9 @@ class BlueprintController extends ChangeNotifier {
               BlueprintStrings(_language).unknownTreatmentLabel(),
           entry.momentLabel,
           entry.trainingRelation.name,
+          entry.courseId ?? '',
+          entry.courseSessionIndex ?? '',
+          entry.courseSessionTarget ?? '',
           entry.loggedAtIso,
         ].map(_csvEscape).join(','),
       );
@@ -465,6 +666,8 @@ class BlueprintController extends ChangeNotifier {
         'treatmentTitle': treatment?.title(_language == AppLanguage.spanish) ??
             BlueprintStrings(_language).unknownTreatmentLabel(),
         'trainingRelationLabel': entry.trainingRelation.name,
+        'courseSessionIndex': entry.courseSessionIndex,
+        'courseSessionTarget': entry.courseSessionTarget,
       };
     }).toList();
     return const JsonEncoder.withIndent('  ').convert(payload);
@@ -533,6 +736,18 @@ class BlueprintController extends ChangeNotifier {
     return '"$raw"';
   }
 
+  String _buildSessionId({
+    required String treatmentId,
+    required String dateKey,
+    required String suffix,
+  }) {
+    final normalizedSuffix = suffix.replaceAll(RegExp(r'[^a-zA-Z0-9_]+'), '_');
+    return '${treatmentId}_${dateKey}_$normalizedSuffix_${DateTime.now().microsecondsSinceEpoch}';
+  }
+
+  String _buildCourseId(String treatmentId) =>
+      '${treatmentId}_course_${DateTime.now().microsecondsSinceEpoch}';
+
   void _seedDemoData() {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -542,12 +757,14 @@ class BlueprintController extends ChangeNotifier {
     _plans = <String, List<PlannedSession>>{
       dateKeyFor(today): [
         PlannedSession(
+          id: 'demo_plan_1',
           treatmentId: source[0].id,
           dateKey: dateKeyFor(today),
           momentLabel: 'Morning',
           trainingRelation: TrainingRelation.afterTraining,
         ),
         PlannedSession(
+          id: 'demo_plan_2',
           treatmentId: source[1].id,
           dateKey: dateKeyFor(today),
           momentLabel: 'Evening',
@@ -556,6 +773,7 @@ class BlueprintController extends ChangeNotifier {
       ],
       dateKeyFor(today.add(const Duration(days: 1))): [
         PlannedSession(
+          id: 'demo_plan_3',
           treatmentId: source[2].id,
           dateKey: dateKeyFor(today.add(const Duration(days: 1))),
           momentLabel: 'Lunch break',
@@ -564,6 +782,7 @@ class BlueprintController extends ChangeNotifier {
       ],
       dateKeyFor(today.add(const Duration(days: 3))): [
         PlannedSession(
+          id: 'demo_plan_4',
           treatmentId: source[3].id,
           dateKey: dateKeyFor(today.add(const Duration(days: 3))),
           momentLabel: 'Afternoon',

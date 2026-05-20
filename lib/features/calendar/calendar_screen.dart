@@ -223,6 +223,18 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                 '${strings.trainingRelationPrefix}: ${strings.trainingRelationLabel(plan.trainingRelation)}',
                                 style: Theme.of(context).textTheme.bodySmall,
                               ),
+                              if (plan.isPartOfCourse &&
+                                  plan.courseSessionIndex != null &&
+                                  plan.courseSessionTarget != null) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  strings.courseSessionLabel(
+                                    plan.courseSessionIndex!,
+                                    plan.courseSessionTarget!,
+                                  ),
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              ],
                               const SizedBox(height: 12),
                               Row(
                                 children: [
@@ -247,6 +259,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                         date: _selectedDate,
                                         treatment: treatment,
                                         status: SessionStatus.completed,
+                                        session: plan,
                                         momentLabel: plan.momentLabel,
                                         trainingRelation: plan.trainingRelation,
                                       );
@@ -260,6 +273,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                         date: _selectedDate,
                                         treatment: treatment,
                                         status: SessionStatus.skipped,
+                                        session: plan,
                                         momentLabel: plan.momentLabel,
                                         trainingRelation: plan.trainingRelation,
                                       );
@@ -308,6 +322,18 @@ class _CalendarScreenState extends State<CalendarScreen> {
                               strings.historyEntryLine(entry),
                               style: Theme.of(context).textTheme.bodySmall,
                             ),
+                            if (entry.isPartOfCourse &&
+                                entry.courseSessionIndex != null &&
+                                entry.courseSessionTarget != null) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                strings.courseSessionLabel(
+                                  entry.courseSessionIndex!,
+                                  entry.courseSessionTarget!,
+                                ),
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ],
                             const SizedBox(height: 4),
                             Text(
                               '${strings.trainingRelationPrefix}: ${strings.trainingRelationLabel(entry.trainingRelation)}',

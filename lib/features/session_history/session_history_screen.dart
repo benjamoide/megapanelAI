@@ -119,6 +119,15 @@ class SessionHistoryScreen extends StatelessWidget {
                         const SizedBox(height: 12),
                         _HistoryLine(text: strings.scheduledDay(entry.dateKey)),
                         _HistoryLine(text: strings.moment(entry.momentLabel)),
+                        if (entry.isPartOfCourse &&
+                            entry.courseSessionIndex != null &&
+                            entry.courseSessionTarget != null)
+                          _HistoryLine(
+                            text: strings.courseSessionLabel(
+                              entry.courseSessionIndex!,
+                              entry.courseSessionTarget!,
+                            ),
+                          ),
                         _HistoryLine(
                           text:
                               '${strings.trainingRelationPrefix}: ${strings.trainingRelationLabel(entry.trainingRelation)}',

@@ -5359,6 +5359,131 @@ String _deriveBlueprintSummary(Tratamiento treatment) {
   return 'Published protocol summary available in the treatment notes.';
 }
 
+TreatmentCourseGuidance? _deriveBlueprintCourseGuidance(Tratamiento treatment) {
+  if (_idsTendinopatia.contains(treatment.id)) {
+    return const TreatmentCourseGuidance(
+      minSessions: 8,
+      maxSessions: 18,
+      recommendedSessions: 12,
+      recommendedSpacingDays: 2,
+      summaryEs:
+          'Los protocolos de tendinopatia suelen estudiarse como ciclos repetidos durante 3-6 semanas. Como punto de partida prudente, planifica 8-18 sesiones y reevaluacion clinica intermedia.',
+      summaryEn:
+          'Tendinopathy protocols are usually studied as repeated cycles across 3-6 weeks. As a cautious starting point, plan 8-18 sessions with a mid-course reassessment.',
+    );
+  }
+  if (_idsRodilla.contains(treatment.id)) {
+    return const TreatmentCourseGuidance(
+      minSessions: 8,
+      maxSessions: 18,
+      recommendedSessions: 12,
+      recommendedSpacingDays: 2,
+      summaryEs:
+          'Las series para rodilla degenerativa o sobreuso suelen necesitar continuidad durante varias semanas para valorar dolor y funcion. Una ventana razonable es de 8-18 sesiones.',
+      summaryEn:
+          'Knee protocols for degenerative pain or overload usually need continuity across several weeks before pain and function can be judged. A reasonable window is 8-18 sessions.',
+    );
+  }
+  if (_idsDolorMuscular.contains(treatment.id) ||
+      _idsTriggerContractura.contains(treatment.id)) {
+    return const TreatmentCourseGuidance(
+      minSessions: 4,
+      maxSessions: 12,
+      recommendedSessions: 8,
+      recommendedSpacingDays: 2,
+      summaryEs:
+          'En dolor muscular localizado y puntos gatillo la evidencia suele emplear bloques breves y reevaluacion rapida. Una serie conservadora es de 4-12 sesiones.',
+      summaryEn:
+          'For local muscular pain and trigger points, the evidence usually uses short blocks with early reassessment. A conservative course is 4-12 sessions.',
+    );
+  }
+  if (_idsPielEstetica.contains(treatment.id) || _idsEstrias.contains(treatment.id)) {
+    return const TreatmentCourseGuidance(
+      minSessions: 8,
+      maxSessions: 16,
+      recommendedSessions: 12,
+      recommendedSpacingDays: 2,
+      summaryEs:
+          'Los protocolos esteticos y de remodelacion dermica suelen aplicarse 2-4 veces por semana y requieren varias semanas para apreciar cambios acumulativos.',
+      summaryEn:
+          'Aesthetic and dermal-remodelling protocols are usually applied 2-4 times per week and need several weeks before cumulative changes become visible.',
+    );
+  }
+  if (_idsPielRegenerativa.contains(treatment.id)) {
+    return const TreatmentCourseGuidance(
+      minSessions: 8,
+      maxSessions: 20,
+      recommendedSessions: 12,
+      recommendedSpacingDays: 2,
+      summaryEs:
+          'En cicatriz, fibrosis y tejido reparativo suele interesar un curso mantenido con seguimiento del tejido y tolerancia local. Planifica 8-20 sesiones como marco orientativo.',
+      summaryEn:
+          'For scar, fibrosis and reparative tissue goals, a sustained course with tissue and tolerance follow-up is usually more meaningful. Plan 8-20 sessions as a working range.',
+    );
+  }
+  if (treatment.id == "boca_mucos") {
+    return const TreatmentCourseGuidance(
+      minSessions: 5,
+      maxSessions: 14,
+      recommendedSessions: 7,
+      recommendedSpacingDays: 1,
+      summaryEs:
+          'En mucositis los protocolos se estudian a menudo con aplicacion diaria o casi diaria durante los dias de mayor carga de sintomas. Una ventana util es de 5-14 sesiones.',
+      summaryEn:
+          'For mucositis, protocols are often studied with daily or near-daily application during the highest symptom-burden days. A useful window is 5-14 sessions.',
+    );
+  }
+  if (_idsCefalea.contains(treatment.id)) {
+    return const TreatmentCourseGuidance(
+      minSessions: 8,
+      maxSessions: 12,
+      recommendedSessions: 10,
+      recommendedSpacingDays: 2,
+      summaryEs:
+          'En cefalea y migrana la literatura disponible suele evaluar bloques repetidos de varias semanas, con ajuste segun respuesta y tolerancia neurosensorial.',
+      summaryEn:
+          'For headache and migraine, the available literature usually evaluates repeated blocks across several weeks, adjusted according to response and neurosensory tolerance.',
+    );
+  }
+  if (_idsNeuroExperimental.contains(treatment.id)) {
+    return const TreatmentCourseGuidance(
+      minSessions: 12,
+      maxSessions: 24,
+      recommendedSessions: 15,
+      recommendedSpacingDays: 2,
+      summaryEs:
+          'Los protocolos transcraneales exploratorios suelen estudiarse como ciclos prolongados y consistentes. Si se planifica un curso, conviene pensar en al menos 12 sesiones.',
+      summaryEn:
+          'Exploratory transcranial protocols are usually studied as longer, consistent cycles. If you plan a full course, it is sensible to think in terms of at least 12 sessions.',
+    );
+  }
+  if (_idsGrasaLocalizada.contains(treatment.id)) {
+    return const TreatmentCourseGuidance(
+      minSessions: 8,
+      maxSessions: 12,
+      recommendedSessions: 10,
+      recommendedSpacingDays: 2,
+      summaryEs:
+          'Los protocolos de contorno corporal suelen necesitar varias sesiones seriadas y suelen interpretarse junto con ejercicio y adherencia nutricional.',
+      summaryEn:
+          'Body-contouring protocols usually need several serial sessions and are typically interpreted alongside exercise and nutritional adherence.',
+    );
+  }
+  if (treatment.id == "sueno") {
+    return const TreatmentCourseGuidance(
+      minSessions: 7,
+      maxSessions: 21,
+      recommendedSessions: 14,
+      recommendedSpacingDays: 1,
+      summaryEs:
+          'Para ritmos de sueno suele tener mas sentido una secuencia diaria sostenida que una sesion aislada. Una primera ventana razonable es de 1-3 semanas.',
+      summaryEn:
+          'For sleep-rhythm goals, a sustained daily sequence tends to make more sense than a one-off session. A reasonable first window is 1-3 weeks.',
+    );
+  }
+  return null;
+}
+
 List<WellnessTreatment> _buildBlueprintTreatments() {
   final treatments =
       DB_DEFINICIONES.where((entry) => !entry.oculto).map((entry) {
@@ -5428,6 +5553,7 @@ List<WellnessTreatment> _buildBlueprintTreatments() {
         treatment.hz.trim().isEmpty ? 'Segun protocolo' : treatment.hz;
     final pulseGuidanceEn =
         treatment.hz.trim().isEmpty ? 'Protocol dependent' : treatment.hz;
+    final courseGuidance = _deriveBlueprintCourseGuidance(treatment);
     return WellnessTreatment(
       id: treatment.id,
       titleEs: titleEs,
@@ -5468,6 +5594,7 @@ List<WellnessTreatment> _buildBlueprintTreatments() {
         category: categoryEs,
         title: treatment.nombre,
       ),
+      courseGuidance: courseGuidance,
     );
   }).whereType<WellnessTreatment>().toList();
 

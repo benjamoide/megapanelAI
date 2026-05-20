@@ -191,6 +191,17 @@ class _TreatmentCard extends StatelessWidget {
                                 strings.evidenceLabel(treatment.evidenceLevel),
                               ),
                             ),
+                            if (treatment.courseGuidance != null)
+                              Chip(
+                                backgroundColor:
+                                    BlueprintTheme.gold.withValues(alpha: 0.12),
+                                label: Text(
+                                  strings.courseRangeLabel(
+                                    treatment.courseGuidance!.minSessions,
+                                    treatment.courseGuidance!.maxSessions,
+                                  ),
+                                ),
+                              ),
                             if (topCompatibility != null)
                               Chip(
                                 backgroundColor:
@@ -253,6 +264,13 @@ class _TreatmentCard extends StatelessWidget {
                       '${strings.intensityPrefix}: ${strings.intensitySummary(treatment)}',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
+                    if (treatment.courseGuidance != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        '${strings.courseCadence}: ${strings.everyXDays(treatment.courseGuidance!.recommendedSpacingDays)}',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
                     if (topCompatibility != null) ...[
                       const SizedBox(height: 6),
                       Text(
