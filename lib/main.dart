@@ -5097,16 +5097,49 @@ const Map<String, String> _blueprintCategoryTranslations = {
   'General wellness': 'General wellness',
 };
 
+String _normalizeBlueprintTranslationKey(String value) {
+  return _sanitizeBlueprintText(value)
+      .toLowerCase()
+      .replaceAll('á', 'a')
+      .replaceAll('é', 'e')
+      .replaceAll('í', 'i')
+      .replaceAll('ó', 'o')
+      .replaceAll('ú', 'u')
+      .replaceAll('ü', 'u')
+      .replaceAll('ñ', 'n');
+}
+
 String _translateBlueprintTitleToEnglish(String value) {
   final sanitized = _sanitizeBlueprintText(value);
-  return _blueprintTitleTranslations[sanitized] ??
-      _translateBlueprintTextToEnglish(sanitized);
+  final normalized = _normalizeBlueprintTranslationKey(sanitized);
+
+  for (final entry in _blueprintTitleTranslations.entries) {
+    if (_normalizeBlueprintTranslationKey(entry.key) == normalized) {
+      return entry.value;
+    }
+  }
+
+  if (normalized.startsWith('grasa ')) {
+    return _translateBlueprintTextToEnglish(sanitized);
+  }
+  if (normalized.contains('migrana')) {
+    return 'Migraine';
+  }
+
+  return _translateBlueprintTextToEnglish(sanitized);
 }
 
 String _translateBlueprintCategoryToEnglish(String value) {
   final sanitized = _sanitizeBlueprintText(value);
-  return _blueprintCategoryTranslations[sanitized] ??
-      _translateBlueprintTextToEnglish(sanitized);
+  final normalized = _normalizeBlueprintTranslationKey(sanitized);
+
+  for (final entry in _blueprintCategoryTranslations.entries) {
+    if (_normalizeBlueprintTranslationKey(entry.key) == normalized) {
+      return entry.value;
+    }
+  }
+
+  return _translateBlueprintTextToEnglish(sanitized);
 }
 
 String _sanitizeBlueprintText(String value) {
