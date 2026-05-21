@@ -320,6 +320,105 @@ class BlueprintStrings {
   String get treatmentCatalogueBody => isSpanish
       ? 'Elige un objetivo, revisa la configuracion recomendada y planificalo en tu semana.'
       : 'Choose a goal, review recommended settings and plan it into your week.';
+  String get curatedTreatmentsTitle =>
+      isSpanish ? 'Catalogo curado' : 'Curated catalogue';
+  String get myTreatmentsTitle =>
+      isSpanish ? 'Mis tratamientos' : 'My treatments';
+  String get aiDraftsTitle =>
+      isSpanish ? 'Borradores IA' : 'AI drafts';
+  String get myTreatmentsBody => isSpanish
+      ? 'Aqui puedes guardar tratamientos propios o convertir borradores IA en parte de tu biblioteca personal.'
+      : 'Save your own treatments here or turn AI drafts into part of your personal library.';
+  String get aiDraftsBody => isSpanish
+      ? 'Los borradores IA se mantienen aparte hasta que decidas convertirlos en un tratamiento propio.'
+      : 'AI drafts stay separate until you decide to turn them into one of your own treatments.';
+  String get aiSearchTitle =>
+      isSpanish ? 'Busqueda asistida por IA' : 'AI-assisted search';
+  String get aiSearchBody => isSpanish
+      ? 'Describe una dolencia, objetivo o situacion concreta. La IA puede recomendar tratamientos del catalogo actual y proponer nuevos borradores con referencias y configuracion orientativa.'
+      : 'Describe a condition, goal or specific context. AI can recommend treatments from the current catalogue and propose new draft treatments with references and practical setup guidance.';
+  String get aiSearchAction =>
+      isSpanish ? 'Buscar con IA' : 'Search with AI';
+  String get aiSearchHint => isSpanish
+      ? 'Ejemplo: dolor en tendon de Aquiles tras series de carrera'
+      : 'Example: Achilles tendon pain after sprint intervals';
+  String get aiSearchHelper => isSpanish
+      ? 'Cuanto mas concreto seas con sintomas, zona y contexto deportivo, mejor podra orientar la busqueda.'
+      : 'The more specific you are about symptoms, area and training context, the better the search guidance will be.';
+  String get aiSearchUnavailable => isSpanish
+      ? 'La busqueda IA no esta disponible en esta build.'
+      : 'AI search is not available in this build.';
+  String get aiSearchSummaryTitle =>
+      isSpanish ? 'Resumen de la busqueda' : 'Search summary';
+  String get aiRecommendedExisting =>
+      isSpanish ? 'Sugeridos del catalogo actual' : 'Suggested from the current catalogue';
+  String get aiProposedDrafts =>
+      isSpanish ? 'Borradores propuestos por IA' : 'AI-proposed drafts';
+  String get aiNoRecommendations => isSpanish
+        ? 'La IA no encontro recomendaciones claras con el contexto actual.'
+        : 'AI did not find clear recommendations for the current context.';
+  String get viewTreatmentDetail =>
+      isSpanish ? 'Ver detalle' : 'View detail';
+  String get aiSearchRun =>
+        isSpanish ? 'Lanzar busqueda' : 'Run search';
+  String get aiSearching =>
+      isSpanish ? 'Buscando tratamientos...' : 'Searching treatments...';
+  String get catalogEmptyState => isSpanish
+      ? 'No hay tratamientos que coincidan con este filtro.'
+      : 'No treatments match this filter.';
+  String get myTreatmentsEmptyState => isSpanish
+      ? 'Todavia no has guardado tratamientos propios.'
+      : 'You have not saved any personal treatments yet.';
+  String get aiDraftsEmptyState => isSpanish
+      ? 'Todavia no hay borradores IA. Usa la busqueda asistida para generar uno.'
+      : 'There are no AI drafts yet. Use assisted search to generate one.';
+  String get aiDraftReviewTitle =>
+      isSpanish ? 'Revisar antes de guardar' : 'Review before saving';
+  String get aiDraftReviewBody => isSpanish
+      ? 'Los borradores IA no sustituyen el catalogo curado. Revisa referencias, seguridad y configuracion antes de guardarlos en tu biblioteca.'
+      : 'AI drafts do not replace the curated catalogue. Review references, safety notes and setup guidance before saving them to your library.';
+  String get aiDraftSourcePreviewTitle =>
+      isSpanish ? 'Fuentes visibles' : 'Visible sources';
+  String aiDraftSourceCount(int count) => isSpanish
+      ? '$count referencias incluidas'
+      : '$count references included';
+  String get aiDraftSearchQueryLabel =>
+      isSpanish ? 'Busqueda original' : 'Original search';
+  String get aiDraftGeneratedAtLabel =>
+      isSpanish ? 'Generado' : 'Generated';
+  String get addToMyTreatments =>
+      isSpanish ? 'Anadir a mis tratamientos' : 'Add to my treatments';
+  String get addedToMyTreatments => isSpanish
+      ? 'Anadido a Mis tratamientos'
+      : 'Added to My treatments';
+  String get confirmAddAiDraftTitle => isSpanish
+      ? 'Guardar borrador IA'
+      : 'Save AI draft';
+  String get confirmAddAiDraftBody => isSpanish
+      ? 'Este borrador se copiara a Mis tratamientos y seguira indicando que procede de una busqueda con IA.'
+      : 'This draft will be copied to My treatments and will still indicate that it originated from an AI-assisted search.';
+  String get confirmAddAiDraftAction =>
+      isSpanish ? 'Guardar tratamiento' : 'Save treatment';
+  String get discardAiDraft =>
+      isSpanish ? 'Descartar borrador' : 'Discard draft';
+  String get discardAiDraftTitle =>
+      isSpanish ? 'Eliminar borrador IA' : 'Remove AI draft';
+  String get discardAiDraftBody => isSpanish
+      ? 'El borrador se eliminara del catalogo IA, pero no afectara a tus tratamientos guardados.'
+      : 'The draft will be removed from the AI catalogue, but your saved treatments will not be affected.';
+  String get discardAiDraftAction =>
+      isSpanish ? 'Eliminar borrador' : 'Remove draft';
+  String get discardedAiDraft =>
+      isSpanish ? 'Borrador IA eliminado' : 'AI draft removed';
+  String get generatedFromAiSearch => isSpanish
+      ? 'Generado desde una busqueda con IA'
+      : 'Generated from an AI-assisted search';
+  String get originCuratedLabel =>
+      isSpanish ? 'Curado' : 'Curated';
+  String get originAiDraftLabel =>
+      isSpanish ? 'Borrador IA' : 'AI draft';
+  String get originUserTreatmentLabel =>
+      isSpanish ? 'Tratamiento propio' : 'My treatment';
   String get searchHint => isSpanish
       ? 'Buscar por objetivo, zona o sintoma'
       : 'Search by goal, area or symptom';
@@ -775,6 +874,17 @@ class BlueprintStrings {
         return isSpanish ? 'Moderada' : 'Moderate';
       case EvidenceLevel.strong:
         return isSpanish ? 'Solida' : 'Strong';
+    }
+  }
+
+  String originLabel(TreatmentOrigin origin) {
+    switch (origin) {
+      case TreatmentOrigin.curated:
+        return originCuratedLabel;
+      case TreatmentOrigin.aiDraft:
+        return originAiDraftLabel;
+      case TreatmentOrigin.userTreatment:
+        return originUserTreatmentLabel;
     }
   }
 

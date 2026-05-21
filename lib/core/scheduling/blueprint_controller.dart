@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:mega_panel_ai/core/ai/ai_treatment_search_service.dart';
 import 'package:mega_panel_ai/core/evidence/training_compatibility.dart';
 import 'package:intl/intl.dart';
 import 'package:mega_panel_ai/core/scheduling/notification_service.dart';
@@ -13,9 +14,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 class BlueprintController extends ChangeNotifier {
   BlueprintController({
     required List<WellnessTreatment> treatments,
+    AiTreatmentSearchService? aiTreatmentSearchService,
     NotificationService? notificationService,
     bool demoMode = false,
-  })  : _treatments = List<WellnessTreatment>.unmodifiable(treatments),
+  })  : _catalogTreatments = List<WellnessTreatment>.unmodifiable(treatments),
+        _aiTreatmentSearchService = aiTreatmentSearchService,
         _notificationService = notificationService ?? NotificationService(),
         _demoMode = demoMode;
 
@@ -24,13 +27,18 @@ class BlueprintController extends ChangeNotifier {
   static const _prefsReminderSettings = 'bp1_reminder_settings';
   static const _prefsLanguage = 'bp1_language';
   static const _prefsRecentTraining = 'bp1_recent_training';
+  static const _prefsAiDraftTreatments = 'bp2_ai_draft_treatments';
+  static const _prefsUserTreatments = 'bp2_user_treatments';
 
-  final List<WellnessTreatment> _treatments;
+  final List<WellnessTreatment> _catalogTreatments;
+  final AiTreatmentSearchService? _aiTreatmentSearchService;
   final NotificationService _notificationService;
   final bool _demoMode;
 
   Map<String, List<PlannedSession>> _plans = <String, List<PlannedSession>>{};
   List<SessionHistoryEntry> _history = <SessionHistoryEntry>[];
+  List<WellnessTreatment> _aiDraftTreatments = <WellnessTreatment>[];
+  List<WellnessTreatment> _userTreatments = <WellnessTreatment>[];
   Map<TrainingType, RecentTrainingSession> _recentTraining =
       <TrainingType, RecentTrainingSession>{};
   ReminderSettings _reminderSettings = const ReminderSettings(
@@ -52,7 +60,21 @@ class BlueprintController extends ChangeNotifier {
   bool get ready => _ready;
   bool get notificationsSupported => _notificationsSupported;
   bool get notificationsPermissionGranted => _notificationsPermissionGranted;
-  List<WellnessTreatment> get treatments => _treatments;
+  bool get aiSearchAvailable =>
+      _aiTreatmentSearchService != null &&
+      _aiTreatmentSearchService.isConfigured;
+  List<WellnessTreatment> get curatedTreatments => _catalogTreatments;
+  List<WellnessTreatment> get aiDraftTreatments =>
+      List<WellnessTreatment>.unmodifiable(_aiDraftTreatments);
+  List<WellnessTreatment> get myTreatments =>
+      List<WellnessTreatment>.unmodifiable(_userTreatments);
+  List<WellnessTreatment> get treatments => List<WellnessTreatment>.unmodifiable(
+        [
+          ..._catalogTreatments,
+          ..._userTreatments,
+          ..._aiDraftTreatments,
+        ],
+      );
   List<SessionHistoryEntry> get history =>
       List<SessionHistoryEntry>.unmodifiable(_history);
   ReminderSettings get reminderSettings => _reminderSettings;
@@ -142,6 +164,28 @@ class BlueprintController extends ChangeNotifier {
       };
     }
 
+    final aiDraftRaw = storedPrefs.getString(_prefsAiDraftTreatments);
+    if (aiDraftRaw != null && aiDraftRaw.isNotEmpty) {
+      _aiDraftTreatments = (json.decode(aiDraftRaw) as List)
+          .map(
+            (entry) => WellnessTreatment.fromJson(
+              Map<String, dynamic>.from(entry as Map),
+            ),
+          )
+          .toList(growable: false);
+    }
+
+    final userTreatmentsRaw = storedPrefs.getString(_prefsUserTreatments);
+    if (userTreatmentsRaw != null && userTreatmentsRaw.isNotEmpty) {
+      _userTreatments = (json.decode(userTreatmentsRaw) as List)
+          .map(
+            (entry) => WellnessTreatment.fromJson(
+              Map<String, dynamic>.from(entry as Map),
+            ),
+          )
+          .toList(growable: false);
+    }
+
     _ready = true;
     await _syncNotifications();
     notifyListeners();
@@ -163,8 +207,19 @@ class BlueprintController extends ChangeNotifier {
     return AppLanguage.english;
   }
 
+  List<WellnessTreatment> catalogForOrigin(TreatmentOrigin origin) {
+    switch (origin) {
+      case TreatmentOrigin.curated:
+        return curatedTreatments;
+      case TreatmentOrigin.aiDraft:
+        return aiDraftTreatments;
+      case TreatmentOrigin.userTreatment:
+        return myTreatments;
+    }
+  }
+
   WellnessTreatment? treatmentById(String id) {
-    for (final treatment in _treatments) {
+    for (final treatment in treatments) {
       if (treatment.id == id) return treatment;
     }
     return null;
@@ -380,6 +435,95 @@ class BlueprintController extends ChangeNotifier {
     await _persist();
     await _syncNotifications();
     notifyListeners();
+  }
+
+  Future<AiTreatmentSearchResult> searchTreatmentsWithAi(String query) async {
+    final normalizedQuery = query.trim();
+    if (normalizedQuery.isEmpty) {
+      throw const AiTreatmentSearchException('Query cannot be empty.');
+    }
+    final service = _aiTreatmentSearchService;
+    if (service == null || !service.isConfigured) {
+      throw const AiTreatmentSearchException(
+        'AI search is not available in this build.',
+      );
+    }
+
+    final result = await service.searchTreatments(
+      query: normalizedQuery,
+      existingCatalog: [
+        ...curatedTreatments,
+        ...myTreatments,
+      ],
+    );
+    if (result.proposedTreatments.isNotEmpty) {
+      await _storeAiDrafts(result.proposedTreatments);
+    }
+    return result;
+  }
+
+  Future<void> _storeAiDrafts(List<WellnessTreatment> drafts) async {
+    var changed = false;
+    final existingByFingerprint = {
+      for (final entry in _aiDraftTreatments)
+        _draftFingerprint(entry): entry,
+    };
+    final merged = List<WellnessTreatment>.from(_aiDraftTreatments);
+    for (final draft in drafts) {
+      final fingerprint = _draftFingerprint(draft);
+      if (existingByFingerprint.containsKey(fingerprint)) {
+        continue;
+      }
+      merged.insert(0, draft);
+      existingByFingerprint[fingerprint] = draft;
+      changed = true;
+    }
+    if (!changed) return;
+    _aiDraftTreatments = merged;
+    await _persist();
+    notifyListeners();
+  }
+
+  Future<void> removeAiDraft(String treatmentId) async {
+    final next =
+        _aiDraftTreatments.where((entry) => entry.id != treatmentId).toList();
+    if (next.length == _aiDraftTreatments.length) return;
+    _aiDraftTreatments = next;
+    await _persist();
+    notifyListeners();
+  }
+
+  Future<void> addDraftToMyTreatments(String treatmentId) async {
+    WellnessTreatment? draft;
+    for (final entry in _aiDraftTreatments) {
+      if (entry.id == treatmentId) {
+        draft = entry;
+        break;
+      }
+    }
+    if (draft == null) return;
+    final resolvedDraft = draft;
+
+    final exists = _userTreatments.any(
+      (entry) => _draftFingerprint(entry) == _draftFingerprint(resolvedDraft),
+    );
+    if (exists) return;
+
+    final converted = resolvedDraft.copyWith(
+      id: 'user_${DateTime.now().microsecondsSinceEpoch}',
+      origin: TreatmentOrigin.userTreatment,
+      originNoteEs:
+          'Tratamiento guardado en Mis tratamientos a partir de una busqueda con IA.',
+      originNoteEn:
+          'Treatment saved in My Treatments from an AI-assisted search.',
+    );
+    _userTreatments = [converted, ..._userTreatments];
+    await _persist();
+    notifyListeners();
+  }
+
+  String _draftFingerprint(WellnessTreatment treatment) {
+    return '${treatment.titleEn.toLowerCase()}|${treatment.categoryEn.toLowerCase()}|${treatment.goalEn.toLowerCase()}';
   }
 
   Future<void> logTrainingSession({
@@ -716,6 +860,14 @@ class BlueprintController extends ChangeNotifier {
         _recentTraining.values.map((entry) => entry.toJson()).toList(),
       ),
     );
+    await prefs.setString(
+      _prefsAiDraftTreatments,
+      json.encode(_aiDraftTreatments.map((entry) => entry.toJson()).toList()),
+    );
+    await prefs.setString(
+      _prefsUserTreatments,
+      json.encode(_userTreatments.map((entry) => entry.toJson()).toList()),
+    );
   }
 
   Future<void> _syncNotifications() async {
@@ -768,7 +920,7 @@ class BlueprintController extends ChangeNotifier {
   void _seedDemoData() {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final source = _treatments.take(6).toList(growable: false);
+    final source = _catalogTreatments.take(6).toList(growable: false);
     if (source.length < 4) return;
 
     _plans = <String, List<PlannedSession>>{

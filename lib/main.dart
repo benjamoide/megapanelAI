@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:intl/intl.dart';
 import 'package:mega_panel_ai/blueprint_one_app.dart';
+import 'package:mega_panel_ai/core/ai/ai_treatment_search_service.dart';
 import 'package:mega_panel_ai/core/evidence/evidence_level.dart';
 import 'package:mega_panel_ai/core/evidence/training_compatibility.dart';
 import 'package:mega_panel_ai/core/scheduling/blueprint_controller.dart';
@@ -5617,6 +5618,9 @@ Future<void> main() async {
   final queryDemoMode = Uri.base.queryParameters['demo'] == '1';
   final controller = BlueprintController(
     treatments: _buildBlueprintTreatments(),
+    aiTreatmentSearchService: AiTreatmentSearchService(
+      apiKey: apiKeyFromBuild,
+    ),
     demoMode: buildDemoMode || queryDemoMode,
   );
   await controller.load();

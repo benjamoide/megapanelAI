@@ -3,6 +3,7 @@ import 'package:mega_panel_ai/core/scheduling/blueprint_controller.dart';
 import 'package:mega_panel_ai/core/treatments/treatment.dart';
 import 'package:mega_panel_ai/design_system/blueprint_localization.dart';
 import 'package:mega_panel_ai/design_system/blueprint_theme.dart';
+import 'package:mega_panel_ai/features/treatment_catalog/ai_treatment_search_screen.dart';
 import 'package:mega_panel_ai/features/treatment_catalog/treatment_detail_screen.dart';
 import 'package:provider/provider.dart';
 
@@ -16,14 +17,16 @@ class TreatmentCatalogScreen extends StatefulWidget {
 class _TreatmentCatalogScreenState extends State<TreatmentCatalogScreen> {
   String _query = '';
   String _category = '__all__';
+  TreatmentOrigin _origin = TreatmentOrigin.curated;
 
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<BlueprintController>();
     final strings = BlueprintStrings(controller.language);
+    final source = controller.catalogForOrigin(_origin);
     final categories = <String>{
       '__all__',
-      ...controller.treatments.map((t) => t.categoryEs),
+      ...source.map((t) => t.category(strings.isSpanish)),
     }.toList()
       ..sort((a, b) {
         if (a == '__all__') return -1;
@@ -31,15 +34,16 @@ class _TreatmentCatalogScreenState extends State<TreatmentCatalogScreen> {
         return a.compareTo(b);
       });
 
-    final visible = controller.treatments.where((t) {
-      final categoryOk = _category == '__all__' || t.categoryEs == _category;
+    final visible = source.where((t) {
+      final localizedCategory = t.category(strings.isSpanish);
+      final categoryOk = _category == '__all__' || localizedCategory == _category;
       final haystack =
-          '${t.title(strings.isSpanish)} ${t.category(strings.isSpanish)} ${t.goal(strings.isSpanish)} ${t.summary(strings.isSpanish)}'
+          '${t.title(strings.isSpanish)} $localizedCategory ${t.goal(strings.isSpanish)} ${t.summary(strings.isSpanish)}'
               .toLowerCase();
       final queryOk = _query.trim().isEmpty ||
           haystack.contains(_query.trim().toLowerCase());
       return categoryOk && queryOk;
-    }).toList();
+    }).toList(growable: false);
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
@@ -62,10 +66,57 @@ class _TreatmentCatalogScreenState extends State<TreatmentCatalogScreen> {
                 strings.treatmentCatalogueBody,
                 style: Theme.of(context).textTheme.bodyLarge,
               ),
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: controller.aiSearchAvailable
+                    ? () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const AiTreatmentSearchScreen(),
+                          ),
+                        );
+                      }
+                    : null,
+                icon: const Icon(Icons.auto_awesome_outlined),
+                label: Text(strings.aiSearchAction),
+              ),
             ],
           ),
         ),
         const SizedBox(height: 18),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _OriginChip(
+              label: strings.curatedTreatmentsTitle,
+              selected: _origin == TreatmentOrigin.curated,
+              onTap: () => setState(() {
+                _origin = TreatmentOrigin.curated;
+                _category = '__all__';
+              }),
+            ),
+            _OriginChip(
+              label: strings.myTreatmentsTitle,
+              selected: _origin == TreatmentOrigin.userTreatment,
+              onTap: () => setState(() {
+                _origin = TreatmentOrigin.userTreatment;
+                _category = '__all__';
+              }),
+            ),
+            _OriginChip(
+              label: strings.aiDraftsTitle,
+              selected: _origin == TreatmentOrigin.aiDraft,
+              onTap: () => setState(() {
+                _origin = TreatmentOrigin.aiDraft;
+                _category = '__all__';
+              }),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        _CatalogContextBanner(origin: _origin),
+        const SizedBox(height: 16),
         TextField(
           decoration: InputDecoration(
             hintText: strings.searchHint,
@@ -85,11 +136,7 @@ class _TreatmentCatalogScreenState extends State<TreatmentCatalogScreen> {
               final selected = category == _category;
               return ChoiceChip(
                 label: Text(
-                  category == '__all__'
-                      ? strings.allCategory
-                      : controller.treatments
-                          .firstWhere((t) => t.categoryEs == category)
-                          .category(strings.isSpanish),
+                  category == '__all__' ? strings.allCategory : category,
                 ),
                 selected: selected,
                 onSelected: (_) => setState(() => _category = category),
@@ -98,17 +145,106 @@ class _TreatmentCatalogScreenState extends State<TreatmentCatalogScreen> {
           ),
         ),
         const SizedBox(height: 18),
-        ...visible.map(
-          (treatment) => Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: _TreatmentCard(
-              treatment: treatment,
-              plannedToday:
-                  controller.isPlannedOn(DateTime.now(), treatment.id),
+        if (visible.isEmpty)
+          _EmptyCatalogState(origin: _origin)
+        else
+          ...visible.map(
+            (treatment) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _TreatmentCard(
+                treatment: treatment,
+                plannedToday:
+                    controller.isPlannedOn(DateTime.now(), treatment.id),
+              ),
             ),
           ),
-        ),
       ],
+    );
+  }
+}
+
+class _CatalogContextBanner extends StatelessWidget {
+  const _CatalogContextBanner({required this.origin});
+
+  final TreatmentOrigin origin;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings =
+        BlueprintStrings(context.watch<BlueprintController>().language);
+    final (title, body) = switch (origin) {
+      TreatmentOrigin.curated => (
+          strings.curatedTreatmentsTitle,
+          strings.treatmentCatalogueBody,
+        ),
+      TreatmentOrigin.userTreatment => (
+          strings.myTreatmentsTitle,
+          strings.myTreatmentsBody,
+        ),
+      TreatmentOrigin.aiDraft => (
+          strings.aiDraftsTitle,
+          strings.aiDraftsBody,
+        ),
+    };
+
+    return DecoratedBox(
+      decoration: BlueprintTheme.softPanel(),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 6),
+            Text(body, style: Theme.of(context).textTheme.bodySmall),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _OriginChip extends StatelessWidget {
+  const _OriginChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ChoiceChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) => onTap(),
+    );
+  }
+}
+
+class _EmptyCatalogState extends StatelessWidget {
+  const _EmptyCatalogState({required this.origin});
+
+  final TreatmentOrigin origin;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings =
+        BlueprintStrings(context.watch<BlueprintController>().language);
+    final text = switch (origin) {
+      TreatmentOrigin.curated => strings.catalogEmptyState,
+      TreatmentOrigin.userTreatment => strings.myTreatmentsEmptyState,
+      TreatmentOrigin.aiDraft => strings.aiDraftsEmptyState,
+    };
+    return DecoratedBox(
+      decoration: BlueprintTheme.softPanel(),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Text(text),
+      ),
     );
   }
 }
@@ -130,8 +266,7 @@ class _TreatmentCard extends StatelessWidget {
     final compatibility = controller.compatibilityForTreatment(
       treatment: treatment,
     );
-    final topCompatibility =
-        compatibility.isEmpty ? null : compatibility.first;
+    final topCompatibility = compatibility.isEmpty ? null : compatibility.first;
 
     return DecoratedBox(
       decoration: BlueprintTheme.softPanel(),
@@ -183,8 +318,12 @@ class _TreatmentCard extends StatelessWidget {
                               ),
                             ),
                             Chip(
-                              label: Text(strings
-                                  .minutesLabel(treatment.durationMinutes)),
+                              label: Text(strings.originLabel(treatment.origin)),
+                            ),
+                            Chip(
+                              label: Text(
+                                strings.minutesLabel(treatment.durationMinutes),
+                              ),
                             ),
                             Chip(
                               label: Text(
@@ -244,6 +383,57 @@ class _TreatmentCard extends StatelessWidget {
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
               ),
+              if (treatment.originNote(strings.isSpanish) != null) ...[
+                const SizedBox(height: 10),
+                Text(
+                  treatment.originNote(strings.isSpanish)!,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+              if (treatment.isAiDraft) ...[
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    FilledButton.icon(
+                      onPressed: () async {
+                        final shouldSave = await _confirmAddDraftToMyTreatments(
+                          context,
+                          strings,
+                          treatment,
+                        );
+                        if (!shouldSave) return;
+                        await controller.addDraftToMyTreatments(treatment.id);
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(strings.addedToMyTreatments),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.bookmark_add_outlined),
+                      label: Text(strings.addToMyTreatments),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        final shouldDiscard =
+                            await _confirmDiscardDraft(context, strings);
+                        if (!shouldDiscard) return;
+                        await controller.removeAiDraft(treatment.id);
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(strings.discardedAiDraft),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.delete_outline),
+                      label: Text(strings.discardAiDraft),
+                    ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 14),
               Container(
                 padding: const EdgeInsets.all(14),
@@ -286,5 +476,68 @@ class _TreatmentCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<bool> _confirmAddDraftToMyTreatments(
+    BuildContext context,
+    BlueprintStrings strings,
+    WellnessTreatment treatment,
+  ) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(strings.confirmAddAiDraftTitle),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(strings.confirmAddAiDraftBody),
+            const SizedBox(height: 12),
+            if (treatment.sourceReferences(strings.isSpanish).isNotEmpty)
+              Text(
+                strings.aiDraftSourceCount(
+                  treatment.sourceReferences(strings.isSpanish).length,
+                ),
+                style: Theme.of(dialogContext).textTheme.bodySmall,
+              ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(strings.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(strings.confirmAddAiDraftAction),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
+  Future<bool> _confirmDiscardDraft(
+    BuildContext context,
+    BlueprintStrings strings,
+  ) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(strings.discardAiDraftTitle),
+        content: Text(strings.discardAiDraftBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(strings.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(strings.discardAiDraftAction),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
   }
 }

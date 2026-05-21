@@ -49,6 +49,12 @@ class TreatmentDetailScreen extends StatelessWidget {
                     Chip(
                       label: Text(treatment.category(strings.isSpanish)),
                     ),
+                    if (!treatment.isCuratedTreatment)
+                      Chip(
+                        label: Text(strings.originLabel(treatment.origin)),
+                        backgroundColor:
+                            BlueprintTheme.seafoam.withValues(alpha: 0.14),
+                      ),
                     Chip(
                       label:
                           Text(strings.evidenceLabel(treatment.evidenceLevel)),
@@ -64,6 +70,21 @@ class TreatmentDetailScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 Text(treatment.summary(strings.isSpanish)),
+                if (treatment.originNote(strings.isSpanish) != null) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: BlueprintTheme.panelRaised,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: BlueprintTheme.outline),
+                    ),
+                    child: Text(
+                      treatment.originNote(strings.isSpanish)!,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -168,6 +189,44 @@ class TreatmentDetailScreen extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 14),
+          if (treatment.isAiDraft) ...[
+            _SectionCard(
+              title: strings.aiDraftReviewTitle,
+              icon: Icons.auto_awesome_outlined,
+              children: [
+                Text(strings.aiDraftReviewBody),
+                if (treatment.originSearchQuery?.trim().isNotEmpty ?? false) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    '${strings.aiDraftSearchQueryLabel}: ${treatment.originSearchQuery!.trim()}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+                if (treatment.generatedAtIso != null) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    '${strings.aiDraftGeneratedAtLabel}: ${strings.shortDate(DateTime.tryParse(treatment.generatedAtIso!) ?? today)}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+                if (treatment.sourceReferences(strings.isSpanish).isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    strings.aiDraftSourcePreviewTitle,
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    strings.aiDraftSourceCount(
+                      treatment.sourceReferences(strings.isSpanish).length,
+                    ),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 14),
+          ],
           _SectionCard(
             title: strings.safetyNotes,
             icon: Icons.shield_outlined,
@@ -337,6 +396,30 @@ class TreatmentDetailScreen extends StatelessWidget {
           const SizedBox(height: 18),
           Row(
             children: [
+              if (treatment.isAiDraft) ...[
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      final shouldSave = await _confirmAddDraftToMyTreatments(
+                        context,
+                        strings,
+                        treatment,
+                      );
+                      if (!shouldSave) return;
+                      await controller.addDraftToMyTreatments(treatment.id);
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(strings.addedToMyTreatments),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.bookmark_add_outlined),
+                    label: Text(strings.addToMyTreatments),
+                  ),
+                ),
+                const SizedBox(width: 12),
+              ],
               Expanded(
                 child: FilledButton.icon(
                   onPressed: () async {
@@ -381,9 +464,95 @@ class TreatmentDetailScreen extends StatelessWidget {
               ),
             ],
           ),
+          if (treatment.isAiDraft) ...[
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () async {
+                  final shouldDiscard = await _confirmDiscardDraft(
+                    context,
+                    strings,
+                  );
+                  if (!shouldDiscard) return;
+                  await controller.removeAiDraft(treatment.id);
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(strings.discardedAiDraft)),
+                  );
+                  Navigator.of(context).maybePop();
+                },
+                icon: const Icon(Icons.delete_outline),
+                label: Text(strings.discardAiDraft),
+              ),
+            ),
+          ],
         ],
       ),
     );
+  }
+
+  Future<bool> _confirmAddDraftToMyTreatments(
+    BuildContext context,
+    BlueprintStrings strings,
+    WellnessTreatment treatment,
+  ) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(strings.confirmAddAiDraftTitle),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(strings.confirmAddAiDraftBody),
+            const SizedBox(height: 12),
+            if (treatment.sourceReferences(strings.isSpanish).isNotEmpty)
+              Text(
+                strings.aiDraftSourceCount(
+                  treatment.sourceReferences(strings.isSpanish).length,
+                ),
+                style: Theme.of(dialogContext).textTheme.bodySmall,
+              ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(strings.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(strings.confirmAddAiDraftAction),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
+  Future<bool> _confirmDiscardDraft(
+    BuildContext context,
+    BlueprintStrings strings,
+  ) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(strings.discardAiDraftTitle),
+        content: Text(strings.discardAiDraftBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(strings.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(strings.discardAiDraftAction),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
   }
 
   Future<_PlanConfiguration?> _pickPlanConfiguration(
