@@ -47,6 +47,175 @@ class BlueprintStrings {
       : 'Choose whether you want the interface in Spanish or English.';
   String get englishLabel => isSpanish ? 'Ingles' : 'English';
   String get spanishLabel => isSpanish ? 'Castellano' : 'Spanish';
+  String get howToUseTitle =>
+      isSpanish ? 'Como usar Blueprint One' : 'How to use Blueprint One';
+  String get howToUseSettingsBody => isSpanish
+      ? 'Consulta una guia practica sobre el objetivo de la app, como interpretar los tratamientos, como planificarlos y como leer las referencias y notas de seguridad.'
+      : 'Open a practical guide covering the purpose of the app, how to interpret treatments, how to plan them and how to read references and safety notes.';
+  String get openHowToUse =>
+      isSpanish ? 'Abrir guia de uso' : 'Open user guide';
+  String get howToUseIntro => isSpanish
+      ? 'Esta seccion resume para que sirve la app, que significa la informacion de cada tratamiento y como convertir una dosis puntual en un plan completo dentro del calendario.'
+      : 'This section explains what the app is for, what the information inside each treatment means and how to turn a one-off dose into a complete calendar plan.';
+  String get expandForMore =>
+      isSpanish ? 'Toca para ampliar' : 'Tap to expand';
+  String get quickBasicsTitle =>
+      isSpanish ? 'Lo esencial' : 'The essentials';
+  String get quickBasicsBody => isSpanish
+      ? 'Usa esta guia como apoyo rapido: primero entiende el objetivo del tratamiento, luego decide si quieres una dosis puntual o un plan completo y por ultimo sigue todo desde calendario e historial.'
+      : 'Use this guide as a quick reference: first understand the treatment goal, then decide whether you want a single dose or a full plan, and finally follow everything through calendar and history.';
+  String get appPurposeTitle =>
+      isSpanish ? 'Objeto de la app' : 'What the app is for';
+  String get appPurposeBody => isSpanish
+      ? 'Blueprint One es una app de acompanamiento para bienestar y fototerapia. Reune protocolos publicados, ayuda a compararlos, planificarlos y registrar su seguimiento.'
+      : 'Blueprint One is a wellness and light-therapy companion app. It brings together published protocols, helps you compare them, plan them and track follow-through.';
+  String get nonMedicalBoundary => isSpanish
+      ? 'No diagnostica, no prescribe y no sustituye la valoracion de un profesional sanitario.'
+      : 'It does not diagnose, prescribe or replace assessment from a qualified healthcare professional.';
+  String get sourcesDisclosure => isSpanish
+      ? 'Las recomendaciones se presentan como orientacion basada en literatura publicada y deben interpretarse con prudencia.'
+      : 'Recommendations are presented as guidance based on published literature and should be interpreted cautiously.';
+  String get navigationGuideTitle =>
+      isSpanish ? 'Que hace cada menu' : 'What each menu does';
+  String get menuOverviewHelp => isSpanish
+      ? 'Resumen: muestra la actividad de hoy, la siguiente sesion planificada y una vista rapida de tu semana.'
+      : 'Overview: shows today’s activity, the next planned session and a quick snapshot of the current week.';
+  String get menuContextHelp => isSpanish
+      ? 'Contexto: registra si has hecho HIIT, cardio, fuerza o yoga/pilates para que la app evalue la compatibilidad con cada tratamiento.'
+      : 'Context: log whether you have done HIIT, cardio, strength work or yoga/pilates so the app can assess treatment compatibility.';
+  String get menuTreatmentsHelp => isSpanish
+      ? 'Tratamientos: reune el catalogo completo y permite abrir el detalle, revisar evidencia y planificar.'
+      : 'Treatments: contains the full catalogue and lets you open the detail view, review evidence and plan sessions.';
+  String get menuCalendarHelp => isSpanish
+      ? 'Calendario: organiza sesiones futuras, permite verlas por dia y marcarlas como completadas u omitidas.'
+      : 'Calendar: organizes future sessions, lets you review them by day and mark them as completed or skipped.';
+  String get menuHistoryHelp => isSpanish
+      ? 'Historial: conserva lo que ya has realizado u omitido y te deja exportarlo.'
+      : 'History: keeps a record of what you completed or skipped and lets you export it.';
+  String get menuSettingsHelp => isSpanish
+      ? 'Ajustes: cambia idioma, configura recordatorios y consulta esta guia de uso.'
+      : 'Settings: change language, configure reminders and open this user guide.';
+  String get navigationGuideSummary => isSpanish
+      ? 'Resumen rapido de para que sirve cada menu.'
+      : 'Quick summary of what each menu is for.';
+  String get individualTreatmentTitle => isSpanish
+      ? 'Como hacer un tratamiento individual'
+      : 'How to do a single treatment';
+  String get individualTreatmentBody => isSpanish
+      ? 'Si solo quieres una sesion puntual, la app te deja usar el tratamiento como dosis unica y guardarla para hoy o para otro dia.'
+      : 'If you only want a one-off session, the app lets you use the treatment as a single dose and save it for today or another day.';
+  String get individualTreatmentStep1 => isSpanish
+      ? 'Abre Tratamientos y elige el objetivo que quieres revisar.'
+      : 'Open Treatments and choose the goal you want to review.';
+  String get individualTreatmentStep2 => isSpanish
+      ? 'Lee la ficha: objetivo, duracion, distancia, pulso o frecuencia, intensidad sugerida, notas de seguridad y referencias.'
+      : 'Read the treatment card: goal, duration, distance, pulse or frequency, suggested intensity, safety notes and references.';
+  String get individualTreatmentStep3 => isSpanish
+      ? 'Pulsa Planificar tratamiento y deja seleccionada Dosis puntual si solo quieres una sesion.'
+      : 'Tap Plan treatment and keep Single dose selected if you only want one session.';
+  String get individualTreatmentStep4 => isSpanish
+      ? 'Elige el dia de inicio y guarda. Si el contexto deportivo no encaja para hoy, puedes dejarla planificada para una fecha futura.'
+      : 'Choose the start date and save. If your training context does not fit today, you can still schedule it for a future date.';
+  String get individualTreatmentSummary => isSpanish
+      ? 'Pasos para usar un tratamiento como sesion puntual.'
+      : 'Steps to use a treatment as a one-off session.';
+  String get treatmentReadingTitle => isSpanish
+      ? 'Como leer la informacion del tratamiento'
+      : 'How to read treatment information';
+  String get durationMeaningHelp => isSpanish
+      ? 'Duracion: es el tiempo estimado de cada sesion, no del tratamiento completo.'
+      : 'Duration: this is the estimated length of each session, not of the full treatment course.';
+  String get distanceMeaningHelp => isSpanish
+      ? 'Distancia: indica a que separacion aproximada del panel o fuente de luz se ha descrito el protocolo.'
+      : 'Distance: this indicates the approximate separation from the light source used in the described protocol.';
+  String get pulseMeaningHelp => isSpanish
+      ? 'Pulso / frecuencia: resume si el protocolo usa una modalidad concreta, continua o dependiente del estudio.'
+      : 'Pulse / frequency: summarizes whether the protocol uses a specific pulsed mode, continuous output or a study-dependent approach.';
+  String get intensityMeaningHelp => isSpanish
+      ? 'Intensidad sugerida: reparte de forma orientativa el peso entre ondas o canales de luz cuando esa informacion esta disponible.'
+      : 'Suggested intensity: gives an indicative distribution across wavelengths or channels when that information is available.';
+  String get evidenceMeaningHelp => isSpanish
+      ? 'Nivel de evidencia: resume la solidez relativa del respaldo publicado para ese objetivo.'
+      : 'Evidence level: summarizes the relative strength of the published support behind that goal.';
+  String get sourcesMeaningHelp => isSpanish
+      ? 'Referencias cientificas: muestran las fuentes que justifican el protocolo o la familia de protocolos.'
+      : 'Source references: show the sources that justify the protocol or protocol family.';
+  String get treatmentReadingSummary => isSpanish
+      ? 'Que significa duracion, distancia, intensidad, evidencia y fuentes.'
+      : 'What duration, distance, intensity, evidence and sources mean.';
+  String get planningGuideTitle =>
+      isSpanish ? 'Como planificar en la app' : 'How to plan in the app';
+  String get planningGuideBody => isSpanish
+      ? 'Puedes programar un tratamiento como dosis puntual o como una serie de varias sesiones cuando quieras seguirlo completo.'
+      : 'You can schedule a treatment as a one-off dose or as a multi-session series when you want to follow it as a full plan.';
+  String get planningSingleDoseHelp => isSpanish
+      ? 'Dosis puntual: util para una sesion aislada. Por defecto es la opcion recomendada cuando el tratamiento no trae una pauta clinica estructurada.'
+      : 'Single dose: useful for a one-off session. It is the default recommendation when the treatment does not carry a structured clinical course.';
+  String get planningCourseHelp => isSpanish
+      ? 'Varias sesiones: permite definir un tratamiento completo indicando numero de sesiones y periodicidad.'
+      : 'Multiple sessions: lets you define a full treatment course by choosing the number of sessions and the cadence.';
+  String get planningStartDateHelp => isSpanish
+      ? 'Fecha de inicio: siempre debes seleccionar al menos un dia de comienzo.'
+      : 'Start date: you always need to select at least one starting day.';
+  String get planningCadenceHelp => isSpanish
+      ? 'Periodicidad: puedes elegir diario, dias alternos, semanal o quincenal para que la app genere la serie automaticamente.'
+      : 'Cadence: you can choose daily, alternate days, weekly or fortnightly so the app builds the series automatically.';
+  String get planningCustomDaysHelp => isSpanish
+      ? 'Otros dias: te deja seleccionar varios dias concretos del calendario cuando necesitas una distribucion manual.'
+      : 'Custom days: lets you pick multiple explicit calendar days when you need a manual distribution.';
+  String get planningCalendarHistoryHelp => isSpanish
+      ? 'Una vez guardado, el plan aparece en Calendario. Desde ahi puedes completarlo, omitirlo y ver el progreso en Historial.'
+      : 'Once saved, the plan appears in Calendar. From there you can complete it, skip it and review the progress in History.';
+  String get planningGuideSummary => isSpanish
+      ? 'Como pasar de una dosis puntual a un plan de varias sesiones.'
+      : 'How to move from a one-off dose to a multi-session plan.';
+  String get trainingCompatibilityGuideTitle => isSpanish
+      ? 'Como usar la compatibilidad con entrenamiento'
+      : 'How to use training compatibility';
+  String get trainingCompatibilityGuideBody => isSpanish
+      ? 'Si registras actividad reciente, la app cruza ese contexto con la evidencia disponible para orientar si conviene hacer el tratamiento hoy, antes o despues de entrenar.'
+      : 'If you log recent activity, the app cross-checks that context with the available evidence to guide whether the treatment makes sense today, before training or after training.';
+  String get trainingCompatibilityGuideStep1 => isSpanish
+      ? 'Registra en Contexto el tipo de entrenamiento y una hora aproximada.'
+      : 'Log the training type and an approximate time in Context.';
+  String get trainingCompatibilityGuideStep2 => isSpanish
+      ? 'Revisa en el detalle del tratamiento las notas de compatibilidad y el nivel de prudencia.'
+      : 'Review the compatibility notes and caution level inside the treatment detail.';
+  String get trainingCompatibilityGuideStep3 => isSpanish
+      ? 'Si la app aconseja margen de recuperacion, puedes mover el inicio a otro dia sin perder la planificacion.'
+      : 'If the app suggests a recovery gap, you can move the start to another day without losing the plan.';
+  String get trainingCompatibilityGuideSummary => isSpanish
+      ? 'Como usar el contexto deportivo para decidir el mejor momento.'
+      : 'How to use your training context to choose the best timing.';
+  String get remindersGuideTitle =>
+      isSpanish ? 'Recordatorios y seguimiento' : 'Reminders and follow-up';
+  String get remindersGuideBody => isSpanish
+      ? 'Los recordatorios se apoyan en lo que tengas planificado en el calendario.'
+      : 'Reminders are built from what you have planned in the calendar.';
+  String get remindersGuideStep1 => isSpanish
+      ? 'En Ajustes puedes elegir avisos el mismo dia o el dia anterior, definir la hora y crear varios recordatorios.'
+      : 'In Settings you can choose reminders for the same day or the day before, define the hour and create multiple reminder rules.';
+  String get remindersGuideStep2 => isSpanish
+      ? 'Cuando marcas una sesion como completada u omitida, el seguimiento queda guardado en Historial y deja de contarse como pendiente.'
+      : 'When you mark a session as completed or skipped, the follow-up is saved in History and it stops counting as pending.';
+  String get remindersGuideSummary => isSpanish
+      ? 'Como recibir avisos y registrar lo que ya has hecho.'
+      : 'How to receive reminders and log what you have already done.';
+  String get sourcesAndSafetyTitle =>
+      isSpanish ? 'Fuentes, seguridad y responsabilidad'
+      : 'Sources, safety and responsibility';
+  String get sourcesAndSafetyBody1 => isSpanish
+      ? 'Usa las notas de seguridad para comprobar si un protocolo requiere prudencia adicional por zona corporal, sensibilidad o contexto personal.'
+      : 'Use the safety notes to check whether a protocol requires extra caution because of body area, sensitivity or personal context.';
+  String get sourcesAndSafetyBody2 => isSpanish
+      ? 'Consulta las referencias cientificas cuando quieras entender de donde sale un tratamiento o por que la evidencia es mas o menos solida.'
+      : 'Review the source references whenever you want to understand where a treatment comes from or why the evidence is stronger or weaker.';
+  String get sourcesAndSafetyBody3 => isSpanish
+      ? 'Si tienes una lesion importante, dolor persistente o una situacion clinica compleja, usa la app como orientacion general y busca valoracion profesional.'
+      : 'If you have a significant injury, persistent pain or a complex clinical situation, use the app as general guidance and seek professional assessment.';
+  String get sourcesAndSafetySummary => isSpanish
+      ? 'Como interpretar la evidencia y el descargo de responsabilidad.'
+      : 'How to interpret the evidence and the disclaimer.';
 
   String get navOverview => isSpanish ? 'Resumen' : 'Overview';
   String get navContext => isSpanish ? 'Contexto' : 'Context';

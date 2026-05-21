@@ -3,6 +3,7 @@ import 'package:mega_panel_ai/core/scheduling/blueprint_controller.dart';
 import 'package:mega_panel_ai/core/scheduling/scheduling_models.dart';
 import 'package:mega_panel_ai/design_system/blueprint_localization.dart';
 import 'package:mega_panel_ai/design_system/blueprint_theme.dart';
+import 'package:mega_panel_ai/features/settings/how_to_use_screen.dart';
 import 'package:provider/provider.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -64,6 +65,29 @@ class SettingsScreen extends StatelessWidget {
                     onSelected: (_) => controller.setLanguage(language),
                   );
                 }).toList(growable: false),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        _SettingsPanel(
+          title: strings.howToUseTitle,
+          icon: Icons.help_outline,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(strings.howToUseSettingsBody),
+              const SizedBox(height: 14),
+              FilledButton.icon(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const HowToUseScreen(),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.open_in_new_outlined),
+                label: Text(strings.openHowToUse),
               ),
             ],
           ),

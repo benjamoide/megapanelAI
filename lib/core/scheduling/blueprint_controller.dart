@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:ui' show PlatformDispatcher;
 
 import 'package:flutter/foundation.dart';
 import 'package:mega_panel_ai/core/evidence/training_compatibility.dart';
@@ -63,6 +64,12 @@ class BlueprintController extends ChangeNotifier {
   bool get hasRecentTraining => _recentTraining.isNotEmpty;
 
   Future<void> load() async {
+    SharedPreferences? prefs;
+    if (!_demoMode) {
+      prefs = await SharedPreferences.getInstance();
+    }
+    _language = _resolveInitialLanguage(prefs?.getString(_prefsLanguage));
+
     if (_demoMode) {
       _notificationsSupported = _notificationService.isSupported;
       if (_notificationsSupported) {
@@ -76,8 +83,6 @@ class BlueprintController extends ChangeNotifier {
       notifyListeners();
       return;
     }
-
-    final prefs = await SharedPreferences.getInstance();
 
     _notificationsSupported = _notificationService.isSupported;
     if (_notificationsSupported) {
@@ -136,14 +141,25 @@ class BlueprintController extends ChangeNotifier {
       };
     }
 
-    final rawLanguage = prefs.getString(_prefsLanguage);
-    if (rawLanguage == AppLanguage.spanish.name) {
-      _language = AppLanguage.spanish;
-    }
-
     _ready = true;
     await _syncNotifications();
     notifyListeners();
+  }
+
+  AppLanguage _resolveInitialLanguage(String? rawLanguage) {
+    if (rawLanguage == AppLanguage.spanish.name) {
+      return AppLanguage.spanish;
+    }
+    if (rawLanguage == AppLanguage.english.name) {
+      return AppLanguage.english;
+    }
+
+    final languageCode =
+        PlatformDispatcher.instance.locale.languageCode.toLowerCase();
+    if (languageCode.startsWith('es')) {
+      return AppLanguage.spanish;
+    }
+    return AppLanguage.english;
   }
 
   WellnessTreatment? treatmentById(String id) {
