@@ -84,6 +84,8 @@ class BlueprintController extends ChangeNotifier {
       return;
     }
 
+    final storedPrefs = prefs!;
+
     _notificationsSupported = _notificationService.isSupported;
     if (_notificationsSupported) {
       await _notificationService.initialize();
@@ -91,7 +93,7 @@ class BlueprintController extends ChangeNotifier {
           await _notificationService.areNotificationsEnabled();
     }
 
-    final plansRaw = prefs.getString(_prefsPlans);
+    final plansRaw = storedPrefs.getString(_prefsPlans);
     if (plansRaw != null && plansRaw.isNotEmpty) {
       final decoded = json.decode(plansRaw) as Map<String, dynamic>;
       _plans = decoded.map(
@@ -108,7 +110,7 @@ class BlueprintController extends ChangeNotifier {
       );
     }
 
-    final historyRaw = prefs.getString(_prefsHistory);
+    final historyRaw = storedPrefs.getString(_prefsHistory);
     if (historyRaw != null && historyRaw.isNotEmpty) {
       _history = (json.decode(historyRaw) as List)
           .map(
@@ -119,14 +121,14 @@ class BlueprintController extends ChangeNotifier {
           .toList();
     }
 
-    final reminderRaw = prefs.getString(_prefsReminderSettings);
+    final reminderRaw = storedPrefs.getString(_prefsReminderSettings);
     if (reminderRaw != null && reminderRaw.isNotEmpty) {
       _reminderSettings = ReminderSettings.fromJson(
         Map<String, dynamic>.from(json.decode(reminderRaw) as Map),
       );
     }
 
-    final trainingRaw = prefs.getString(_prefsRecentTraining);
+    final trainingRaw = storedPrefs.getString(_prefsRecentTraining);
     if (trainingRaw != null && trainingRaw.isNotEmpty) {
       final decoded = json.decode(trainingRaw) as List;
       final decodedSessions = decoded
