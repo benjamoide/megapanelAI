@@ -114,31 +114,47 @@ Rules:
 - Do not add markdown, commentary or code fences. Return JSON only.
 ''';
 
-    final model = GenerativeModel(model: 'gemini-1.5-flash', apiKey: _apiKey);
-    final response = await model.generateContent([Content.text(prompt)]);
-    final raw = response.text?.trim();
-    if (raw == null || raw.isEmpty) {
-      throw const AiTreatmentSearchException('AI search returned no content.');
+    try {
+      final model = GenerativeModel(model: 'gemini-1.5-flash', apiKey: _apiKey);
+      final response = await model.generateContent([Content.text(prompt)]);
+      final raw = response.text?.trim();
+      if (raw == null || raw.isEmpty) {
+        throw const AiTreatmentSearchException('AI search returned no content.');
+      }
+
+      final normalized = _extractJson(raw);
+      final decoded = json.decode(normalized) as Map<String, dynamic>;
+      final proposed = (decoded['proposed_treatments'] as List? ?? const [])
+          .map(
+            (entry) => _mapDraftFromJson(
+              query: query,
+              json: Map<String, dynamic>.from(entry as Map),
+            ),
+          )
+          .toList(growable: false);
+
+      return AiTreatmentSearchResult(
+        summaryEs: decoded['summary_es'] as String? ?? '',
+        summaryEn: decoded['summary_en'] as String? ?? '',
+        recommendedExistingIds:
+            List<String>.from(decoded['recommended_existing_ids'] as List? ?? const []),
+        proposedTreatments: proposed,
+      );
+    } on InvalidApiKey catch (error) {
+      throw AiTreatmentSearchException(_normalizeAiKeyError(error.message));
+    } on ServerException catch (error) {
+      throw AiTreatmentSearchException(_normalizeServerError(error.message));
+    } on UnsupportedUserLocation {
+      throw const AiTreatmentSearchException(
+        'AI search is not available from the current user location.',
+      );
+    } on AiTreatmentSearchException {
+      rethrow;
+    } catch (error) {
+      throw AiTreatmentSearchException(
+        'AI search failed unexpectedly. Please try again later. ($error)',
+      );
     }
-
-    final normalized = _extractJson(raw);
-    final decoded = json.decode(normalized) as Map<String, dynamic>;
-    final proposed = (decoded['proposed_treatments'] as List? ?? const [])
-        .map(
-          (entry) => _mapDraftFromJson(
-            query: query,
-            json: Map<String, dynamic>.from(entry as Map),
-          ),
-        )
-        .toList(growable: false);
-
-    return AiTreatmentSearchResult(
-      summaryEs: decoded['summary_es'] as String? ?? '',
-      summaryEn: decoded['summary_en'] as String? ?? '',
-      recommendedExistingIds:
-          List<String>.from(decoded['recommended_existing_ids'] as List? ?? const []),
-      proposedTreatments: proposed,
-    );
   }
 
   WellnessTreatment _mapDraftFromJson({
@@ -241,6 +257,27 @@ Rules:
       return raw.substring(firstBrace, lastBrace + 1).trim();
     }
     return raw;
+  }
+
+  String _normalizeAiKeyError(String rawMessage) {
+    final normalized = rawMessage.toLowerCase();
+    if (normalized.contains('expired')) {
+      return 'The AI key configured for this app has expired. Please renew the GEMINI_API_KEY secret and rebuild the app.';
+    }
+    return 'The AI key configured for this app is invalid. Please update the GEMINI_API_KEY secret and rebuild the app.';
+  }
+
+  String _normalizeServerError(String rawMessage) {
+    final normalized = rawMessage.toLowerCase();
+    if (normalized.contains('expired api key') ||
+        normalized.contains('api key expired') ||
+        normalized.contains('expired')) {
+      return 'The AI key configured for this app has expired. Please renew the GEMINI_API_KEY secret and rebuild the app.';
+    }
+    if (normalized.contains('api key') && normalized.contains('invalid')) {
+      return 'The AI key configured for this app is invalid. Please update the GEMINI_API_KEY secret and rebuild the app.';
+    }
+    return 'AI search is temporarily unavailable. Please try again later.';
   }
 }
 
