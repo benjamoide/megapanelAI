@@ -22,6 +22,9 @@ class AiTreatmentSearchResult {
 class AiTreatmentSearchService {
   AiTreatmentSearchService({required String apiKey}) : _apiKey = apiKey.trim();
 
+  static const _searchModel = 'gemini-3.5-flash';
+  static const _stableApiVersion = 'v1';
+
   final String _apiKey;
 
   bool get isConfigured => _apiKey.isNotEmpty;
@@ -115,7 +118,11 @@ Rules:
 ''';
 
     try {
-      final model = GenerativeModel(model: 'gemini-1.5-flash', apiKey: _apiKey);
+      final model = GenerativeModel(
+        model: _searchModel,
+        apiKey: _apiKey,
+        requestOptions: const RequestOptions(apiVersion: _stableApiVersion),
+      );
       final response = await model.generateContent([Content.text(prompt)]);
       final raw = response.text?.trim();
       if (raw == null || raw.isEmpty) {
@@ -276,6 +283,11 @@ Rules:
     }
     if (normalized.contains('api key') && normalized.contains('invalid')) {
       return 'The AI key configured for this app is invalid. Please update the GEMINI_API_KEY secret and rebuild the app.';
+    }
+    if (normalized.contains('not found for api version') ||
+        normalized.contains('not supported for generatecontent') ||
+        normalized.contains('listmodels')) {
+      return 'The configured Gemini model is not available for the current API version. Please update the app build to use a supported model.';
     }
     return 'AI search is temporarily unavailable. Please try again later.';
   }
