@@ -5719,11 +5719,8 @@ Future<void> main() async {
   await controller.load();
   if (buildVariant == 'bp3') {
     runApp(
-      MultiProvider(
-        providers: [
-          ChangeNotifierProvider<BlueprintController>.value(value: controller),
-          ChangeNotifierProvider<AppState>(create: (_) => AppState()),
-        ],
+      ChangeNotifierProvider<BlueprintController>.value(
+        value: controller,
         child: const BlueprintThreeApp(),
       ),
     );

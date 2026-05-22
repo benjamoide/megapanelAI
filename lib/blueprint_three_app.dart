@@ -48,6 +48,7 @@ class BlueprintThreeShell extends StatefulWidget {
 
 class _BlueprintThreeShellState extends State<BlueprintThreeShell> {
   late int _index;
+  AppState? _panelState;
 
   @override
   void initState() {
@@ -56,14 +57,24 @@ class _BlueprintThreeShellState extends State<BlueprintThreeShell> {
   }
 
   @override
+  void dispose() {
+    _panelState?.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final controller = context.watch<BlueprintController>();
-    final appState = context.watch<AppState>();
+    final panelState = _panelState;
+    final isConnected = panelState?.isConnected ?? false;
     final strings = BlueprintThreeStrings(controller.language);
     final pages = <Widget>[
       _BlueprintThreeOverview(
         onOpenPanelControl: () => _openPanelControl(context),
         onOpenConnect: () => _openConnectDialog(context),
+        isConnected: isConnected,
+        activeTreatmentName: panelState?.tratamientoActivoActual?.nombre,
+        activeRemaining: panelState?.tiempoRestanteCicloActivo(),
       ),
       const TrainingContextScreen(),
       const TreatmentCatalogScreen(),
@@ -100,27 +111,27 @@ class _BlueprintThreeShellState extends State<BlueprintThreeShell> {
         ),
         actions: [
           IconButton(
-            tooltip: appState.isConnected
+            tooltip: isConnected
                 ? strings.openPanelControl
                 : strings.connectPanel,
             onPressed: () {
-              if (appState.isConnected) {
+              if (isConnected) {
                 _openPanelControl(context);
               } else {
                 _openConnectDialog(context);
               }
             },
             icon: Icon(
-              appState.isConnected
+              isConnected
                   ? Icons.tune_rounded
                   : Icons.bluetooth_searching_rounded,
             ),
           ),
-          if (appState.isConnected)
+          if (isConnected && panelState != null)
             IconButton(
               tooltip: strings.disconnectPanel,
               onPressed: () async {
-                await context.read<AppState>().disconnectDevice();
+                await panelState.disconnectDevice();
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text(strings.panelDisconnected)),
@@ -170,22 +181,44 @@ class _BlueprintThreeShellState extends State<BlueprintThreeShell> {
   }
 
   Future<void> _openConnectDialog(BuildContext context) async {
-    await context.read<AppState>().ensureBleActivated();
+    final panelState = await _ensurePanelState();
     if (!context.mounted) return;
     await showDialog<void>(
       context: context,
-      builder: (_) => const BluetoothScanDialog(),
+      builder: (_) => ChangeNotifierProvider<AppState>.value(
+        value: panelState,
+        child: const BluetoothScanDialog(),
+      ),
     );
   }
 
   Future<void> _openPanelControl(BuildContext context) async {
-    await context.read<AppState>().ensureBleActivated();
+    final panelState = await _ensurePanelState();
     if (!context.mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => const _BlueprintThreePanelScreen(),
+        builder: (_) => ChangeNotifierProvider<AppState>.value(
+          value: panelState,
+          child: const _BlueprintThreePanelScreen(),
+        ),
       ),
     );
+  }
+
+  Future<AppState> _ensurePanelState() async {
+    var panelState = _panelState;
+    if (panelState == null) {
+      panelState = AppState();
+      panelState.addListener(_handlePanelStateChange);
+      _panelState = panelState;
+    }
+    await panelState.ensureBleActivated();
+    return panelState;
+  }
+
+  void _handlePanelStateChange() {
+    if (!mounted) return;
+    setState(() {});
   }
 
   IconData _iconFor(int index) {
@@ -231,21 +264,24 @@ class _BlueprintThreeOverview extends StatelessWidget {
   const _BlueprintThreeOverview({
     required this.onOpenPanelControl,
     required this.onOpenConnect,
+    required this.isConnected,
+    required this.activeTreatmentName,
+    required this.activeRemaining,
   });
 
   final VoidCallback onOpenPanelControl;
   final VoidCallback onOpenConnect;
+  final bool isConnected;
+  final String? activeTreatmentName;
+  final Duration? activeRemaining;
 
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<BlueprintController>();
-    final appState = context.watch<AppState>();
     final uiStrings = BlueprintStrings(controller.language);
     final strings = BlueprintThreeStrings(controller.language);
     final nextSession = controller.nextPlannedSession;
     final recentTraining = controller.recentTrainingSessions.take(3).toList();
-    final activeTreatment = appState.tratamientoActivoActual;
-    final activeRemaining = appState.tiempoRestanteCicloActivo();
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 36),
@@ -268,7 +304,7 @@ class _BlueprintThreeOverview extends StatelessWidget {
                   const SizedBox(width: 10),
                   _Badge(
                     icon: Icons.bluetooth_audio_rounded,
-                    label: appState.isConnected
+                    label: isConnected
                         ? strings.panelConnected
                         : strings.panelDisconnectedState,
                     tinted: true,
@@ -291,12 +327,11 @@ class _BlueprintThreeOverview extends StatelessWidget {
                 runSpacing: 10,
                 children: [
                   FilledButton.icon(
-                    onPressed:
-                        appState.isConnected ? onOpenPanelControl : onOpenConnect,
-                    icon: Icon(appState.isConnected
+                    onPressed: isConnected ? onOpenPanelControl : onOpenConnect,
+                    icon: Icon(isConnected
                         ? Icons.tune_rounded
                         : Icons.bluetooth_searching_rounded),
-                    label: Text(appState.isConnected
+                    label: Text(isConnected
                         ? strings.openPanelControl
                         : strings.connectPanel),
                   ),
@@ -316,13 +351,11 @@ class _BlueprintThreeOverview extends StatelessWidget {
             Expanded(
               child: _MetricCard(
                 title: strings.panelStatusTitle,
-                value:
-                    appState.isConnected ? strings.connectedShort : strings.offlineShort,
-                subtitle: appState.isConnected
-                    ? (appState.tratamientoActivoActual?.nombre ??
-                        strings.readyToSendProtocols)
+                value: isConnected ? strings.connectedShort : strings.offlineShort,
+                subtitle: isConnected
+                    ? (activeTreatmentName ?? strings.readyToSendProtocols)
                     : strings.connectPanelHint,
-                accent: appState.isConnected
+                accent: isConnected
                     ? BlueprintTheme.seafoam
                     : BlueprintTheme.coral,
               ),
@@ -340,7 +373,7 @@ class _BlueprintThreeOverview extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         DecoratedBox(
-          decoration: BlueprintTheme.softPanel(highlighted: appState.isConnected),
+          decoration: BlueprintTheme.softPanel(highlighted: isConnected),
           child: Padding(
             padding: const EdgeInsets.all(18),
             child: Column(
@@ -358,16 +391,13 @@ class _BlueprintThreeOverview extends StatelessWidget {
                 const SizedBox(height: 14),
                 _InfoRow(
                   label: strings.currentConnectionLabel,
-                  value: appState.isConnected
-                      ? (appState.currentUser.isNotEmpty
-                          ? strings.connectedShort
-                          : strings.connectedShort)
+                  value: isConnected
+                      ? strings.connectedShort
                       : strings.offlineShort,
                 ),
                 _InfoRow(
                   label: strings.activeTreatmentLabel,
-                  value: activeTreatment?.nombre ??
-                      strings.noActiveTreatmentLabel,
+                  value: activeTreatmentName ?? strings.noActiveTreatmentLabel,
                 ),
                 _InfoRow(
                   label: strings.remainingTimeLabel,
