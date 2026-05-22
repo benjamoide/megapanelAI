@@ -252,7 +252,17 @@ class BleManager {
   }
 
   Future<void> startScan() async {
-    final adapterState = await FlutterBluePlus.adapterState.first;
+    await stopScan();
+    var adapterState = await FlutterBluePlus.adapterState.first;
+    if (adapterState != BluetoothAdapterState.on) {
+      try {
+        adapterState = await FlutterBluePlus.adapterState
+            .firstWhere((state) => state == BluetoothAdapterState.on)
+            .timeout(const Duration(seconds: 3));
+      } catch (_) {
+        // Keep latest known state and let the guard below report it.
+      }
+    }
     if (adapterState != BluetoothAdapterState.on) {
       log("Bluetooth adapter is not ON: $adapterState");
       return;

@@ -8167,6 +8167,32 @@ class _BluetoothScanDialogState extends State<BluetoothScanDialog> {
     return serviceMatches;
   }
 
+  List<ScanResult> _prioritizeResults(List<ScanResult> results) {
+    final filtered = List<ScanResult>.from(results)
+        .where(_matchesDefaultFilter)
+        .toList();
+    final source = filtered.isNotEmpty ? filtered : List<ScanResult>.from(results);
+
+    source.sort((a, b) {
+      final aMatches = _matchesDefaultFilter(a);
+      final bMatches = _matchesDefaultFilter(b);
+      if (aMatches && !bMatches) return -1;
+      if (!aMatches && bMatches) return 1;
+
+      var nameA = _displayName(a).toLowerCase();
+      var nameB = _displayName(b).toLowerCase();
+      bool aIsBlock = nameA.contains("block");
+      bool bIsBlock = nameB.contains("block");
+
+      if (aIsBlock && !bIsBlock) return -1;
+      if (!aIsBlock && bIsBlock) return 1;
+
+      return b.rssi.compareTo(a.rssi);
+    });
+
+    return source;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -8243,23 +8269,9 @@ class _BluetoothScanDialogState extends State<BluetoothScanDialog> {
                 initialData: const [],
                 builder: (c, snapshot) {
                   var results = snapshot.data ?? [];
-                  var filtered = List<ScanResult>.from(results)
-                      .where(_matchesDefaultFilter)
-                      .toList();
+                  var visibleResults = _prioritizeResults(results);
 
-                  filtered.sort((a, b) {
-                    var nameA = _displayName(a).toLowerCase();
-                    var nameB = _displayName(b).toLowerCase();
-                    bool aIsBlock = nameA.contains("block");
-                    bool bIsBlock = nameB.contains("block");
-
-                    if (aIsBlock && !bIsBlock) return -1;
-                    if (!aIsBlock && bIsBlock) return 1;
-
-                    return b.rssi.compareTo(a.rssi);
-                  });
-
-                  if (filtered.isEmpty) {
+                  if (visibleResults.isEmpty) {
                     return Center(
                         child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -8284,16 +8296,19 @@ class _BluetoothScanDialogState extends State<BluetoothScanDialog> {
                   }
 
                   return ListView.builder(
-                    itemCount: filtered.length,
+                    itemCount: visibleResults.length,
                     itemBuilder: (ctx, i) {
-                      var d = filtered[i].device;
+                      final item = visibleResults[i];
+                      var d = item.device;
                       return ListTile(
                         leading: const Icon(Icons.bluetooth),
-                        title: Text(_displayName(filtered[i]),
+                        title: Text(_displayName(item),
                             style:
                                 const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle:
-                            Text("${d.remoteId} (${filtered[i].rssi} dBm)"),
+                        subtitle: Text(
+                          "${d.remoteId} (${item.rssi} dBm)"
+                          "${_matchesDefaultFilter(item) ? '' : ' · Generic BLE device'}",
+                        ),
                         onTap: () async {
                           // Show loading indicator
                           showDialog(
@@ -8310,7 +8325,7 @@ class _BluetoothScanDialogState extends State<BluetoothScanDialog> {
                               Navigator.pop(context); // Dismiss scan dialog
                               ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                                   content: Text(
-                                      "Conectado a ${_displayName(filtered[i])}"),
+                                      "Conectado a ${_displayName(item)}"),
                                   backgroundColor: Colors.green));
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(
