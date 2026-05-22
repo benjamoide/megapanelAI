@@ -5181,6 +5181,34 @@ String _translateBlueprintTextToEnglish(String value) {
     'Protocol dependent': 'Protocol dependent',
     'Published protocol summary available in the treatment notes.':
         'Published protocol summary available in the treatment notes.',
+    'Coadyuvante en adiposidad subcutanea infraumbilical.':
+        'Adjunctive support for infraumbilical subcutaneous adiposity.',
+    'Acumulo graso en abdomen inferior.':
+        'Fat accumulation in the lower abdomen.',
+    '5-15cm sobre abdomen bajo.':
+        '5-15cm over the lower abdomen.',
+    'Coadyuvante en adiposidad subcutanea lateral.':
+        'Adjunctive support for lateral subcutaneous adiposity.',
+    'Acumulo graso en cintura lateral.':
+        'Fat accumulation at the lateral waist.',
+    '5-15cm sobre flancos bilaterales.':
+        '5-15cm over both flanks.',
+    'Coadyuvante en adiposidad gluteofemoral lateral.':
+        'Adjunctive support for lateral gluteofemoral adiposity.',
+    'Deposito adiposo en cadera lateral.':
+        'Adipose deposit at the lateral hip.',
+    '5-15cm sobre caderas bilaterales.':
+        '5-15cm over both hips.',
+    'Coadyuvante en adiposidad lateral de muslo.':
+        'Adjunctive support for lateral thigh adiposity.',
+    '5-15cm sobre muslo externo bilateral.':
+        '5-15cm over the outer thighs on both sides.',
+    'Coadyuvante en adiposidad lumbar posterior.':
+        'Adjunctive support for posterior lumbar adiposity.',
+    'Adiposidad abdominal localizada.':
+        'Localized abdominal adiposity.',
+    '5-15cm sobre abdomen frontal.':
+        '5-15cm over the front of the abdomen.',
   };
   if (exact.containsKey(text)) {
     return exact[text]!;
@@ -5189,6 +5217,7 @@ String _translateBlueprintTextToEnglish(String value) {
   final replacements = <MapEntry<Pattern, String>>[
     const MapEntry('Fuente:', 'Source:'),
     const MapEntry('Apoyo', 'Support'),
+    const MapEntry('Coadyuvante', 'Adjunctive support'),
     const MapEntry('Oncologia', 'Oncology'),
     const MapEntry('No usar', 'Do not use'),
     const MapEntry('Consultar si', 'Seek medical advice if'),
@@ -5203,6 +5232,24 @@ String _translateBlueprintTextToEnglish(String value) {
     const MapEntry('fatiga', 'fatigue'),
     const MapEntry('Recuperacion', 'Recovery'),
     const MapEntry('recuperacion', 'recovery'),
+    const MapEntry('Acumulo', 'Accumulation'),
+    const MapEntry('acumulo', 'accumulation'),
+    const MapEntry('Deposito adiposo', 'Adipose deposit'),
+    const MapEntry('deposito adiposo', 'adipose deposit'),
+    const MapEntry('Adiposidad', 'Adiposity'),
+    const MapEntry('adiposidad', 'adiposity'),
+    const MapEntry('subcutanea', 'subcutaneous'),
+    const MapEntry('infraumbilical', 'infraumbilical'),
+    const MapEntry('abdomen bajo', 'lower abdomen'),
+    const MapEntry('abdomen inferior', 'lower abdomen'),
+    const MapEntry('abdomen frontal', 'front of the abdomen'),
+    const MapEntry('cintura lateral', 'lateral waist'),
+    const MapEntry('flancos bilaterales', 'both flanks'),
+    const MapEntry('caderas bilaterales', 'both hips'),
+    const MapEntry('muslo externo bilateral', 'outer thighs on both sides'),
+    const MapEntry('gluteofemoral', 'gluteofemoral'),
+    const MapEntry('graso', 'fat'),
+    const MapEntry('grasa', 'fat'),
     const MapEntry('Sugiere', 'Suggested'),
     const MapEntry('Sugerida', 'Suggested'),
     const MapEntry('zona', 'area'),
@@ -5243,6 +5290,13 @@ String _translateBlueprintTextToEnglish(String value) {
     const MapEntry('banda iliotibial', 'iliotibial band'),
     const MapEntry('musculo', 'muscle'),
     const MapEntry('muslo', 'thigh'),
+    const MapEntry('cintura', 'waist'),
+    const MapEntry('flancos', 'flanks'),
+    const MapEntry('cadera', 'hip'),
+    const MapEntry('caderas', 'hips'),
+    const MapEntry('abdomen', 'abdomen'),
+    const MapEntry('inferior', 'lower'),
+    const MapEntry('bajo', 'lower'),
     const MapEntry('rodilla', 'knee'),
     const MapEntry('talon', 'heel'),
     const MapEntry('tobillo', 'ankle'),
@@ -5289,7 +5343,7 @@ String _translateBlueprintTextToEnglish(String value) {
       .replaceAll(RegExp(r'\bde\b'), 'of')
       .replaceAll(RegExp(r'\by\b'), 'and')
       .replaceAll(RegExp(r'\bcon\b'), 'with')
-      .replaceAll(RegExp(r'\ben\b'), 'on')
+      .replaceAll(RegExp(r'\ben\b'), 'in')
       .replaceAll(RegExp(r'\bpor\b'), 'due to')
       .replaceAll(RegExp(r'\bpara\b'), 'for')
       .replaceAll(RegExp(r'\bsi hay\b'), 'if there is')
