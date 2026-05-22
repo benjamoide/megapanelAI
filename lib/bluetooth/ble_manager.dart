@@ -238,11 +238,15 @@ class BleManager {
   }
 
   Future<void> init() async {
-    // Request core BLE permissions early.
-    await Permission.bluetoothScan.request();
-    await Permission.bluetoothConnect.request();
-    // Some Android devices still need location permission for reliable BLE discovery.
-    await Permission.locationWhenInUse.request();
+    try {
+      // Request core BLE permissions early.
+      await Permission.bluetoothScan.request();
+      await Permission.bluetoothConnect.request();
+      // Some Android devices still need location permission for reliable BLE discovery.
+      await Permission.locationWhenInUse.request();
+    } catch (e) {
+      log("BLE init permissions unavailable: $e");
+    }
     // Emit initial disconnected state
     _connectionStateController.add(BluetoothConnectionState.disconnected);
   }

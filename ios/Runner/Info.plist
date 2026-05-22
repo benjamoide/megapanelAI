@@ -24,6 +24,12 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>BlockBlueLight uses Bluetooth to discover and control your Mega panel.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>BlockBlueLight uses Bluetooth to connect to your Mega panel.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Location access may be required on some devices to discover nearby Bluetooth panels.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>

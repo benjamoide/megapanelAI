@@ -170,6 +170,8 @@ class _BlueprintThreeShellState extends State<BlueprintThreeShell> {
   }
 
   Future<void> _openConnectDialog(BuildContext context) async {
+    await context.read<AppState>().ensureBleActivated();
+    if (!context.mounted) return;
     await showDialog<void>(
       context: context,
       builder: (_) => const BluetoothScanDialog(),
@@ -177,6 +179,8 @@ class _BlueprintThreeShellState extends State<BlueprintThreeShell> {
   }
 
   Future<void> _openPanelControl(BuildContext context) async {
+    await context.read<AppState>().ensureBleActivated();
+    if (!context.mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => const _BlueprintThreePanelScreen(),

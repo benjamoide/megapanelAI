@@ -2130,7 +2130,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   bool isGuest = false;
   String _apiKey = apiKeyFromBuild;
 
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final FirebaseFirestore? _db = _tryCreateFirestore();
   StreamSubscription<DocumentSnapshot>? _userSubscription;
   StreamSubscription<BluetoothConnectionState>? _bleConnectionSubscription;
 
@@ -2166,6 +2166,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   bool _bleAutoReconnectAttemptInFlight = false;
   bool _bleAutoReconnectAllowed = true;
   bool _bleAutoReconnectSuspended = false;
+  Future<void>? _bleInitializationFuture;
   int _bleBackgroundSuspendCount = 0;
   int _bleCriticalRequestCount = 0;
   String? _preferredBleDeviceId;
@@ -2338,11 +2339,35 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         WidgetsBinding.instance.lifecycleState ?? AppLifecycleState.resumed;
     catalogo = _generarCatalogoCompleto();
     _restoreLocalPreferences();
-    _initBle();
   }
 
-  void _initBle() {
-    _bleManager.init();
+  static FirebaseFirestore? _tryCreateFirestore() {
+    try {
+      return FirebaseFirestore.instance;
+    } catch (e) {
+      debugPrint('Firebase unavailable for AppState bootstrap: $e');
+      return null;
+    }
+  }
+
+  Future<void> ensureBleActivated() async {
+    final existing = _bleInitializationFuture;
+    if (existing != null) {
+      await existing;
+      return;
+    }
+    final future = _initBle();
+    _bleInitializationFuture = future;
+    try {
+      await future;
+    } finally {
+      _bleInitializationFuture = Future.value();
+    }
+  }
+
+  Future<void> _initBle() async {
+    await _bleManager.init();
+    await _bleConnectionSubscription?.cancel();
     // Subscribe to state changes
     _bleConnectionSubscription = _bleManager.connectionState.listen((state) {
       final connected = state == BluetoothConnectionState.connected;
@@ -3819,12 +3844,17 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   Future<bool> login(String user, String passInput) async {
     user = user.trim(); // Limpiar espacios
     if (user.isEmpty || passInput.isEmpty) return false;
+    final db = _db;
+    if (db == null) {
+      print("Login unavailable: Firebase is not configured on this platform.");
+      return false;
+    }
 
     try {
-      var doc = await _db.collection('users').doc(user).get();
+      var doc = await db.collection('users').doc(user).get();
       if (!doc.exists) {
         // Usuario nuevo: CREAR
-        await _db.collection('users').doc(user).set(
+        await db.collection('users').doc(user).set(
             {'password': passInput, 'created': FieldValue.serverTimestamp()},
             SetOptions(merge: true));
         currentUser = user;
@@ -3865,11 +3895,15 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> changePassword(
       String user, String currentPass, String newPass) async {
-    var doc = await _db.collection('users').doc(user).get();
+    final db = _db;
+    if (db == null) {
+      throw "Firebase no disponible en esta plataforma";
+    }
+    var doc = await db.collection('users').doc(user).get();
     if (doc.exists) {
       String realPass = doc.data()?['password'] ?? '';
       if (realPass == currentPass) {
-        await _db.collection('users').doc(user).update({'password': newPass});
+        await db.collection('users').doc(user).update({'password': newPass});
       } else {
         throw "Contraseña actual incorrecta";
       }
@@ -3894,11 +3928,12 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void _suscribirseADatosEnNube() {
-    if (isGuest) return;
+    final db = _db;
+    if (isGuest || db == null) return;
 
     _userSubscription?.cancel();
     _userSubscription =
-        _db.collection('users').doc(currentUser).snapshots().listen((snapshot) {
+        db.collection('users').doc(currentUser).snapshots().listen((snapshot) {
       if (snapshot.exists && snapshot.data() != null) {
         Map<String, dynamic> data = snapshot.data()!;
 
@@ -3964,11 +3999,12 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> _guardarTodo() async {
-    if (currentUser.isEmpty || isGuest) return;
+    final db = _db;
+    if (currentUser.isEmpty || isGuest || db == null) return;
 
     List<Tratamiento> aGuardar =
         catalogo.where((t) => t.esCustom || t.oculto).toList();
-    await _db.collection('users').doc(currentUser).set({
+    await db.collection('users').doc(currentUser).set({
       'historial': json.encode(historial),
       'planificados': json.encode(planificados),
       'ciclos': json.encode(ciclosActivos),
@@ -8138,11 +8174,16 @@ class _BluetoothScanDialogState extends State<BluetoothScanDialog> {
   void initState() {
     super.initState();
     _appState = context.read<AppState>();
+    unawaited(_startDialogSession());
+  }
+
+  Future<void> _startDialogSession() async {
+    await _appState.ensureBleActivated();
     _appState.setBleAutoReconnectSuspended(
       true,
       reason: "scan-dialog",
     );
-    _ble.startScan();
+    await _ble.startScan();
   }
 
   @override
