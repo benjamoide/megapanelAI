@@ -403,7 +403,7 @@ class _BlueprintThreeOverview extends StatelessWidget {
                   label: strings.remainingTimeLabel,
                   value: activeRemaining == null
                       ? strings.notRunningLabel
-                      : _formatDuration(activeRemaining),
+                      : _formatDuration(activeRemaining!),
                 ),
                 const SizedBox(height: 14),
                 Text(
