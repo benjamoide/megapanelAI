@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mega_panel_ai/bluetooth/ble_manager.dart';
 import 'package:mega_panel_ai/bluetooth/ble_protocol.dart';
+import 'package:mega_panel_ai/design_system/blueprint_theme.dart';
 import 'package:mega_panel_ai/main.dart';
 import 'package:provider/provider.dart';
 
@@ -76,11 +77,11 @@ class BluetoothCustomView extends StatefulWidget {
 }
 
 class _BluetoothCustomViewState extends State<BluetoothCustomView> {
-  static const Color _screenBg = Color(0xFFE8EDF5);
-  static const Color _brandBlueDark = Color(0xFF255F86);
-  static const Color _brandBlueLight = Color(0xFF23BFE8);
-  static const Color _gradStart = Color(0xFF1ED6CD);
-  static const Color _gradEnd = Color(0xFF4B86ED);
+  static const Color _screenBg = BlueprintTheme.obsidian;
+  static const Color _brandBlueDark = BlueprintTheme.pearl;
+  static const Color _brandBlueLight = BlueprintTheme.seafoam;
+  static const Color _gradStart = BlueprintTheme.seafoam;
+  static const Color _gradEnd = BlueprintTheme.coral;
   static const List<int> _waveOrder = [630, 660, 810, 830, 850];
 
   double _red630 = 100.0;
@@ -226,10 +227,17 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
                   if (_section != _ManualSection.home) SizedBox(height: _s(14)),
                   if (!isConnected) _buildConnectionHint(),
                   if (!isConnected) SizedBox(height: _s(10)),
-                  _buildSectionContent(
-                    appState: appState,
-                    isConnected: isConnected,
-                  ),
+                  _section == _ManualSection.home
+                      ? _buildSectionContent(
+                          appState: appState,
+                          isConnected: isConnected,
+                        )
+                      : _buildSectionFrame(
+                          child: _buildSectionContent(
+                            appState: appState,
+                            isConnected: isConnected,
+                          ),
+                        ),
                   SizedBox(height: _s(14)),
                   _buildDebugPanel(),
                 ],
@@ -302,8 +310,8 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
         Text(
           'BACK',
           style: TextStyle(
-            color: const Color(0xFF1999ED),
-            fontSize: _s(52),
+            color: BlueprintTheme.seafoam,
+            fontSize: _s(34),
             fontWeight: FontWeight.w500,
             letterSpacing: 1.2,
           ),
@@ -329,8 +337,8 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
         Text(
           'BACK',
           style: TextStyle(
-            color: const Color(0xFF1999ED),
-            fontSize: _s(52),
+            color: BlueprintTheme.seafoam,
+            fontSize: _s(34),
             fontWeight: FontWeight.w500,
             letterSpacing: 1.2,
           ),
@@ -341,23 +349,35 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
 
   Widget _buildConnectionHint() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFFDDEFFF),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: const Row(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      decoration: BlueprintTheme.softPanel(highlighted: true),
+      child: Row(
         children: [
-          Icon(Icons.bluetooth_disabled, color: Color(0xFF255F86), size: 18),
-          SizedBox(width: 8),
+          const Icon(
+            Icons.bluetooth_disabled_rounded,
+            color: BlueprintTheme.coral,
+            size: 18,
+          ),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
               'Conecta el panel desde el menu lateral para ejecutar RUN.',
-              style: TextStyle(fontSize: 12),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: BlueprintTheme.pearl,
+                  ),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildSectionFrame({required Widget child}) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(horizontal: _s(16), vertical: _s(18)),
+      decoration: BlueprintTheme.softPanel(),
+      child: child,
     );
   }
 
@@ -507,7 +527,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
             child: DecoratedBox(
               decoration: const BoxDecoration(
                 shape: BoxShape.circle,
-                color: Color(0xFFF8FAFD),
+                color: BlueprintTheme.panelRaised,
               ),
               child: Padding(
                 padding: EdgeInsets.all(_s(22)),
@@ -527,7 +547,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
                               fontFamily: 'monospace',
                               height: 0.8,
                               fontWeight: FontWeight.w500,
-                              color: const Color(0xFF2E54E8),
+                              color: BlueprintTheme.pearl,
                             ),
                           ),
                           SizedBox(height: _s(2)),
@@ -535,7 +555,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
                             timeCaption,
                             style: TextStyle(
                               fontSize: _s(20),
-                              color: const Color(0xFF2E54E8),
+                              color: BlueprintTheme.seafoam,
                               fontWeight: FontWeight.w700,
                               letterSpacing: 0.4,
                             ),
@@ -545,7 +565,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
                             'Pulse:$pulseLabel',
                             style: TextStyle(
                               fontSize: _s(38),
-                              color: const Color(0xFF25AEE2),
+                              color: BlueprintTheme.coral,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -555,7 +575,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: _s(36),
-                              color: const Color(0xFF3D9FD8),
+                              color: BlueprintTheme.fog,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -565,7 +585,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: _s(36),
-                              color: const Color(0xFF3D9FD8),
+                              color: BlueprintTheme.fog,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -575,7 +595,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: _s(36),
-                              color: const Color(0xFF3D9FD8),
+                              color: BlueprintTheme.fog,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -851,23 +871,23 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
               child: Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(_s(14)),
-                  color: index == _selectedPresetIndex
-                      ? const Color(0xFFE6F6FF)
-                      : const Color(0xFFF3F3F3),
-                  border: Border.all(
                     color: index == _selectedPresetIndex
-                        ? const Color(0xFF23BFE8)
-                        : Colors.black38,
-                    width: index == _selectedPresetIndex ? 2 : 1,
+                        ? BlueprintTheme.seafoam.withValues(alpha: 0.14)
+                        : BlueprintTheme.panelRaised,
+                    border: Border.all(
+                      color: index == _selectedPresetIndex
+                          ? BlueprintTheme.seafoam
+                          : BlueprintTheme.outline,
+                      width: index == _selectedPresetIndex ? 2 : 1,
+                    ),
                   ),
-                ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
                       Icons.cloud_upload_outlined,
                       size: _s(66),
-                      color: Colors.black54,
+                      color: BlueprintTheme.seafoam,
                     ),
                     SizedBox(height: _s(6)),
                     Text(
@@ -878,7 +898,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
                       style: TextStyle(
                         fontSize: _s(20),
                         fontWeight: FontWeight.w600,
-                        color: Colors.black87,
+                        color: BlueprintTheme.pearl,
                       ),
                     ),
                   ],
@@ -1187,9 +1207,9 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.86),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFACD7F0)),
+        color: BlueprintTheme.panel,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: BlueprintTheme.outline),
       ),
       child: Theme(
         data: Theme.of(context).copyWith(
@@ -1203,12 +1223,12 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
             'Debug avanzado',
             style: TextStyle(
               fontWeight: FontWeight.w700,
-              color: Color(0xFF255F86),
+              color: BlueprintTheme.pearl,
             ),
           ),
           subtitle: const Text(
             'Panel plegable',
-            style: TextStyle(fontSize: 12),
+            style: TextStyle(fontSize: 12, color: BlueprintTheme.fog),
           ),
           children: [
             DropdownButton<int>(
@@ -1287,7 +1307,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
               const SizedBox(height: 6),
               const Text(
                 'Modo diagnostico: envia una sola estrategia y captura status 0x10.',
-                style: TextStyle(fontSize: 12, color: Color(0xFF255F86)),
+                style: TextStyle(fontSize: 12, color: BlueprintTheme.fog),
               ),
             ],
             const SizedBox(height: 8),
@@ -1333,8 +1353,9 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
               width: double.infinity,
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.black12,
-                borderRadius: BorderRadius.circular(8),
+                color: BlueprintTheme.midnight,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: BlueprintTheme.outline),
               ),
               child: ListView.builder(
                 itemCount: _logs.length,

@@ -36,7 +36,7 @@ class BlueprintStrings {
 
   bool get isSpanish => language == AppLanguage.spanish;
 
-  String get appTitle => isSpanish ? 'Blueprint One' : 'Blueprint One';
+  String get appTitle => isSpanish ? 'BlockBlueLight' : 'BlockBlueLight';
   String get disclaimer => isSpanish
       ? 'Esta app ofrece orientacion de bienestar basada en literatura publicada y no es un dispositivo medico.'
       : 'This app provides wellness guidance based on published literature and is not a medical device.';
@@ -48,7 +48,7 @@ class BlueprintStrings {
   String get englishLabel => isSpanish ? 'Ingles' : 'English';
   String get spanishLabel => isSpanish ? 'Castellano' : 'Spanish';
   String get howToUseTitle =>
-      isSpanish ? 'Como usar Blueprint One' : 'How to use Blueprint One';
+      isSpanish ? 'Como usar BlockBlueLight' : 'How to use BlockBlueLight';
   String get howToUseSettingsBody => isSpanish
       ? 'Consulta una guia practica sobre el objetivo de la app, como interpretar los tratamientos, como planificarlos y como leer las referencias y notas de seguridad.'
       : 'Open a practical guide covering the purpose of the app, how to interpret treatments, how to plan them and how to read references and safety notes.';
@@ -67,8 +67,8 @@ class BlueprintStrings {
   String get appPurposeTitle =>
       isSpanish ? 'Objeto de la app' : 'What the app is for';
   String get appPurposeBody => isSpanish
-      ? 'Blueprint One es una app de acompanamiento para bienestar y fototerapia. Reune protocolos publicados, ayuda a compararlos, planificarlos y registrar su seguimiento.'
-      : 'Blueprint One is a wellness and light-therapy companion app. It brings together published protocols, helps you compare them, plan them and track follow-through.';
+      ? 'BlockBlueLight es una app de acompanamiento para bienestar y fototerapia. Reune protocolos publicados, ayuda a compararlos, planificarlos y registrar su seguimiento, y en esta version tambien integra el control del panel Mega.'
+      : 'BlockBlueLight is a wellness and light-therapy companion app. It brings together published protocols, helps you compare them, plan them and track follow-through, and in this version also integrates Mega panel control.';
   String get nonMedicalBoundary => isSpanish
       ? 'No diagnostica, no prescribe y no sustituye la valoracion de un profesional sanitario.'
       : 'It does not diagnose, prescribe or replace assessment from a qualified healthcare professional.';

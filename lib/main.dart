@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:intl/intl.dart';
 import 'package:mega_panel_ai/blueprint_one_app.dart';
+import 'package:mega_panel_ai/blueprint_three_app.dart';
 import 'package:mega_panel_ai/core/ai/ai_treatment_search_service.dart';
 import 'package:mega_panel_ai/core/evidence/evidence_level.dart';
 import 'package:mega_panel_ai/core/evidence/training_compatibility.dart';
@@ -5615,6 +5616,8 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   const buildDemoMode =
       bool.fromEnvironment('BP1_DEMO_MODE', defaultValue: false);
+  const buildVariant =
+      String.fromEnvironment('BLUEPRINT_VARIANT', defaultValue: 'bp3');
   final queryDemoMode = Uri.base.queryParameters['demo'] == '1';
   final controller = BlueprintController(
     treatments: _buildBlueprintTreatments(),
@@ -5624,6 +5627,19 @@ Future<void> main() async {
     demoMode: buildDemoMode || queryDemoMode,
   );
   await controller.load();
+  if (buildVariant == 'bp3') {
+    runApp(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<BlueprintController>.value(value: controller),
+          ChangeNotifierProvider<AppState>(create: (_) => AppState()),
+        ],
+        child: const BlueprintThreeApp(),
+      ),
+    );
+    return;
+  }
+
   runApp(
     ChangeNotifierProvider<BlueprintController>.value(
       value: controller,
