@@ -26,6 +26,7 @@ class BleManager {
   bool _preferWriteWithoutResponse = false;
   bool _suspendReadCommands = false;
   List<int> _rxBuffer = <int>[];
+  String? _lastScanFailureReason;
 
   static const int _maxChunkSize = 20;
   static const int _maxWriteAttempts = 3;
@@ -65,6 +66,7 @@ class BleManager {
   bool get readCommandGateActive => _suspendReadCommands;
 
   BluetoothDevice? get connectedDevice => _connectedDevice;
+  String? get lastScanFailureReason => _lastScanFailureReason;
 
   void setPreferWriteWithoutResponse(bool enabled, {String reason = ""}) {
     if (_preferWriteWithoutResponse == enabled) return;
@@ -256,8 +258,9 @@ class BleManager {
     _connectionStateController.add(BluetoothConnectionState.disconnected);
   }
 
-  Future<void> startScan() async {
+  Future<bool> startScan() async {
     await stopScan();
+    _lastScanFailureReason = null;
     var adapterState = FlutterBluePlus.adapterStateNow;
     if (adapterState == BluetoothAdapterState.unknown) {
       try {
@@ -278,8 +281,9 @@ class BleManager {
       }
     }
     if (adapterState != BluetoothAdapterState.on) {
+      _lastScanFailureReason = "Bluetooth adapter is not ON: $adapterState";
       log("Bluetooth adapter is not ON: $adapterState");
-      return;
+      return false;
     }
 
     var scanGranted = true;
@@ -293,8 +297,11 @@ class BleManager {
           await Permission.locationWhenInUse.request().isGranted;
 
       if (!scanGranted || !connectGranted) {
+        _lastScanFailureReason =
+            "Permissions not granted for scanning "
+            "(scan=$scanGranted connect=$connectGranted location=$locationGranted)";
         log("Permissions not granted for scanning");
-        return;
+        return false;
       }
 
       if (!locationGranted) {
@@ -312,6 +319,14 @@ class BleManager {
         androidCheckLocationServices: false,
       );
       log("Scan started. adapter=$adapterState");
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (!FlutterBluePlus.isScanningNow) {
+        _lastScanFailureReason =
+            "Scan started but stopped immediately on the device";
+        log(_lastScanFailureReason!);
+        return false;
+      }
+      return true;
     } catch (e) {
       log("Error starting scan (primary mode): $e");
       try {
@@ -323,8 +338,19 @@ class BleManager {
           androidCheckLocationServices: false,
         );
         log("Scan started in compatibility fallback mode.");
+        await Future.delayed(const Duration(milliseconds: 500));
+        if (!FlutterBluePlus.isScanningNow) {
+          _lastScanFailureReason =
+              "Fallback scan started but stopped immediately on the device";
+          log(_lastScanFailureReason!);
+          return false;
+        }
+        return true;
       } catch (fallbackError) {
+        _lastScanFailureReason =
+            "Error starting scan (fallback mode): $fallbackError";
         log("Error starting scan (fallback mode): $fallbackError");
+        return false;
       }
     }
   }

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:mega_panel_ai/bluetooth/ble_manager.dart';
 import 'package:mega_panel_ai/main.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 
 class BlueprintThreeBluetoothScanDialog extends StatefulWidget {
@@ -30,6 +31,7 @@ class _BlueprintThreeBluetoothScanDialogState
   bool _isScanning = false;
   String? _scanError;
   int _scanAttempt = 0;
+  Map<String, String> _permissionState = const {};
 
   String _displayName(ScanResult result) {
     final advName = result.advertisementData.advName.trim();
@@ -69,6 +71,26 @@ class _BlueprintThreeBluetoothScanDialogState
     });
   }
 
+  Future<void> _loadPermissionState() async {
+    final snapshot = <String, String>{};
+    try {
+      final btScan = await Permission.bluetoothScan.status;
+      final btConnect = await Permission.bluetoothConnect.status;
+      final location = await Permission.location.status;
+      final locationWhenInUse = await Permission.locationWhenInUse.status;
+      snapshot['scan'] = btScan.name;
+      snapshot['connect'] = btConnect.name;
+      snapshot['location'] = location.name;
+      snapshot['locationWhenInUse'] = locationWhenInUse.name;
+    } catch (_) {
+      snapshot['permissions'] = 'unavailable';
+    }
+    if (!mounted) return;
+    setState(() {
+      _permissionState = snapshot;
+    });
+  }
+
   Future<void> _restartScan() async {
     _scanWatchdog?.cancel();
     if (mounted) {
@@ -81,8 +103,14 @@ class _BlueprintThreeBluetoothScanDialogState
     }
     await _ble.stopScan();
     await Future.delayed(const Duration(milliseconds: 400));
+    await _loadPermissionState();
     await _loadSystemDevices();
-    await _ble.startScan();
+    final scanStarted = await _ble.startScan();
+    if (!scanStarted && mounted) {
+      setState(() {
+        _scanError = _ble.lastScanFailureReason ?? 'Scan did not start';
+      });
+    }
     _scanWatchdog = Timer(const Duration(seconds: 4), () {
       if (!mounted) return;
       if (_scanResults.isEmpty && _systemDevices.isEmpty) {
@@ -263,6 +291,25 @@ class _BlueprintThreeBluetoothScanDialogState
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ),
+            if (_permissionState.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  'Perms | scan: ${_permissionState['scan'] ?? '-'} | '
+                  'connect: ${_permissionState['connect'] ?? '-'} | '
+                  'loc: ${_permissionState['location'] ?? '-'} | '
+                  'locWhenInUse: ${_permissionState['locationWhenInUse'] ?? '-'}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+            ],
             const SizedBox(height: 8),
             if (state.isConnected)
               ListTile(
@@ -305,6 +352,10 @@ class _BlueprintThreeBluetoothScanDialogState
                             onPressed: _restartScan,
                             icon: const Icon(Icons.refresh),
                             label: const Text('Retry scan'),
+                          ),
+                          TextButton(
+                            onPressed: openAppSettings,
+                            child: const Text('Open app settings'),
                           ),
                         ],
                       ),
