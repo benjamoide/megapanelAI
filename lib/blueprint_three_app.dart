@@ -211,6 +211,10 @@ class _BlueprintThreeShellState extends State<BlueprintThreeShell> {
     if (panelState == null) {
       panelState = AppState();
       panelState.addListener(_handlePanelStateChange);
+      panelState.setBleAutoReconnectAllowed(
+        false,
+        reason: 'bp3-manual-connect-only',
+      );
       _panelState = panelState;
     }
     await panelState.ensureBleActivated();

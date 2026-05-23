@@ -2499,6 +2499,19 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     _syncBleAutoReconnect();
   }
 
+  void setBleAutoReconnectAllowed(
+    bool allowed, {
+    String reason = "",
+  }) {
+    if (_bleAutoReconnectAllowed == allowed) return;
+    _bleAutoReconnectAllowed = allowed;
+    final suffix = reason.isEmpty ? "" : " ($reason)";
+    _bleManager.log(
+      "BLE AUTORECONNECT -> ${allowed ? 'allowed' : 'disabled'}$suffix",
+    );
+    _syncBleAutoReconnect();
+  }
+
   void _syncBleAutoReconnect() {
     if (!_shouldAutoReconnectBle) {
       _stopBleAutoReconnect(reason: _autoReconnectStopReason());
@@ -2587,6 +2600,9 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   Future<BluetoothDevice?> _scanForPreferredBleDevice(String targetId) async {
     final normalizedTarget = targetId.trim().toUpperCase();
     if (normalizedTarget.isEmpty) return null;
+    if (_bleAutoReconnectSuspended || !_bleAutoReconnectAllowed) {
+      return null;
+    }
 
     final current = _bleManager.connectedDevice;
     if (current != null &&
@@ -2617,14 +2633,22 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     });
 
     try {
+      if (_bleAutoReconnectSuspended || !_bleAutoReconnectAllowed) {
+        return null;
+      }
       await _bleManager.stopScan();
+      if (_bleAutoReconnectSuspended || !_bleAutoReconnectAllowed) {
+        return null;
+      }
       await _bleManager.startScan();
       timeoutTimer = Timer(_bleAutoReconnectScanTimeout, () => resolve(null));
       return await completer.future;
     } finally {
       timeoutTimer?.cancel();
       await subscription.cancel();
-      await _bleManager.stopScan();
+      if (!_bleAutoReconnectSuspended && _bleAutoReconnectAllowed) {
+        await _bleManager.stopScan();
+      }
     }
   }
 
