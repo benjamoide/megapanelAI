@@ -4,6 +4,7 @@ import 'package:mega_panel_ai/core/scheduling/blueprint_controller.dart';
 import 'package:mega_panel_ai/design_system/blueprint_localization.dart';
 import 'package:mega_panel_ai/design_system/blueprint_theme.dart';
 import 'package:mega_panel_ai/features/calendar/calendar_screen.dart';
+import 'package:mega_panel_ai/features/panel_control/blueprint_three_panel_screen.dart';
 import 'package:mega_panel_ai/features/panel_control/panel_launch_controller.dart';
 import 'package:mega_panel_ai/features/session_history/session_history_screen.dart';
 import 'package:mega_panel_ai/features/settings/settings_screen.dart';
@@ -11,7 +12,6 @@ import 'package:mega_panel_ai/features/training_context/training_context_screen.
 import 'package:mega_panel_ai/features/treatment_catalog/treatment_catalog_screen.dart';
 import 'package:mega_panel_ai/main.dart';
 import 'package:mega_panel_ai/views/blueprint_three_bluetooth_scan_dialog.dart';
-import 'package:mega_panel_ai/views/bluetooth_custom_view.dart';
 import 'package:provider/provider.dart';
 
 class BlueprintThreeApp extends StatelessWidget {
@@ -202,7 +202,7 @@ class _BlueprintThreeShellState extends State<BlueprintThreeShell> {
       MaterialPageRoute<void>(
         builder: (_) => ChangeNotifierProvider<AppState>.value(
           value: panelState,
-          child: const _BlueprintThreePanelScreen(),
+          child: const BlueprintThreePanelScreen(),
         ),
       ),
     );
@@ -485,39 +485,6 @@ class _BlueprintThreeOverview extends StatelessWidget {
     final minutes = duration.inMinutes;
     final seconds = duration.inSeconds % 60;
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-  }
-}
-
-class _BlueprintThreePanelScreen extends StatelessWidget {
-  const _BlueprintThreePanelScreen();
-
-  @override
-  Widget build(BuildContext context) {
-    final language = context.watch<BlueprintController>().language;
-    final strings = BlueprintThreeStrings(language);
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(strings.panelScreenTitle),
-      ),
-      body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              BlueprintTheme.obsidian,
-              BlueprintTheme.midnight,
-              BlueprintTheme.obsidian,
-            ],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: const BluetoothCustomView(
-          startInHome: true,
-          homeBackTarget: ManualHomeBackTarget.treatments,
-        ),
-      ),
-    );
   }
 }
 

@@ -50,12 +50,11 @@ class PanelLaunchController extends ChangeNotifier {
         origin: 'blueprint',
       );
       if (!started) {
-        _lastErrorMessage =
-            'The treatment could not be started. The panel did not respond.';
+        _lastErrorMessage = _mapStartFailure(null);
       }
       return started;
     } catch (e) {
-      _lastErrorMessage = e.toString();
+      _lastErrorMessage = _mapStartFailure(e);
       return false;
     } finally {
       _launching = false;
@@ -115,6 +114,20 @@ class PanelLaunchController extends ChangeNotifier {
 
   void _handlePanelStateChange() {
     notifyListeners();
+  }
+
+  String _mapStartFailure(Object? error) {
+    final raw = error?.toString() ?? '';
+    final normalized = raw.toLowerCase();
+    if (normalized.contains('panel not ready') ||
+        normalized.contains('no ble rx after retries') ||
+        normalized.contains('blocked (panel not ready)')) {
+      return 'The panel is connected but did not wake up. Open the panel screen, touch the panel if needed, and try again.';
+    }
+    if (raw.isNotEmpty) {
+      return raw;
+    }
+    return 'The treatment could not be started. The panel did not respond.';
   }
 
   @override

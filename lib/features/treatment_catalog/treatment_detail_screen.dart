@@ -5,7 +5,9 @@ import 'package:mega_panel_ai/core/treatments/treatment.dart';
 import 'package:mega_panel_ai/core/training/training_models.dart';
 import 'package:mega_panel_ai/design_system/blueprint_localization.dart';
 import 'package:mega_panel_ai/design_system/blueprint_theme.dart';
+import 'package:mega_panel_ai/features/panel_control/blueprint_three_panel_screen.dart';
 import 'package:mega_panel_ai/features/panel_control/panel_launch_controller.dart';
+import 'package:mega_panel_ai/main.dart';
 import 'package:provider/provider.dart';
 
 class TreatmentDetailScreen extends StatelessWidget {
@@ -467,6 +469,9 @@ class TreatmentDetailScreen extends StatelessWidget {
                         strings,
                       );
                       if (!shouldLaunch || !context.mounted) return;
+                      final panelState = await panelLauncher.ensurePanelState();
+                      if (!context.mounted) return;
+                      _openPanelControl(context, panelState);
                       final started =
                           await panelLauncher.launchTreatment(treatment);
                       if (!context.mounted) return;
@@ -500,6 +505,9 @@ class TreatmentDetailScreen extends StatelessWidget {
                     momentLabel: strings.todayMomentLabel,
                     trainingRelation: TrainingRelation.independent,
                   );
+                  final panelState = await panelLauncher.ensurePanelState();
+                  if (!context.mounted) return;
+                  _openPanelControl(context, panelState);
                   final started = await panelLauncher.launchTreatment(treatment);
                   if (!context.mounted) return;
                   final startMessage = started
@@ -583,6 +591,17 @@ class TreatmentDetailScreen extends StatelessWidget {
 
   bool _isSameDay(DateTime a, DateTime b) {
     return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  void _openPanelControl(BuildContext context, AppState panelState) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ChangeNotifierProvider<AppState>.value(
+          value: panelState,
+          child: const BlueprintThreePanelScreen(),
+        ),
+      ),
+    );
   }
 
   Future<bool> _confirmAddDraftToMyTreatments(

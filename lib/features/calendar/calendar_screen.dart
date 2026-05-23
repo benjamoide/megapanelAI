@@ -3,8 +3,10 @@ import 'package:mega_panel_ai/core/scheduling/blueprint_controller.dart';
 import 'package:mega_panel_ai/core/scheduling/scheduling_models.dart';
 import 'package:mega_panel_ai/design_system/blueprint_localization.dart';
 import 'package:mega_panel_ai/design_system/blueprint_theme.dart';
+import 'package:mega_panel_ai/features/panel_control/blueprint_three_panel_screen.dart';
 import 'package:mega_panel_ai/features/panel_control/panel_launch_controller.dart';
 import 'package:mega_panel_ai/features/treatment_catalog/treatment_detail_screen.dart';
+import 'package:mega_panel_ai/main.dart';
 import 'package:provider/provider.dart';
 
 class CalendarScreen extends StatefulWidget {
@@ -258,6 +260,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                   if (panelLauncher != null)
                                     FilledButton.icon(
                                       onPressed: () async {
+                                        final panelState =
+                                            await panelLauncher.ensurePanelState();
+                                        if (!context.mounted) return;
+                                        _openPanelControl(context, panelState);
                                         final started = await panelLauncher
                                             .launchTreatment(treatment);
                                         if (!context.mounted) return;
@@ -412,6 +418,17 @@ class _CalendarScreenState extends State<CalendarScreen> {
     } catch (_) {
       return null;
     }
+  }
+
+  void _openPanelControl(BuildContext context, AppState panelState) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ChangeNotifierProvider<AppState>.value(
+          value: panelState,
+          child: const BlueprintThreePanelScreen(),
+        ),
+      ),
+    );
   }
 }
 
