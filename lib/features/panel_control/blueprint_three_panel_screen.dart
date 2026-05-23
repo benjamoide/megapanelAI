@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mega_panel_ai/core/scheduling/blueprint_controller.dart';
+import 'package:mega_panel_ai/core/treatments/treatment.dart';
 import 'package:mega_panel_ai/design_system/blueprint_localization.dart';
 import 'package:mega_panel_ai/design_system/blueprint_theme.dart';
 import 'package:mega_panel_ai/features/panel_control/panel_launch_controller.dart';
@@ -7,8 +8,35 @@ import 'package:mega_panel_ai/main.dart';
 import 'package:mega_panel_ai/views/bluetooth_custom_view.dart';
 import 'package:provider/provider.dart';
 
-class BlueprintThreePanelScreen extends StatelessWidget {
-  const BlueprintThreePanelScreen({super.key});
+class BlueprintThreePanelScreen extends StatefulWidget {
+  const BlueprintThreePanelScreen({
+    super.key,
+    this.autoLaunchTreatment,
+  });
+
+  final WellnessTreatment? autoLaunchTreatment;
+
+  @override
+  State<BlueprintThreePanelScreen> createState() =>
+      _BlueprintThreePanelScreenState();
+}
+
+class _BlueprintThreePanelScreenState extends State<BlueprintThreePanelScreen> {
+  bool _autoLaunchTriggered = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_autoLaunchTriggered || widget.autoLaunchTreatment == null) return;
+    _autoLaunchTriggered = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final launcher = context.read<PanelLaunchController>();
+      await launcher.launchTreatment(widget.autoLaunchTreatment!);
+      if (!mounted) return;
+      setState(() {});
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -582,6 +582,9 @@ class BlueprintStrings {
   String get treatmentStartFailed => isSpanish
       ? 'No se pudo iniciar el tratamiento en el panel.'
       : 'The treatment could not be started on the panel.';
+  String get openPanelControlToLaunch => isSpanish
+      ? 'Abriendo el control del panel para lanzar el tratamiento.'
+      : 'Opening panel control to launch the treatment.';
   String get dayResults => isSpanish ? 'Resultados del dia' : 'Day results';
   String get nothingMarkedYet => isSpanish
       ? 'Todavia no hay nada marcado para este dia.'

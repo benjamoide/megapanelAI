@@ -471,19 +471,10 @@ class TreatmentDetailScreen extends StatelessWidget {
                       if (!shouldLaunch || !context.mounted) return;
                       final panelState = await panelLauncher.ensurePanelState();
                       if (!context.mounted) return;
-                      _openPanelControl(context, panelState);
-                      final started =
-                          await panelLauncher.launchTreatment(treatment);
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            started
-                                ? strings.treatmentStartedOnPanel
-                                : panelLauncher.lastErrorMessage ??
-                                    strings.treatmentStartFailed,
-                          ),
-                        ),
+                      _openPanelControl(
+                        context,
+                        panelState,
+                        autoLaunchTreatment: treatment,
                       );
                     }
                   },
@@ -507,13 +498,12 @@ class TreatmentDetailScreen extends StatelessWidget {
                   );
                   final panelState = await panelLauncher.ensurePanelState();
                   if (!context.mounted) return;
-                  _openPanelControl(context, panelState);
-                  final started = await panelLauncher.launchTreatment(treatment);
-                  if (!context.mounted) return;
-                  final startMessage = started
-                      ? strings.treatmentStartedOnPanel
-                      : panelLauncher.lastErrorMessage ??
-                          strings.treatmentStartFailed;
+                  _openPanelControl(
+                    context,
+                    panelState,
+                    autoLaunchTreatment: treatment,
+                  );
+                  final startMessage = strings.openPanelControlToLaunch;
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
@@ -593,12 +583,18 @@ class TreatmentDetailScreen extends StatelessWidget {
     return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 
-  void _openPanelControl(BuildContext context, AppState panelState) {
+  void _openPanelControl(
+    BuildContext context,
+    AppState panelState, {
+    WellnessTreatment? autoLaunchTreatment,
+  }) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => ChangeNotifierProvider<AppState>.value(
           value: panelState,
-          child: const BlueprintThreePanelScreen(),
+          child: BlueprintThreePanelScreen(
+            autoLaunchTreatment: autoLaunchTreatment,
+          ),
         ),
       ),
     );

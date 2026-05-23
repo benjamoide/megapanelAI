@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mega_panel_ai/core/scheduling/blueprint_controller.dart';
 import 'package:mega_panel_ai/core/scheduling/scheduling_models.dart';
+import 'package:mega_panel_ai/core/treatments/treatment.dart';
 import 'package:mega_panel_ai/design_system/blueprint_localization.dart';
 import 'package:mega_panel_ai/design_system/blueprint_theme.dart';
 import 'package:mega_panel_ai/features/panel_control/blueprint_three_panel_screen.dart';
@@ -263,20 +264,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                         final panelState =
                                             await panelLauncher.ensurePanelState();
                                         if (!context.mounted) return;
-                                        _openPanelControl(context, panelState);
-                                        final started = await panelLauncher
-                                            .launchTreatment(treatment);
-                                        if (!context.mounted) return;
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              started
-                                                  ? strings.treatmentStartedOnPanel
-                                                  : panelLauncher
-                                                          .lastErrorMessage ??
-                                                      strings.treatmentStartFailed,
-                                            ),
-                                          ),
+                                        _openPanelControl(
+                                          context,
+                                          panelState,
+                                          autoLaunchTreatment: treatment,
                                         );
                                       },
                                       icon: const Icon(Icons.play_arrow_rounded),
@@ -420,12 +411,18 @@ class _CalendarScreenState extends State<CalendarScreen> {
     }
   }
 
-  void _openPanelControl(BuildContext context, AppState panelState) {
+  void _openPanelControl(
+    BuildContext context,
+    AppState panelState, {
+    WellnessTreatment? autoLaunchTreatment,
+  }) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => ChangeNotifierProvider<AppState>.value(
           value: panelState,
-          child: const BlueprintThreePanelScreen(),
+          child: BlueprintThreePanelScreen(
+            autoLaunchTreatment: autoLaunchTreatment,
+          ),
         ),
       ),
     );
