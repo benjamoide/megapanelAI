@@ -4,6 +4,7 @@ import 'package:mega_panel_ai/core/scheduling/blueprint_controller.dart';
 import 'package:mega_panel_ai/design_system/blueprint_localization.dart';
 import 'package:mega_panel_ai/design_system/blueprint_theme.dart';
 import 'package:mega_panel_ai/features/calendar/calendar_screen.dart';
+import 'package:mega_panel_ai/features/panel_control/panel_launch_controller.dart';
 import 'package:mega_panel_ai/features/session_history/session_history_screen.dart';
 import 'package:mega_panel_ai/features/settings/settings_screen.dart';
 import 'package:mega_panel_ai/features/training_context/training_context_screen.dart';
@@ -18,24 +19,31 @@ class BlueprintThreeApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final language = context.watch<BlueprintController>().language;
-    final strings = BlueprintThreeStrings(language);
+    return ChangeNotifierProvider(
+      create: (_) => PanelLaunchController(),
+      child: Builder(
+        builder: (context) {
+          final language = context.watch<BlueprintController>().language;
+          final strings = BlueprintThreeStrings(language);
 
-    return MaterialApp(
-      title: strings.appTitle,
-      debugShowCheckedModeBanner: false,
-      locale: language.locale,
-      supportedLocales: const [
-        Locale('en'),
-        Locale('es'),
-      ],
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      theme: BlueprintTheme.light(),
-      home: const BlueprintThreeShell(),
+          return MaterialApp(
+            title: strings.appTitle,
+            debugShowCheckedModeBanner: false,
+            locale: language.locale,
+            supportedLocales: const [
+              Locale('en'),
+              Locale('es'),
+            ],
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            theme: BlueprintTheme.light(),
+            home: const BlueprintThreeShell(),
+          );
+        },
+      ),
     );
   }
 }
@@ -49,7 +57,6 @@ class BlueprintThreeShell extends StatefulWidget {
 
 class _BlueprintThreeShellState extends State<BlueprintThreeShell> {
   late int _index;
-  AppState? _panelState;
 
   @override
   void initState() {
@@ -58,15 +65,10 @@ class _BlueprintThreeShellState extends State<BlueprintThreeShell> {
   }
 
   @override
-  void dispose() {
-    _panelState?.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final controller = context.watch<BlueprintController>();
-    final panelState = _panelState;
+    final panelLauncher = context.watch<PanelLaunchController>();
+    final panelState = panelLauncher.panelState;
     final isConnected = panelState?.isConnected ?? false;
     final strings = BlueprintThreeStrings(controller.language);
     final pages = <Widget>[
@@ -132,7 +134,7 @@ class _BlueprintThreeShellState extends State<BlueprintThreeShell> {
             IconButton(
               tooltip: strings.disconnectPanel,
               onPressed: () async {
-                await panelState.disconnectDevice();
+                await panelLauncher.disconnectPanel();
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text(strings.panelDisconnected)),
@@ -207,23 +209,7 @@ class _BlueprintThreeShellState extends State<BlueprintThreeShell> {
   }
 
   Future<AppState> _ensurePanelState() async {
-    var panelState = _panelState;
-    if (panelState == null) {
-      panelState = AppState();
-      panelState.addListener(_handlePanelStateChange);
-      panelState.setBleAutoReconnectAllowed(
-        false,
-        reason: 'bp3-manual-connect-only',
-      );
-      _panelState = panelState;
-    }
-    await panelState.ensureBleActivated();
-    return panelState;
-  }
-
-  void _handlePanelStateChange() {
-    if (!mounted) return;
-    setState(() {});
+    return context.read<PanelLaunchController>().ensurePanelState();
   }
 
   IconData _iconFor(int index) {

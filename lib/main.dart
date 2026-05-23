@@ -4281,6 +4281,196 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     return started;
   }
 
+  Future<bool> iniciarTratamientoBlueprint(
+    Tratamiento t, {
+    String origin = 'blueprint',
+  }) async {
+    final cycleId =
+        '${origin}_${t.id}_${DateTime.now().microsecondsSinceEpoch}';
+    _limpiarCiclosPausados();
+    var started = false;
+    ciclosActivos[cycleId] = {
+      'activo': false,
+      'pausado': false,
+      'inicio': DateFormat('HH:mm:ss').format(DateTime.now()),
+      'inicioEpochMs': DateTime.now().millisecondsSinceEpoch,
+      'duracionSegundos': _durationMinutesFromTratamiento(t) * 60,
+      'restanteSegundos': _durationMinutesFromTratamiento(t) * 60,
+      'workMode': 0,
+      'origen': origin,
+      'tratamiento': t.toJson(),
+    };
+
+    if (isConnected) {
+      await _acquireBleStartLock();
+      try {
+        _clearBleAbort();
+        _bleManager.setPreferWriteWithoutResponse(
+          false,
+          reason: "$origin-start-default-transport",
+        );
+        final panelReady = await _ensureBlePanelReady(
+          phase: origin,
+          allowRecover: true,
+        );
+        if (!panelReady) {
+          _bleManager.log(
+            "${origin.toUpperCase()} panel-not-ready -> abort-before-init",
+          );
+          throw Exception("$origin start blocked (panel not ready)");
+        }
+        final initOk = await _ensureBleInitialized(phase: origin);
+        if (!initOk) {
+          _bleManager.log(
+            "${origin.toUpperCase()} init-incomplete -> continue-start-with-rx-guard",
+          );
+        }
+
+        Future<void> runSequence(String phase) async {
+          _throwIfBleAbortRequested(phase: "$phase-run-seq");
+          await _wakePanelFromSleep(workMode: 0);
+          _throwIfBleAbortRequested(phase: "$phase-run-seq");
+          final allowQuickStartFallback = phase.contains("forced") ||
+              phase.contains("hardwake") ||
+              phase.contains("lastresort");
+          await _sendStartHandshake(
+            workMode: 0,
+            useQuickStart: false,
+            phase: phase,
+            includeControlWakeEdge: true,
+            allowQuickStartFallback: allowQuickStartFallback,
+          );
+          _throwIfBleAbortRequested(phase: "$phase-run-seq");
+          await _sendParameters(t, workMode: 0);
+          _throwIfBleAbortRequested(phase: "$phase-run-seq");
+          await _sendRunCommit(phase: phase);
+          await _readBackRunState(reason: "after iniciarTratamientoBlueprint ($phase)");
+        }
+
+        var preflightOk = panelReady;
+        if (!initOk || !_bleManager.hasRecentRx(const Duration(seconds: 2))) {
+          preflightOk = await _ensureBleResponsive(
+            phase: "$origin-preflight",
+            allowRecover: true,
+          );
+        } else {
+          _bleManager.log("RX PREFLIGHT [$origin-preflight] skip-ready");
+        }
+        if (!preflightOk) {
+          _bleManager.log(
+            "${origin.toUpperCase()} preflight-no-rx -> forced-start-reliable",
+          );
+        }
+        _preferWriteWithResponse(reason: "$origin-before-primary-sequence");
+        await runSequence(preflightOk ? origin : "$origin-forced");
+
+        if (_bleManager.canObserveRx) {
+          final coldLink = !_bleManager.hasSeenProtocolRx;
+          final rxAfterPrimary = await _waitForBleRx(
+            phase: "$origin-post-primary",
+            timeout:
+                coldLink ? const Duration(seconds: 8) : const Duration(seconds: 6),
+            allowWakeEdge: false,
+            allowRecover: false,
+          );
+          if (!rxAfterPrimary && _bleManager.isConnected) {
+            _bleManager.log(
+              "${origin.toUpperCase()} no-rx -> continue-no-reconnect",
+            );
+          }
+
+          final rxAfterRetry = await _waitForBleRx(
+            phase: "$origin-post-retry",
+            timeout: coldLink
+                ? const Duration(seconds: 10)
+                : const Duration(seconds: 8),
+            allowWakeEdge: true,
+            allowRecover: false,
+          );
+          if (!rxAfterRetry && isConnected && _bleManager.isConnected) {
+            _bleManager.log("${origin.toUpperCase()} no-rx -> hardwake");
+            _preferWriteWithResponse(reason: "$origin-before-hardwake");
+            await _sendPowerOffAndSettle(phase: "$origin-hardwake");
+            await Future.delayed(const Duration(milliseconds: 700));
+            await _sendOfficialControlWakeEdge(phase: "$origin-hardwake");
+            await runSequence("$origin-hardwake");
+          }
+
+          final rxAfterHardWake = await _waitForBleRx(
+            phase: "$origin-post-hardwake",
+            timeout: coldLink
+                ? const Duration(seconds: 15)
+                : const Duration(seconds: 12),
+            allowWakeEdge: true,
+            allowRecover: false,
+          );
+          var rxAfterLastResort = false;
+          if (!rxAfterHardWake && _bleManager.isConnected) {
+            rxAfterLastResort =
+                await _attemptLastResortNoRxRecovery(phase: origin);
+            if (rxAfterLastResort && _bleManager.isConnected) {
+              _bleManager.log(
+                "${origin.toUpperCase()} lastresort-rx -> rerun-sequence",
+              );
+              _bleManager.setPreferWriteWithoutResponse(
+                true,
+                reason: "$origin-lastresort-rerun",
+              );
+              try {
+                await runSequence("$origin-lastresort");
+              } finally {
+                _bleManager.setPreferWriteWithoutResponse(
+                  false,
+                  reason: "$origin-lastresort-rerun-done",
+                );
+              }
+              rxAfterLastResort = await _waitForBleRx(
+                phase: "$origin-post-lastresort",
+                timeout: const Duration(seconds: 12),
+                allowWakeEdge: true,
+                allowRecover: false,
+              );
+            }
+          }
+          if (!rxAfterHardWake && !rxAfterLastResort) {
+            _bleManager.log("${origin.toUpperCase()} no-rx -> abort-off");
+            if (_bleManager.isConnected) {
+              await _sendPowerOffAndSettle(phase: "$origin-abort-no-rx");
+            }
+            throw Exception("$origin start aborted (no BLE RX after retries)");
+          }
+        } else {
+          _bleManager.log("${origin.toUpperCase()} no-notify -> skip-rx-validation");
+        }
+
+        _marcarInicioRealCiclo(cycleId);
+        _idCicloActivoActual = cycleId;
+        _tratamientoActivoActual = t;
+        started = true;
+      } on _BleOperationAborted catch (e) {
+        _bleManager.log("${origin.toUpperCase()} abort-request -> cleanup");
+        print("BLE: $origin start aborted by user action: $e");
+        ciclosActivos.remove(cycleId);
+        started = false;
+        _actualizarTratamientoActivoDesdeCiclos();
+      } catch (e) {
+        print("BLE Error ($origin): $e");
+        ciclosActivos.remove(cycleId);
+        started = false;
+        _actualizarTratamientoActivoDesdeCiclos();
+      } finally {
+        _releaseBleStartLock();
+      }
+    } else {
+      ciclosActivos.remove(cycleId);
+      _actualizarTratamientoActivoDesdeCiclos();
+    }
+
+    _actualizarTratamientoActivoDesdeCiclos();
+    notifyListeners();
+    return started;
+  }
+
   Map<int, int> _brightnessByChannel(Tratamiento t) {
     final values = <int, int>{0: 0, 1: 0, 2: 0, 3: 0, 4: 0};
     for (final f in t.frecuencias) {

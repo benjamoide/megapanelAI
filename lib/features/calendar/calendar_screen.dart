@@ -3,6 +3,7 @@ import 'package:mega_panel_ai/core/scheduling/blueprint_controller.dart';
 import 'package:mega_panel_ai/core/scheduling/scheduling_models.dart';
 import 'package:mega_panel_ai/design_system/blueprint_localization.dart';
 import 'package:mega_panel_ai/design_system/blueprint_theme.dart';
+import 'package:mega_panel_ai/features/panel_control/panel_launch_controller.dart';
 import 'package:mega_panel_ai/features/treatment_catalog/treatment_detail_screen.dart';
 import 'package:provider/provider.dart';
 
@@ -25,6 +26,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<BlueprintController>();
+    final panelLauncher = _maybePanelLauncher(context);
     final strings = BlueprintStrings(controller.language);
     final week = controller.weekFor(_selectedDate);
     final plans = controller.plansFor(_selectedDate);
@@ -236,9 +238,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                 ),
                               ],
                               const SizedBox(height: 12),
-                              Row(
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
                                 children: [
-                                  TextButton.icon(
+                                  OutlinedButton.icon(
                                     onPressed: () {
                                       Navigator.of(context).push(
                                         MaterialPageRoute(
@@ -249,11 +253,30 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                       );
                                     },
                                     icon: const Icon(Icons.open_in_new_outlined),
-                                    label: const Text('Open'),
+                                    label: Text(strings.openLabel),
                                   ),
-                                  const Spacer(),
-                                  IconButton(
-                                    tooltip: strings.completed,
+                                  if (panelLauncher != null)
+                                    FilledButton.icon(
+                                      onPressed: () async {
+                                        final started = await panelLauncher
+                                            .launchTreatment(treatment);
+                                        if (!context.mounted) return;
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              started
+                                                  ? strings.treatmentStartedOnPanel
+                                                  : panelLauncher
+                                                          .lastErrorMessage ??
+                                                      strings.treatmentStartFailed,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                      icon: const Icon(Icons.play_arrow_rounded),
+                                      label: Text(strings.runOnPanelLabel),
+                                    ),
+                                  OutlinedButton.icon(
                                     onPressed: () async {
                                       await controller.markStatus(
                                         date: _selectedDate,
@@ -263,11 +286,17 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                         momentLabel: plan.momentLabel,
                                         trainingRelation: plan.trainingRelation,
                                       );
+                                      if (!context.mounted) return;
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text(strings.markedCompleted),
+                                        ),
+                                      );
                                     },
                                     icon: const Icon(Icons.check_circle_outline),
+                                    label: Text(strings.completed),
                                   ),
-                                  IconButton(
-                                    tooltip: strings.skipped,
+                                  OutlinedButton.icon(
                                     onPressed: () async {
                                       await controller.markStatus(
                                         date: _selectedDate,
@@ -277,8 +306,31 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                         momentLabel: plan.momentLabel,
                                         trainingRelation: plan.trainingRelation,
                                       );
+                                      if (!context.mounted) return;
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text(strings.markedSkipped),
+                                        ),
+                                      );
                                     },
                                     icon: const Icon(Icons.skip_next_outlined),
+                                    label: Text(strings.skipped),
+                                  ),
+                                  TextButton.icon(
+                                    onPressed: () async {
+                                      await controller.unscheduleTreatment(
+                                        date: _selectedDate,
+                                        sessionId: plan.id,
+                                      );
+                                      if (!context.mounted) return;
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text(strings.planDeleted),
+                                        ),
+                                      );
+                                    },
+                                    icon: const Icon(Icons.delete_outline),
+                                    label: Text(strings.deletePlanLabel),
                                   ),
                                 ],
                               ),
@@ -352,6 +404,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   bool _isSameDay(DateTime a, DateTime b) {
     return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  PanelLaunchController? _maybePanelLauncher(BuildContext context) {
+    try {
+      return Provider.of<PanelLaunchController>(context, listen: false);
+    } catch (_) {
+      return null;
+    }
   }
 }
 

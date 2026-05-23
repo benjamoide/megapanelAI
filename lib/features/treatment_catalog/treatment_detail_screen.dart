@@ -5,6 +5,7 @@ import 'package:mega_panel_ai/core/treatments/treatment.dart';
 import 'package:mega_panel_ai/core/training/training_models.dart';
 import 'package:mega_panel_ai/design_system/blueprint_localization.dart';
 import 'package:mega_panel_ai/design_system/blueprint_theme.dart';
+import 'package:mega_panel_ai/features/panel_control/panel_launch_controller.dart';
 import 'package:provider/provider.dart';
 
 class TreatmentDetailScreen extends StatelessWidget {
@@ -18,6 +19,7 @@ class TreatmentDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<BlueprintController>();
+    final panelLauncher = _maybePanelLauncher(context);
     final strings = BlueprintStrings(controller.language);
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -457,6 +459,28 @@ class TreatmentDetailScreen extends StatelessWidget {
                         ),
                       ),
                     );
+                    if (panelLauncher != null &&
+                        result.dates.length == 1 &&
+                        _isSameDay(result.dates.first, today)) {
+                      final shouldLaunch = await _confirmLaunchAfterPlanning(
+                        context,
+                        strings,
+                      );
+                      if (!shouldLaunch || !context.mounted) return;
+                      final started =
+                          await panelLauncher.launchTreatment(treatment);
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            started
+                                ? strings.treatmentStartedOnPanel
+                                : panelLauncher.lastErrorMessage ??
+                                    strings.treatmentStartFailed,
+                          ),
+                        ),
+                      );
+                    }
                   },
                   icon: const Icon(Icons.event_available_outlined),
                   label: Text(strings.planTreatment),
@@ -464,6 +488,39 @@ class TreatmentDetailScreen extends StatelessWidget {
               ),
             ],
           ),
+          if (panelLauncher != null) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () async {
+                  final planned = await controller.scheduleTreatmentSeries(
+                    treatment: treatment,
+                    dates: [today],
+                    momentLabel: strings.todayMomentLabel,
+                    trainingRelation: TrainingRelation.independent,
+                  );
+                  final started = await panelLauncher.launchTreatment(treatment);
+                  if (!context.mounted) return;
+                  final startMessage = started
+                      ? strings.treatmentStartedOnPanel
+                      : panelLauncher.lastErrorMessage ??
+                          strings.treatmentStartFailed;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        planned > 0
+                            ? '${strings.plannedFor(today)} · $startMessage'
+                            : startMessage,
+                      ),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.play_circle_outline),
+                label: Text(strings.startSingleDoseNow),
+              ),
+            ),
+          ],
           if (treatment.isAiDraft) ...[
             const SizedBox(height: 12),
             Align(
@@ -490,6 +547,42 @@ class TreatmentDetailScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  PanelLaunchController? _maybePanelLauncher(BuildContext context) {
+    try {
+      return Provider.of<PanelLaunchController>(context, listen: false);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<bool> _confirmLaunchAfterPlanning(
+    BuildContext context,
+    BlueprintStrings strings,
+  ) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(strings.launchOnPanelQuestionTitle),
+        content: Text(strings.launchOnPanelQuestionBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(strings.notNowLabel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(strings.launchOnPanelNow),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
+  bool _isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 
   Future<bool> _confirmAddDraftToMyTreatments(

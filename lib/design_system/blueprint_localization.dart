@@ -559,6 +559,11 @@ class BlueprintStrings {
       '${shortDate(date)} - ${translateMomentLabel(label)}';
   String get scheduledSessions =>
       isSpanish ? 'Sesiones planificadas' : 'Scheduled sessions';
+  String get openLabel => isSpanish ? 'Abrir' : 'Open';
+  String get runOnPanelLabel =>
+      isSpanish ? 'Lanzar en panel' : 'Run on panel';
+  String get deletePlanLabel =>
+      isSpanish ? 'Eliminar' : 'Delete';
   String get noTreatmentsScheduledForDay => isSpanish
       ? 'No hay tratamientos programados para este dia.'
       : 'No treatments scheduled for this day.';
@@ -566,6 +571,17 @@ class BlueprintStrings {
       isSpanish ? 'Relacion' : 'Relation';
   String get completed => isSpanish ? 'Completada' : 'Completed';
   String get skipped => isSpanish ? 'Omitida' : 'Skipped';
+  String get markedCompleted =>
+      isSpanish ? 'Sesion marcada como completada.' : 'Session marked as completed.';
+  String get markedSkipped =>
+      isSpanish ? 'Sesion marcada como omitida.' : 'Session marked as skipped.';
+  String get planDeleted =>
+      isSpanish ? 'Sesion eliminada del calendario.' : 'Session removed from the calendar.';
+  String get treatmentStartedOnPanel =>
+      isSpanish ? 'Tratamiento enviado al panel.' : 'Treatment sent to the panel.';
+  String get treatmentStartFailed => isSpanish
+      ? 'No se pudo iniciar el tratamiento en el panel.'
+      : 'The treatment could not be started on the panel.';
   String get dayResults => isSpanish ? 'Resultados del dia' : 'Day results';
   String get nothingMarkedYet => isSpanish
       ? 'Todavia no hay nada marcado para este dia.'
@@ -651,6 +667,18 @@ class BlueprintStrings {
       isSpanish ? 'Hora - $timeText' : 'Time - $timeText';
   String get cancel => isSpanish ? 'Cancelar' : 'Cancel';
   String get save => isSpanish ? 'Guardar' : 'Save';
+  String get startSingleDoseNow => isSpanish
+      ? 'Planificar hoy y lanzar en panel'
+      : 'Plan for today and run on panel';
+  String get launchOnPanelQuestionTitle => isSpanish
+      ? 'Iniciar en el panel'
+      : 'Start on the panel';
+  String get launchOnPanelQuestionBody => isSpanish
+      ? 'La dosis puntual ha quedado planificada para hoy. Quieres enviarla ahora mismo al panel conectado?'
+      : 'The single dose has been scheduled for today. Do you want to send it to the connected panel now?';
+  String get notNowLabel => isSpanish ? 'Ahora no' : 'Not now';
+  String get launchOnPanelNow =>
+      isSpanish ? 'Lanzar ahora' : 'Launch now';
 
   String sessionStatusLabel(SessionStatus status) {
     switch (status) {
