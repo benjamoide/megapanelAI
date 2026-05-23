@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
+import 'package:mega_panel_ai/bluetooth/ble_manager.dart';
 import 'package:mega_panel_ai/core/treatments/treatment.dart';
 import 'package:mega_panel_ai/main.dart';
 
@@ -6,12 +9,19 @@ class PanelLaunchController extends ChangeNotifier {
   AppState? _panelState;
   bool _launching = false;
   String? _lastErrorMessage;
+  WellnessTreatment? _pendingWakeTreatment;
+  bool _wakeRetryInFlight = false;
+  StreamSubscription<List<int>>? _protocolRxSubscription;
 
   AppState? get panelState => _panelState;
   bool get hasPanelState => _panelState != null;
   bool get isConnected => _panelState?.isConnected ?? false;
   bool get launching => _launching;
   String? get lastErrorMessage => _lastErrorMessage;
+  bool get hasPendingWakeTreatment => _pendingWakeTreatment != null;
+  String? get pendingWakeMessage => _pendingWakeTreatment == null
+      ? null
+      : 'The panel is connected but asleep. Touch the panel screen and the app will retry automatically.';
 
   Future<AppState> ensurePanelState() async {
     var state = _panelState;
@@ -23,6 +33,8 @@ class PanelLaunchController extends ChangeNotifier {
         reason: 'bp3-manual-connect-only',
       );
       _panelState = state;
+      _protocolRxSubscription ??=
+          BleManager().protocolFrames.listen(_handleProtocolFrame);
     }
     await state.ensureBleActivated();
     return state;
@@ -38,6 +50,7 @@ class PanelLaunchController extends ChangeNotifier {
 
     _launching = true;
     _lastErrorMessage = null;
+    _pendingWakeTreatment = null;
     notifyListeners();
 
     try {
@@ -51,10 +64,16 @@ class PanelLaunchController extends ChangeNotifier {
       );
       if (!started) {
         _lastErrorMessage = _mapStartFailure(null);
+        if (_shouldRetryOnWake(null)) {
+          _pendingWakeTreatment = treatment;
+        }
       }
       return started;
     } catch (e) {
       _lastErrorMessage = _mapStartFailure(e);
+      if (_shouldRetryOnWake(e)) {
+        _pendingWakeTreatment = treatment;
+      }
       return false;
     } finally {
       _launching = false;
@@ -65,6 +84,7 @@ class PanelLaunchController extends ChangeNotifier {
   Future<void> disconnectPanel() async {
     final state = _panelState;
     if (state == null) return;
+    _pendingWakeTreatment = null;
     await state.disconnectDevice();
     notifyListeners();
   }
@@ -116,23 +136,55 @@ class PanelLaunchController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _handleProtocolFrame(List<int> _) {
+    final treatment = _pendingWakeTreatment;
+    if (treatment == null || _wakeRetryInFlight || _launching) return;
+    final state = _panelState;
+    if (state == null || !state.isConnected) return;
+
+    _wakeRetryInFlight = true;
+    _pendingWakeTreatment = null;
+    _lastErrorMessage = 'Panel awake. Retrying treatment...';
+    notifyListeners();
+
+    unawaited(() async {
+      try {
+        await launchTreatment(treatment);
+      } finally {
+        _wakeRetryInFlight = false;
+        notifyListeners();
+      }
+    }());
+  }
+
+  bool _shouldRetryOnWake(Object? error) {
+    final raw = error?.toString() ?? '';
+    final normalized = raw.toLowerCase();
+    return normalized.isEmpty ||
+        normalized.contains('panel not ready') ||
+        normalized.contains('no ble rx after retries') ||
+        normalized.contains('blocked (panel not ready)') ||
+        normalized.contains('did not wake up');
+  }
+
   String _mapStartFailure(Object? error) {
     final raw = error?.toString() ?? '';
     final normalized = raw.toLowerCase();
     if (normalized.contains('panel not ready') ||
         normalized.contains('no ble rx after retries') ||
         normalized.contains('blocked (panel not ready)')) {
-      return 'The panel is connected but did not wake up. Open the panel screen, touch the panel if needed, and try again.';
+      return 'The panel is connected but did not wake up. Touch the panel screen and the app will retry automatically.';
     }
     if (raw.isNotEmpty) {
       return raw;
     }
-    return 'The treatment could not be started. The panel did not respond.';
+    return 'The treatment could not be started yet. The panel did not respond.';
   }
 
   @override
   void dispose() {
     _panelState?.removeListener(_handlePanelStateChange);
+    _protocolRxSubscription?.cancel();
     _panelState?.dispose();
     super.dispose();
   }

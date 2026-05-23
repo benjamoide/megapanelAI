@@ -44,6 +44,7 @@ class _BlueprintThreePanelScreenState extends State<BlueprintThreePanelScreen> {
     final strings = BlueprintThreePanelStrings(language == AppLanguage.spanish);
     final launcher = context.watch<PanelLaunchController>();
     final error = launcher.lastErrorMessage;
+    final pendingWakeMessage = launcher.pendingWakeMessage;
 
     return Scaffold(
       appBar: AppBar(
@@ -63,6 +64,35 @@ class _BlueprintThreePanelScreenState extends State<BlueprintThreePanelScreen> {
         ),
         child: Column(
           children: [
+            if (pendingWakeMessage != null)
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: BlueprintTheme.seafoam.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: BlueprintTheme.seafoam.withValues(alpha: 0.35),
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.touch_app_outlined,
+                      color: BlueprintTheme.seafoam,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        pendingWakeMessage,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             if (error != null && error.isNotEmpty)
               Container(
                 width: double.infinity,
