@@ -2146,6 +2146,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   // BLE
   final BleManager _bleManager = BleManager();
   bool isConnected = false;
+  BluetoothDevice? get connectedBleDevice => _bleManager.connectedDevice;
   bool _bleStartBusy = false;
   bool _bleAbortRequested = false;
   bool _bleAbortAckLogged = false;

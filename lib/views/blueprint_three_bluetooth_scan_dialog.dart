@@ -218,7 +218,7 @@ class _BlueprintThreeBluetoothScanDialogState
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
-    final connectedDevice = state._bleManager.connectedDevice;
+    final connectedDevice = state.connectedBleDevice;
     final connectedName = (() {
       final name = connectedDevice?.platformName.trim() ?? '';
       if (name.isNotEmpty) return name;
