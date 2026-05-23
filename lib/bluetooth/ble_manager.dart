@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:developer' as developer;
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:intl/intl.dart';
@@ -42,6 +43,8 @@ class BleManager {
   Stream<String> get logs => _logController.stream;
   final _protocolFrameController = StreamController<List<int>>.broadcast();
   Stream<List<int>> get protocolFrames => _protocolFrameController.stream;
+  bool get _isAndroidBleFlow =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
   void log(String msg) {
     developer.log(msg, name: 'BleManager');
@@ -239,11 +242,13 @@ class BleManager {
 
   Future<void> init() async {
     try {
-      // Request core BLE permissions early.
-      await Permission.bluetoothScan.request();
-      await Permission.bluetoothConnect.request();
-      // Some Android devices still need location permission for reliable BLE discovery.
-      await Permission.locationWhenInUse.request();
+      if (_isAndroidBleFlow) {
+        // Android requires explicit runtime permissions for BLE discovery.
+        await Permission.bluetoothScan.request();
+        await Permission.bluetoothConnect.request();
+        // Some Android devices still need location permission for reliable BLE discovery.
+        await Permission.locationWhenInUse.request();
+      }
     } catch (e) {
       log("BLE init permissions unavailable: $e");
     }
@@ -268,19 +273,24 @@ class BleManager {
       return;
     }
 
-    final scanGranted = await Permission.bluetoothScan.request().isGranted;
-    final connectGranted =
-        await Permission.bluetoothConnect.request().isGranted;
-    final locationGranted = await Permission.location.request().isGranted ||
-        await Permission.locationWhenInUse.request().isGranted;
+    var scanGranted = true;
+    var connectGranted = true;
+    var locationGranted = false;
 
-    if (!scanGranted || !connectGranted) {
-      log("Permissions not granted for scanning");
-      return;
-    }
+    if (_isAndroidBleFlow) {
+      scanGranted = await Permission.bluetoothScan.request().isGranted;
+      connectGranted = await Permission.bluetoothConnect.request().isGranted;
+      locationGranted = await Permission.location.request().isGranted ||
+          await Permission.locationWhenInUse.request().isGranted;
 
-    if (!locationGranted) {
-      log("Location permission denied; some devices may not appear in scan.");
+      if (!scanGranted || !connectGranted) {
+        log("Permissions not granted for scanning");
+        return;
+      }
+
+      if (!locationGranted) {
+        log("Location permission denied; some devices may not appear in scan.");
+      }
     }
 
     try {
