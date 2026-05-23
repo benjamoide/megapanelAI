@@ -258,12 +258,21 @@ class BleManager {
 
   Future<void> startScan() async {
     await stopScan();
-    var adapterState = await FlutterBluePlus.adapterState.first;
+    var adapterState = FlutterBluePlus.adapterStateNow;
+    if (adapterState == BluetoothAdapterState.unknown) {
+      try {
+        adapterState = await FlutterBluePlus.adapterState
+            .firstWhere((state) => state != BluetoothAdapterState.unknown)
+            .timeout(const Duration(seconds: 6));
+      } catch (_) {
+        // Keep latest known state and let the guard below report it.
+      }
+    }
     if (adapterState != BluetoothAdapterState.on) {
       try {
         adapterState = await FlutterBluePlus.adapterState
             .firstWhere((state) => state == BluetoothAdapterState.on)
-            .timeout(const Duration(seconds: 3));
+            .timeout(const Duration(seconds: 4));
       } catch (_) {
         // Keep latest known state and let the guard below report it.
       }
@@ -302,7 +311,7 @@ class BleManager {
         // Some phones incorrectly report location-services state and block scans.
         androidCheckLocationServices: false,
       );
-      log("Scan started.");
+      log("Scan started. adapter=$adapterState");
     } catch (e) {
       log("Error starting scan (primary mode): $e");
       try {
@@ -322,13 +331,34 @@ class BleManager {
 
   Future<void> stopScan() async {
     try {
+      if (!FlutterBluePlus.isScanningNow) {
+        return;
+      }
       await FlutterBluePlus.stopScan();
+      await FlutterBluePlus.isScanning
+          .where((value) => value == false)
+          .first
+          .timeout(const Duration(seconds: 2));
     } catch (e) {
       log("Error stopping scan: $e");
     }
   }
 
   Stream<List<ScanResult>> get scanResults => FlutterBluePlus.scanResults;
+  Stream<List<ScanResult>> get liveScanResults => FlutterBluePlus.onScanResults;
+  Stream<bool> get isScanning => FlutterBluePlus.isScanning;
+  bool get isScanningNow => FlutterBluePlus.isScanningNow;
+  Stream<BluetoothAdapterState> get adapterState => FlutterBluePlus.adapterState;
+  BluetoothAdapterState get adapterStateNow => FlutterBluePlus.adapterStateNow;
+
+  Future<List<BluetoothDevice>> getSystemDevices() async {
+    try {
+      return FlutterBluePlus.systemDevices([Guid("1800")]);
+    } catch (e) {
+      log("Error loading system devices: $e");
+      return const [];
+    }
+  }
 
   Future<bool> connect(BluetoothDevice device) async {
     try {

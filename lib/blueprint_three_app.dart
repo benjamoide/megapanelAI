@@ -9,6 +9,7 @@ import 'package:mega_panel_ai/features/settings/settings_screen.dart';
 import 'package:mega_panel_ai/features/training_context/training_context_screen.dart';
 import 'package:mega_panel_ai/features/treatment_catalog/treatment_catalog_screen.dart';
 import 'package:mega_panel_ai/main.dart';
+import 'package:mega_panel_ai/views/blueprint_three_bluetooth_scan_dialog.dart';
 import 'package:mega_panel_ai/views/bluetooth_custom_view.dart';
 import 'package:provider/provider.dart';
 
@@ -187,7 +188,7 @@ class _BlueprintThreeShellState extends State<BlueprintThreeShell> {
       context: context,
       builder: (_) => ChangeNotifierProvider<AppState>.value(
         value: panelState,
-        child: const BluetoothScanDialog(),
+        child: const BlueprintThreeBluetoothScanDialog(),
       ),
     );
   }
