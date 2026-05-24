@@ -19,6 +19,7 @@ class PanelLaunchController extends ChangeNotifier {
   bool get launching => _launching;
   String? get lastErrorMessage => _lastErrorMessage;
   bool get hasPendingWakeTreatment => _pendingWakeTreatment != null;
+  WellnessTreatment? get pendingWakeTreatment => _pendingWakeTreatment;
   String? get pendingWakeMessage => _pendingWakeTreatment == null
       ? null
       : 'The panel is connected but asleep. Touch the panel screen and the app will retry automatically.';
@@ -87,6 +88,12 @@ class PanelLaunchController extends ChangeNotifier {
     _pendingWakeTreatment = null;
     await state.disconnectDevice();
     notifyListeners();
+  }
+
+  Future<bool> retryPendingTreatment() async {
+    final treatment = _pendingWakeTreatment;
+    if (treatment == null) return false;
+    return launchTreatment(treatment);
   }
 
   Tratamiento _mapToLegacyTreatment(WellnessTreatment treatment) {

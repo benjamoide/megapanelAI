@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:mega_panel_ai/bluetooth/ble_manager.dart';
 import 'package:mega_panel_ai/bluetooth/ble_protocol.dart';
 import 'package:mega_panel_ai/design_system/blueprint_theme.dart';
+import 'package:mega_panel_ai/features/panel_control/panel_launch_controller.dart';
 import 'package:mega_panel_ai/main.dart';
 import 'package:provider/provider.dart';
 
@@ -1662,6 +1663,23 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
   }
 
   Future<void> _runManualTreatment() async {
+    final launcher = _maybePanelLaunchController();
+    if (launcher?.hasPendingWakeTreatment == true) {
+      final retried = await launcher!.retryPendingTreatment();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            retried
+                ? 'Retrying the planned treatment on the panel...'
+                : (launcher.pendingWakeMessage ??
+                    'The planned treatment is waiting for the panel to wake up.'),
+          ),
+        ),
+      );
+      return;
+    }
+
     final state = context.read<AppState>();
     final diagnosticActive =
         _diagnosticStrategy != ManualStartDiagnosticStrategy.disabled;
@@ -1843,5 +1861,13 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
       }
     }
     setState(() => _section = _ManualSection.menu);
+  }
+
+  PanelLaunchController? _maybePanelLaunchController() {
+    try {
+      return context.read<PanelLaunchController>();
+    } catch (_) {
+      return null;
+    }
   }
 }
