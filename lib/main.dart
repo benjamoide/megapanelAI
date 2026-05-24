@@ -5932,7 +5932,7 @@ Future<void> main() async {
     demoMode: buildDemoMode || queryDemoMode,
   );
   await controller.load();
-  if (buildVariant == 'bp3') {
+  if (buildVariant == 'bp3' || buildVariant == 'bp4') {
     runApp(
       ChangeNotifierProvider<BlueprintController>.value(
         value: controller,

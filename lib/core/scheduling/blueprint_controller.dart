@@ -293,6 +293,36 @@ class BlueprintController extends ChangeNotifier {
     return null;
   }
 
+  List<ResolvedPlannedSession> upcomingPlannedSessions({int limit = 4}) {
+    final today = DateTime.now();
+    final dayStart = DateTime(today.year, today.month, today.day);
+    final sortedKeys = _plans.keys.toList()..sort();
+    final result = <ResolvedPlannedSession>[];
+
+    for (final key in sortedKeys) {
+      final date = dateFromKey(key);
+      if (date.isBefore(dayStart)) continue;
+      final sessions = List<PlannedSession>.from(_plans[key] ?? const [])
+        ..sort((a, b) => a.momentLabel.compareTo(b.momentLabel));
+      for (final session in sessions) {
+        final treatment = treatmentById(session.treatmentId);
+        if (treatment == null) continue;
+        result.add(
+          ResolvedPlannedSession(
+            treatment: treatment,
+            session: session,
+            date: date,
+          ),
+        );
+        if (result.length >= limit) {
+          return result;
+        }
+      }
+    }
+
+    return result;
+  }
+
   List<TreatmentCourseProgress> activeCoursesForTreatment(String treatmentId) {
     return _courseProgressEntries()
         .where((entry) => entry.treatment.id == treatmentId)

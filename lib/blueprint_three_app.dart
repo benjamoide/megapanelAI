@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:mega_panel_ai/core/scheduling/blueprint_controller.dart';
+import 'package:mega_panel_ai/core/treatments/treatment.dart';
 import 'package:mega_panel_ai/design_system/blueprint_localization.dart';
 import 'package:mega_panel_ai/design_system/blueprint_theme.dart';
 import 'package:mega_panel_ai/features/calendar/calendar_screen.dart';
@@ -75,6 +76,8 @@ class _BlueprintThreeShellState extends State<BlueprintThreeShell> {
       _BlueprintThreeOverview(
         onOpenPanelControl: () => _openPanelControl(context),
         onOpenConnect: () => _openConnectDialog(context),
+        onLaunchPlannedTreatment: (treatment) =>
+            _launchPlannedTreatment(context, treatment),
         isConnected: isConnected,
         activeTreatmentName: panelState?.tratamientoActivoActual?.nombre,
         activeRemaining: panelState?.tiempoRestanteCicloActivo(),
@@ -208,6 +211,24 @@ class _BlueprintThreeShellState extends State<BlueprintThreeShell> {
     );
   }
 
+  Future<void> _launchPlannedTreatment(
+    BuildContext context,
+    WellnessTreatment treatment,
+  ) async {
+    final panelState = await _ensurePanelState();
+    if (!context.mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ChangeNotifierProvider<AppState>.value(
+          value: panelState,
+          child: BlueprintThreePanelScreen(
+            autoLaunchTreatment: treatment,
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<AppState> _ensurePanelState() async {
     return context.read<PanelLaunchController>().ensurePanelState();
   }
@@ -255,6 +276,7 @@ class _BlueprintThreeOverview extends StatelessWidget {
   const _BlueprintThreeOverview({
     required this.onOpenPanelControl,
     required this.onOpenConnect,
+    required this.onLaunchPlannedTreatment,
     required this.isConnected,
     required this.activeTreatmentName,
     required this.activeRemaining,
@@ -262,6 +284,8 @@ class _BlueprintThreeOverview extends StatelessWidget {
 
   final VoidCallback onOpenPanelControl;
   final VoidCallback onOpenConnect;
+  final Future<void> Function(WellnessTreatment treatment)
+      onLaunchPlannedTreatment;
   final bool isConnected;
   final String? activeTreatmentName;
   final Duration? activeRemaining;
@@ -272,6 +296,7 @@ class _BlueprintThreeOverview extends StatelessWidget {
     final uiStrings = BlueprintStrings(controller.language);
     final strings = BlueprintThreeStrings(controller.language);
     final nextSession = controller.nextPlannedSession;
+    final upcomingSessions = controller.upcomingPlannedSessions(limit: 4);
     final recentTraining = controller.recentTrainingSessions.take(3).toList();
 
     return ListView(
@@ -433,6 +458,76 @@ class _BlueprintThreeOverview extends StatelessWidget {
             ),
           ),
         if (nextSession != null) const SizedBox(height: 12),
+        DecoratedBox(
+          decoration: BlueprintTheme.softPanel(),
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  strings.plannedTreatmentsTitle,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  strings.plannedTreatmentsBody,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 14),
+                if (upcomingSessions.isEmpty)
+                  Text(strings.noPlannedTreatmentsOverview)
+                else
+                  ...upcomingSessions.map(
+                    (entry) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: BlueprintTheme.panelRaised,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(color: BlueprintTheme.outline),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              entry.treatment.title(uiStrings.isSpanish),
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              '${MaterialLocalizations.of(context).formatShortDate(entry.date)} · ${uiStrings.translateMomentLabel(entry.session.momentLabel)}',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                            const SizedBox(height: 10),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                FilledButton.icon(
+                                  onPressed: () =>
+                                      onLaunchPlannedTreatment(entry.treatment),
+                                  icon: const Icon(Icons.play_arrow_rounded),
+                                  label: Text(strings.launchPlannedTreatment),
+                                ),
+                                OutlinedButton.icon(
+                                  onPressed: onOpenPanelControl,
+                                  icon: const Icon(Icons.tune_rounded),
+                                  label: Text(strings.openPanelControlShort),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
         if (recentTraining.isNotEmpty)
           DecoratedBox(
             decoration: BlueprintTheme.softPanel(),
@@ -662,6 +757,18 @@ class BlueprintThreeStrings {
       : 'Use panel control for Bluetooth connections, manual start, presets and BLE diagnostics when needed.';
   String get nextGuidedSession =>
       isSpanish ? 'Siguiente sesion guiada' : 'Next guided session';
+  String get plannedTreatmentsTitle =>
+      isSpanish ? 'Tratamientos planificados' : 'Planned treatments';
+  String get plannedTreatmentsBody => isSpanish
+      ? 'Lanza desde aqui las proximas sesiones que ya estan en tu calendario.'
+      : 'Launch upcoming sessions from here when they are already scheduled in your calendar.';
+  String get noPlannedTreatmentsOverview => isSpanish
+      ? 'No hay tratamientos planificados todavia.'
+      : 'No treatments are planned yet.';
+  String get launchPlannedTreatment =>
+      isSpanish ? 'Lanzar en panel' : 'Run on panel';
+  String get openPanelControlShort =>
+      isSpanish ? 'Abrir panel' : 'Open panel';
   String get panelScreenTitle =>
       isSpanish ? 'Control del panel' : 'Panel control';
 
