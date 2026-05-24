@@ -497,28 +497,6 @@ class _TreatmentCard extends StatelessWidget {
                     icon: const Icon(Icons.event_available_outlined),
                     label: Text(strings.planTreatment),
                   ),
-                  FilledButton.icon(
-                    onPressed: () async {
-                      final normalizedToday =
-                          DateTime(today.year, today.month, today.day);
-                      await controller.scheduleTreatmentSeries(
-                        treatment: treatment,
-                        dates: [normalizedToday],
-                        momentLabel: strings.todayMomentLabel,
-                        trainingRelation: TrainingRelation.independent,
-                      );
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            '${strings.plannedFor(normalizedToday)} · ${strings.panelLaunchUnavailable}',
-                          ),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.play_circle_outline),
-                    label: Text(strings.startSingleDoseNow),
-                  ),
                 ],
               ),
               const SizedBox(height: 14),
