@@ -3291,6 +3291,42 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     await Future.delayed(const Duration(milliseconds: 140));
   }
 
+  Future<void> _sendOfficialControlPageWarmup({String phase = ""}) async {
+    _throwIfBleAbortRequested(
+      phase: phase.isEmpty ? "control-page-warmup" : "$phase-control-page",
+    );
+    final phaseLabel = phase.isEmpty ? "" : "[$phase] ";
+    print("BLE: ${phaseLabel}Official control-page warmup (0x20:1->2 + reads)");
+    await _bleManager.write(BleProtocol.setControlMode(0x01));
+    await Future.delayed(const Duration(milliseconds: 140));
+    await _bleManager.write(BleProtocol.setControlMode(0x02));
+    await Future.delayed(const Duration(milliseconds: 180));
+    await _bleManager.write(BleProtocol.getBrightness());
+    await Future.delayed(const Duration(milliseconds: 150));
+    await _bleManager.write(BleProtocol.getStatus());
+    await Future.delayed(const Duration(milliseconds: 150));
+    await _bleManager.write(BleProtocol.getCurrentPreset());
+    await Future.delayed(const Duration(milliseconds: 150));
+    await _bleManager.write(BleProtocol.getWorkMode());
+    await Future.delayed(const Duration(milliseconds: 150));
+  }
+
+  Future<void> _sendOfficialPresetWakePulse({String phase = ""}) async {
+    _throwIfBleAbortRequested(
+      phase: phase.isEmpty ? "preset-wake-pulse" : "$phase-preset-wake",
+    );
+    final phaseLabel = phase.isEmpty ? "" : "[$phase] ";
+    print("BLE: ${phaseLabel}Official preset wake pulse (0x75 -> 0x20:0)");
+    await _bleManager.write(BleProtocol.getCurrentPreset());
+    await Future.delayed(const Duration(milliseconds: 120));
+    await _bleManager.write(BleProtocol.setControlMode(0x00));
+    await Future.delayed(const Duration(milliseconds: 220));
+    await _bleManager.write(BleProtocol.getStatus());
+    await Future.delayed(const Duration(milliseconds: 150));
+    await _bleManager.write(BleProtocol.getBrightness());
+    await Future.delayed(const Duration(milliseconds: 150));
+  }
+
   Future<void> _wakePanelFromSleep({required int workMode}) async {
     _throwIfBleAbortRequested(phase: "wake-panel");
     final canCheckRx = _bleManager.canObserveRx;
@@ -3308,7 +3344,19 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         return;
       }
 
-      // Mirrors the official app: nudge with control edge 2->1 on cold-idle.
+      // Mirrors the official control page on entry: 0x20 1->2 + state reads.
+      await _sendOfficialControlPageWarmup(
+        phase: "wake-control-page-$attempt",
+      );
+
+      if (canCheckRx && _hasFreshBleRx()) {
+        print(
+          "BLE: Wake preflight OK after official control-page warmup (attempt $attempt)",
+        );
+        return;
+      }
+
+      // Legacy control edge path kept as a secondary wake nudge.
       await _sendOfficialControlWakeEdge(phase: "wake");
 
       if (canCheckRx && _hasFreshBleRx()) {
@@ -3319,13 +3367,19 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     }
 
     // Avoid quickstart fallback here: some firmware drifts to a local preset.
-    // Keep using deterministic control edges only.
+    // Prefer official control/preset pulses before giving up.
     if (canCheckRx) {
-      print("BLE: Wake fallback (control edge + OFF settle).");
+      print("BLE: Wake fallback (control-page warmup + preset pulse).");
+      await _sendOfficialControlPageWarmup(phase: "wake-fallback");
+      if (_hasFreshBleRx()) return;
+      await _sendOfficialPresetWakePulse(phase: "wake-fallback");
+      if (_hasFreshBleRx()) return;
       await _sendOfficialControlWakeEdge(phase: "wake-fallback");
-      await _bleManager.write(BleProtocol.setPower(false));
-      await Future.delayed(const Duration(milliseconds: 240));
+      await _bleManager.write(BleProtocol.getCurrentPreset());
+      await Future.delayed(const Duration(milliseconds: 160));
       await _bleManager.write(BleProtocol.getStatus());
+      await Future.delayed(const Duration(milliseconds: 160));
+      await _bleManager.write(BleProtocol.getBrightness());
       await Future.delayed(const Duration(milliseconds: 160));
     }
   }
@@ -3370,6 +3424,18 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       reason: "$phaseLabel-wnr",
     );
     try {
+      await _sendOfficialControlPageWarmup(phase: phaseLabel);
+      if (_bleManager.hasRecentRx(const Duration(seconds: 2))) {
+        _bleManager
+            .log("RX LASTRESORT [$phaseLabel] result=true (control-page)");
+        return true;
+      }
+      await _sendOfficialPresetWakePulse(phase: phaseLabel);
+      if (_bleManager.hasRecentRx(const Duration(seconds: 2))) {
+        _bleManager
+            .log("RX LASTRESORT [$phaseLabel] result=true (preset-pulse)");
+        return true;
+      }
       await _sendOfficialControlWakeEdge(phase: phaseLabel);
       final ok = await _waitForBleRx(
         phase: "$phaseLabel-rx",
@@ -4344,7 +4410,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
           await _sendParameters(t, workMode: 0);
           _throwIfBleAbortRequested(phase: "$phase-run-seq");
           await _sendRunCommit(phase: phase);
-          await _readBackRunState(reason: "after iniciarTratamientoBlueprint ($phase)");
+          await _readBackRunState(
+              reason: "after iniciarTratamientoBlueprint ($phase)");
         }
 
         var preflightOk = panelReady;
@@ -4368,8 +4435,9 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
           final coldLink = !_bleManager.hasSeenProtocolRx;
           final rxAfterPrimary = await _waitForBleRx(
             phase: "$origin-post-primary",
-            timeout:
-                coldLink ? const Duration(seconds: 8) : const Duration(seconds: 6),
+            timeout: coldLink
+                ? const Duration(seconds: 8)
+                : const Duration(seconds: 6),
             allowWakeEdge: false,
             allowRecover: false,
           );
@@ -4440,7 +4508,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
             throw Exception("$origin start aborted (no BLE RX after retries)");
           }
         } else {
-          _bleManager.log("${origin.toUpperCase()} no-notify -> skip-rx-validation");
+          _bleManager
+              .log("${origin.toUpperCase()} no-notify -> skip-rx-validation");
         }
 
         _marcarInicioRealCiclo(cycleId);
@@ -5306,14 +5375,14 @@ const Map<String, String> _blueprintTitleTranslations = {
   'Salud Cerebral': 'Brain health',
   'Recuperacion Gluteos/Isquios (Post)': 'Glute and hamstring recovery (post)',
   'Recuperacion Gemelos/Tobillo (Post)': 'Calf and ankle recovery (post)',
-  'Activacion Pre-entreno (Prime Movers)': 'Pre-session activation (prime movers)',
+  'Activacion Pre-entreno (Prime Movers)':
+      'Pre-session activation (prime movers)',
   'Activacion Estabilizadores (Core/Escapula)':
       'Stabiliser activation (core / scapula)',
   'Activacion Transferencia de Fuerza (Cadera/Escapula)':
       'Force transfer activation (hip / scapula)',
   'Dia Pierna (Cuadriceps + Gluteos)': 'Leg day (quadriceps + glutes)',
-  'Dia Tiron (Dorsales + Espalda Media)':
-      'Pull day (lats + mid back)',
+  'Dia Tiron (Dorsales + Espalda Media)': 'Pull day (lats + mid back)',
   'Dia Empuje (Pecho + Hombro)': 'Push day (chest + shoulder)',
   'WOD Crossfit (Cadera + Dorsales)': 'Cross-training WOD (hips + lats)',
   'Grasa Abdomen Bajo': 'Lower abdominal fat',
@@ -5437,30 +5506,25 @@ String _translateBlueprintTextToEnglish(String value) {
         'Adjunctive support for infraumbilical subcutaneous adiposity.',
     'Acumulo graso en abdomen inferior.':
         'Fat accumulation in the lower abdomen.',
-    '5-15cm sobre abdomen bajo.':
-        '5-15cm over the lower abdomen.',
+    '5-15cm sobre abdomen bajo.': '5-15cm over the lower abdomen.',
     'Coadyuvante en adiposidad subcutanea lateral.':
         'Adjunctive support for lateral subcutaneous adiposity.',
     'Acumulo graso en cintura lateral.':
         'Fat accumulation at the lateral waist.',
-    '5-15cm sobre flancos bilaterales.':
-        '5-15cm over both flanks.',
+    '5-15cm sobre flancos bilaterales.': '5-15cm over both flanks.',
     'Coadyuvante en adiposidad gluteofemoral lateral.':
         'Adjunctive support for lateral gluteofemoral adiposity.',
     'Deposito adiposo en cadera lateral.':
         'Adipose deposit at the lateral hip.',
-    '5-15cm sobre caderas bilaterales.':
-        '5-15cm over both hips.',
+    '5-15cm sobre caderas bilaterales.': '5-15cm over both hips.',
     'Coadyuvante en adiposidad lateral de muslo.':
         'Adjunctive support for lateral thigh adiposity.',
     '5-15cm sobre muslo externo bilateral.':
         '5-15cm over the outer thighs on both sides.',
     'Coadyuvante en adiposidad lumbar posterior.':
         'Adjunctive support for posterior lumbar adiposity.',
-    'Adiposidad abdominal localizada.':
-        'Localized abdominal adiposity.',
-    '5-15cm sobre abdomen frontal.':
-        '5-15cm over the front of the abdomen.',
+    'Adiposidad abdominal localizada.': 'Localized abdominal adiposity.',
+    '5-15cm sobre abdomen frontal.': '5-15cm over the front of the abdomen.',
   };
   if (exact.containsKey(text)) {
     return exact[text]!;
@@ -5581,8 +5645,8 @@ String _translateBlueprintTextToEnglish(String value) {
     const MapEntry('TUMOR local', 'local tumour'),
     const MapEntry('severa', 'severe'),
     const MapEntry('grave', 'serious'),
-    const MapEntry('General wellness guidance for',
-        'General wellness guidance for'),
+    const MapEntry(
+        'General wellness guidance for', 'General wellness guidance for'),
     const MapEntry('Support for', 'Support for'),
     const MapEntry('Suggested placement:', 'Suggested placement:'),
   ];
@@ -5704,7 +5768,8 @@ TreatmentCourseGuidance? _deriveBlueprintCourseGuidance(Tratamiento treatment) {
           'For local muscular pain and trigger points, the evidence usually uses short blocks with early reassessment. A conservative course is 4-12 sessions.',
     );
   }
-  if (_idsPielEstetica.contains(treatment.id) || _idsEstrias.contains(treatment.id)) {
+  if (_idsPielEstetica.contains(treatment.id) ||
+      _idsEstrias.contains(treatment.id)) {
     return const TreatmentCourseGuidance(
       minSessions: 8,
       maxSessions: 16,
@@ -5792,118 +5857,122 @@ TreatmentCourseGuidance? _deriveBlueprintCourseGuidance(Tratamiento treatment) {
 }
 
 List<WellnessTreatment> _buildBlueprintTreatments() {
-  final treatments =
-      DB_DEFINICIONES.where((entry) => !entry.oculto).map((entry) {
-    final treatment = _aplicarActualizacionCientifica(entry);
-    if (_isBlueprintDatasetExcluded(treatment)) {
-      return null;
-    }
-    final sourceReferences = _extractBlueprintSourceReferences(treatment)
-        .where((reference) => !_isBlueprintTrainingReference(reference))
-        .toList();
-    final safetyNotesEs = _cleanBlueprintNotes(treatment.prohibidos)
-        .map(_sanitizeBlueprintText)
-        .where((note) => !_isBlueprintTrainingReference(note))
-        .toList();
-    final safetyNotesEn = safetyNotesEs
-        .map(_translateBlueprintTextToEnglish)
-        .toList(growable: false);
-    final beforeSessionTipsEs = _cleanBlueprintNotes(
-      treatment.tipsAntes,
-      excludeSourceReferences: true,
-    )
-        .map(_sanitizeBlueprintText)
-        .where((note) => !_isBlueprintTrainingReference(note))
-        .toList();
-    final beforeSessionTipsEn = beforeSessionTipsEs
-        .map(_translateBlueprintTextToEnglish)
-        .toList(growable: false);
-    final afterSessionTipsEs = _cleanBlueprintNotes(
-      treatment.tipsDespues,
-      excludeSourceReferences: true,
-    )
-        .map(_sanitizeBlueprintText)
-        .where((note) => !_isBlueprintTrainingReference(note))
-        .toList();
-    final afterSessionTipsEn = afterSessionTipsEs
-        .map(_translateBlueprintTextToEnglish)
-        .toList(growable: false);
-    final sourceReferencesEs = sourceReferences
-        .map(_sanitizeBlueprintText)
-        .toList(growable: false);
-    final sourceReferencesEn = sourceReferencesEs
-        .map(_translateBlueprintTextToEnglish)
-        .toList(growable: false);
-    final titleEs = _sanitizeBlueprintText(treatment.nombre);
-    final titleEn = _translateBlueprintTitleToEnglish(treatment.nombre);
-    final categoryEs = entry.zona.trim().isEmpty ? 'General wellness' : entry.zona;
-    final categoryEn = _translateBlueprintCategoryToEnglish(categoryEs);
-    final goalEs = _deriveBlueprintGoal(treatment);
-    final goalEn = treatment.descripcion.trim().isNotEmpty
-        ? _translateBlueprintTextToEnglish(treatment.descripcion.trim())
-        : treatment.sintomas.trim().isNotEmpty
-            ? 'Support for ${_translateBlueprintTextToEnglish(treatment.sintomas.trim().toLowerCase())}.'
-            : 'General wellness guidance for ${titleEn.toLowerCase()}.';
-    final summaryEs = _deriveBlueprintSummary(treatment);
-    final summaryEn = treatment.sintomas.trim().isNotEmpty
-        ? _translateBlueprintTextToEnglish(treatment.sintomas.trim())
-        : treatment.posicion.trim().isNotEmpty
-            ? 'Suggested placement: ${_translateBlueprintTextToEnglish(treatment.posicion.trim())}'
-            : 'Published protocol summary available in the treatment notes.';
-    final distanceGuidanceEs = treatment.posicion.trim().isEmpty
-        ? 'Sigue la distancia usada en el protocolo citado y ajusta segun comodidad.'
-        : _sanitizeBlueprintText(treatment.posicion.trim());
-    final distanceGuidanceEn = treatment.posicion.trim().isEmpty
-        ? 'Follow the distance used in the cited protocol and adjust for comfort.'
-        : _translateBlueprintTextToEnglish(treatment.posicion.trim());
-    final pulseGuidanceEs =
-        treatment.hz.trim().isEmpty ? 'Segun protocolo' : treatment.hz;
-    final pulseGuidanceEn =
-        treatment.hz.trim().isEmpty ? 'Protocol dependent' : treatment.hz;
-    final courseGuidance = _deriveBlueprintCourseGuidance(treatment);
-    return WellnessTreatment(
-      id: treatment.id,
-      titleEs: titleEs,
-      titleEn: titleEn,
-      categoryEs: categoryEs,
-      categoryEn: categoryEn,
-      goalEs: goalEs,
-      goalEn: goalEn,
-      summaryEs: summaryEs,
-      summaryEn: summaryEn,
-      durationMinutes: int.tryParse(treatment.duracion) ?? 10,
-      distanceGuidanceEs: distanceGuidanceEs,
-      distanceGuidanceEn: distanceGuidanceEn,
-      pulseGuidanceEs: pulseGuidanceEs,
-      pulseGuidanceEn: pulseGuidanceEn,
-      intensityDistribution: _mapBlueprintIntensity(treatment.frecuencias),
-      evidenceLevel: deriveEvidenceLevel(
-        sourceReferences: sourceReferencesEs,
-        safetyNotes: safetyNotesEs,
-      ),
-      safetyNotesEs: safetyNotesEs.isEmpty
-          ? const [
-              'Deten la sesion si los sintomas empeoran o aparece molestia.',
-            ]
-          : safetyNotesEs,
-      safetyNotesEn: safetyNotesEn.isEmpty
-          ? const [
-              'Stop the session if symptoms worsen or discomfort appears.',
-            ]
-          : safetyNotesEn,
-      sourceReferencesEs: sourceReferencesEs,
-      sourceReferencesEn: sourceReferencesEn,
-      beforeSessionTipsEs: beforeSessionTipsEs,
-      beforeSessionTipsEn: beforeSessionTipsEn,
-      afterSessionTipsEs: afterSessionTipsEs,
-      afterSessionTipsEn: afterSessionTipsEn,
-      trainingGuidance: buildTrainingGuidance(
-        category: categoryEs,
-        title: treatment.nombre,
-      ),
-      courseGuidance: courseGuidance,
-    );
-  }).whereType<WellnessTreatment>().toList();
+  final treatments = DB_DEFINICIONES
+      .where((entry) => !entry.oculto)
+      .map((entry) {
+        final treatment = _aplicarActualizacionCientifica(entry);
+        if (_isBlueprintDatasetExcluded(treatment)) {
+          return null;
+        }
+        final sourceReferences = _extractBlueprintSourceReferences(treatment)
+            .where((reference) => !_isBlueprintTrainingReference(reference))
+            .toList();
+        final safetyNotesEs = _cleanBlueprintNotes(treatment.prohibidos)
+            .map(_sanitizeBlueprintText)
+            .where((note) => !_isBlueprintTrainingReference(note))
+            .toList();
+        final safetyNotesEn = safetyNotesEs
+            .map(_translateBlueprintTextToEnglish)
+            .toList(growable: false);
+        final beforeSessionTipsEs = _cleanBlueprintNotes(
+          treatment.tipsAntes,
+          excludeSourceReferences: true,
+        )
+            .map(_sanitizeBlueprintText)
+            .where((note) => !_isBlueprintTrainingReference(note))
+            .toList();
+        final beforeSessionTipsEn = beforeSessionTipsEs
+            .map(_translateBlueprintTextToEnglish)
+            .toList(growable: false);
+        final afterSessionTipsEs = _cleanBlueprintNotes(
+          treatment.tipsDespues,
+          excludeSourceReferences: true,
+        )
+            .map(_sanitizeBlueprintText)
+            .where((note) => !_isBlueprintTrainingReference(note))
+            .toList();
+        final afterSessionTipsEn = afterSessionTipsEs
+            .map(_translateBlueprintTextToEnglish)
+            .toList(growable: false);
+        final sourceReferencesEs = sourceReferences
+            .map(_sanitizeBlueprintText)
+            .toList(growable: false);
+        final sourceReferencesEn = sourceReferencesEs
+            .map(_translateBlueprintTextToEnglish)
+            .toList(growable: false);
+        final titleEs = _sanitizeBlueprintText(treatment.nombre);
+        final titleEn = _translateBlueprintTitleToEnglish(treatment.nombre);
+        final categoryEs =
+            entry.zona.trim().isEmpty ? 'General wellness' : entry.zona;
+        final categoryEn = _translateBlueprintCategoryToEnglish(categoryEs);
+        final goalEs = _deriveBlueprintGoal(treatment);
+        final goalEn = treatment.descripcion.trim().isNotEmpty
+            ? _translateBlueprintTextToEnglish(treatment.descripcion.trim())
+            : treatment.sintomas.trim().isNotEmpty
+                ? 'Support for ${_translateBlueprintTextToEnglish(treatment.sintomas.trim().toLowerCase())}.'
+                : 'General wellness guidance for ${titleEn.toLowerCase()}.';
+        final summaryEs = _deriveBlueprintSummary(treatment);
+        final summaryEn = treatment.sintomas.trim().isNotEmpty
+            ? _translateBlueprintTextToEnglish(treatment.sintomas.trim())
+            : treatment.posicion.trim().isNotEmpty
+                ? 'Suggested placement: ${_translateBlueprintTextToEnglish(treatment.posicion.trim())}'
+                : 'Published protocol summary available in the treatment notes.';
+        final distanceGuidanceEs = treatment.posicion.trim().isEmpty
+            ? 'Sigue la distancia usada en el protocolo citado y ajusta segun comodidad.'
+            : _sanitizeBlueprintText(treatment.posicion.trim());
+        final distanceGuidanceEn = treatment.posicion.trim().isEmpty
+            ? 'Follow the distance used in the cited protocol and adjust for comfort.'
+            : _translateBlueprintTextToEnglish(treatment.posicion.trim());
+        final pulseGuidanceEs =
+            treatment.hz.trim().isEmpty ? 'Segun protocolo' : treatment.hz;
+        final pulseGuidanceEn =
+            treatment.hz.trim().isEmpty ? 'Protocol dependent' : treatment.hz;
+        final courseGuidance = _deriveBlueprintCourseGuidance(treatment);
+        return WellnessTreatment(
+          id: treatment.id,
+          titleEs: titleEs,
+          titleEn: titleEn,
+          categoryEs: categoryEs,
+          categoryEn: categoryEn,
+          goalEs: goalEs,
+          goalEn: goalEn,
+          summaryEs: summaryEs,
+          summaryEn: summaryEn,
+          durationMinutes: int.tryParse(treatment.duracion) ?? 10,
+          distanceGuidanceEs: distanceGuidanceEs,
+          distanceGuidanceEn: distanceGuidanceEn,
+          pulseGuidanceEs: pulseGuidanceEs,
+          pulseGuidanceEn: pulseGuidanceEn,
+          intensityDistribution: _mapBlueprintIntensity(treatment.frecuencias),
+          evidenceLevel: deriveEvidenceLevel(
+            sourceReferences: sourceReferencesEs,
+            safetyNotes: safetyNotesEs,
+          ),
+          safetyNotesEs: safetyNotesEs.isEmpty
+              ? const [
+                  'Deten la sesion si los sintomas empeoran o aparece molestia.',
+                ]
+              : safetyNotesEs,
+          safetyNotesEn: safetyNotesEn.isEmpty
+              ? const [
+                  'Stop the session if symptoms worsen or discomfort appears.',
+                ]
+              : safetyNotesEn,
+          sourceReferencesEs: sourceReferencesEs,
+          sourceReferencesEn: sourceReferencesEn,
+          beforeSessionTipsEs: beforeSessionTipsEs,
+          beforeSessionTipsEn: beforeSessionTipsEn,
+          afterSessionTipsEs: afterSessionTipsEs,
+          afterSessionTipsEn: afterSessionTipsEn,
+          trainingGuidance: buildTrainingGuidance(
+            category: categoryEs,
+            title: treatment.nombre,
+          ),
+          courseGuidance: courseGuidance,
+        );
+      })
+      .whereType<WellnessTreatment>()
+      .toList();
 
   treatments.sort((a, b) {
     final category = a.categoryEn.compareTo(b.categoryEn);
@@ -8383,10 +8452,10 @@ class _BluetoothScanDialogState extends State<BluetoothScanDialog> {
   }
 
   List<ScanResult> _prioritizeResults(List<ScanResult> results) {
-    final filtered = List<ScanResult>.from(results)
-        .where(_matchesDefaultFilter)
-        .toList();
-    final source = filtered.isNotEmpty ? filtered : List<ScanResult>.from(results);
+    final filtered =
+        List<ScanResult>.from(results).where(_matchesDefaultFilter).toList();
+    final source =
+        filtered.isNotEmpty ? filtered : List<ScanResult>.from(results);
 
     source.sort((a, b) {
       final aMatches = _matchesDefaultFilter(a);
@@ -8538,10 +8607,11 @@ class _BluetoothScanDialogState extends State<BluetoothScanDialog> {
                             Navigator.pop(context); // Dismiss loading
                             if (success) {
                               Navigator.pop(context); // Dismiss scan dialog
-                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                                  content: Text(
-                                      "Conectado a ${_displayName(item)}"),
-                                  backgroundColor: Colors.green));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                      content: Text(
+                                          "Conectado a ${_displayName(item)}"),
+                                      backgroundColor: Colors.green));
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
