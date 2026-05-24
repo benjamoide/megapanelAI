@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:mega_panel_ai/core/scheduling/blueprint_controller.dart';
 import 'package:mega_panel_ai/core/treatments/treatment.dart';
+import 'package:mega_panel_ai/core/training/training_models.dart';
 import 'package:mega_panel_ai/design_system/blueprint_localization.dart';
 import 'package:mega_panel_ai/design_system/blueprint_theme.dart';
+import 'package:mega_panel_ai/features/panel_control/blueprint_three_panel_screen.dart';
+import 'package:mega_panel_ai/features/panel_control/panel_launch_controller.dart';
 import 'package:mega_panel_ai/features/treatment_catalog/ai_treatment_search_screen.dart';
 import 'package:mega_panel_ai/features/treatment_catalog/treatment_detail_screen.dart';
+import 'package:mega_panel_ai/main.dart';
 import 'package:provider/provider.dart';
 
 class TreatmentCatalogScreen extends StatefulWidget {
@@ -263,6 +267,8 @@ class _TreatmentCard extends StatelessWidget {
     final strings =
         BlueprintStrings(context.watch<BlueprintController>().language);
     final controller = context.watch<BlueprintController>();
+    final panelLauncher = _maybePanelLauncher(context);
+    final today = DateTime.now();
     final compatibility = controller.compatibilityForTreatment(
       treatment: treatment,
     );
@@ -383,6 +389,23 @@ class _TreatmentCard extends StatelessWidget {
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
               ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Icon(
+                    Icons.menu_book_outlined,
+                    size: 16,
+                    color: BlueprintTheme.fog,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      strings.tapForDetailAndSources,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                ],
+              ),
               if (treatment.originNote(strings.isSpanish) != null) ...[
                 const SizedBox(height: 10),
                 Text(
@@ -434,6 +457,89 @@ class _TreatmentCard extends StatelessWidget {
                   ],
                 ),
               ],
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final result = await _pickPlanConfiguration(
+                        context,
+                        strings,
+                        DateTime(today.year, today.month, today.day),
+                        controller,
+                        treatment,
+                      );
+                      if (result == null || !context.mounted) return;
+                      final plannedCount =
+                          await controller.scheduleTreatmentSeries(
+                        treatment: treatment,
+                        dates: result.dates,
+                        momentLabel: result.dates.length == 1 &&
+                                _isSameDay(
+                                  result.dates.first,
+                                  DateTime(today.year, today.month, today.day),
+                                )
+                            ? strings.todayMomentLabel
+                            : strings.scheduledMomentLabel,
+                        trainingRelation: result.trainingRelation,
+                      );
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            result.dates.length == 1
+                                ? strings.plannedFor(result.dates.first)
+                                : strings.coursePlannedResult(
+                                    plannedCount,
+                                    result.dates.length,
+                                  ),
+                          ),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.event_available_outlined),
+                    label: Text(strings.planTreatment),
+                  ),
+                  FilledButton.icon(
+                    onPressed: panelLauncher == null
+                        ? null
+                        : () async {
+                            final normalizedToday =
+                                DateTime(today.year, today.month, today.day);
+                            final planned =
+                                await controller.scheduleTreatmentSeries(
+                              treatment: treatment,
+                              dates: [normalizedToday],
+                              momentLabel: strings.todayMomentLabel,
+                              trainingRelation: TrainingRelation.independent,
+                            );
+                            final panelState =
+                                await panelLauncher.ensurePanelState();
+                            if (!context.mounted) return;
+                            _openPanelControl(
+                              context,
+                              panelState,
+                              autoLaunchTreatment: treatment,
+                            );
+                            final startMessage =
+                                strings.openPanelControlToLaunch;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  planned > 0
+                                      ? '${strings.plannedFor(normalizedToday)} · $startMessage'
+                                      : startMessage,
+                                ),
+                              ),
+                            );
+                          },
+                    icon: const Icon(Icons.play_circle_outline),
+                    label: Text(strings.startSingleDoseNow),
+                  ),
+                ],
+              ),
               const SizedBox(height: 14),
               Container(
                 padding: const EdgeInsets.all(14),
@@ -540,4 +646,384 @@ class _TreatmentCard extends StatelessWidget {
     );
     return result ?? false;
   }
+
+  PanelLaunchController? _maybePanelLauncher(BuildContext context) {
+    try {
+      return Provider.of<PanelLaunchController>(context, listen: false);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  bool _isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  void _openPanelControl(
+    BuildContext context,
+    AppState panelState, {
+    WellnessTreatment? autoLaunchTreatment,
+  }) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ChangeNotifierProvider<AppState>.value(
+          value: panelState,
+          child: BlueprintThreePanelScreen(
+            autoLaunchTreatment: autoLaunchTreatment,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<_CatalogPlanConfiguration?> _pickPlanConfiguration(
+    BuildContext context,
+    BlueprintStrings strings,
+    DateTime today,
+    BlueprintController controller,
+    WellnessTreatment treatment,
+  ) async {
+    final guidance = treatment.courseGuidance;
+    var selectedDate = today;
+    var multipleSessions = guidance != null;
+    var sessionCount = guidance?.recommendedSessions ?? 4;
+    var relation = TrainingRelation.independent;
+    var cadence = guidance?.recommendedSpacingDays == 1
+        ? _CatalogPlanningCadence.daily
+        : _CatalogPlanningCadence.alternateDays;
+    final extraDates = <DateTime>[];
+
+    return showModalBottomSheet<_CatalogPlanConfiguration>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) => SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(
+            20,
+            8,
+            20,
+            24 + MediaQuery.of(ctx).viewInsets.bottom,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                strings.planTreatment,
+                style: Theme.of(ctx).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                guidance?.summary(strings.isSpanish) ??
+                    treatment.summary(strings.isSpanish),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                strings.planShape,
+                style: Theme.of(ctx).textTheme.titleSmall,
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  ChoiceChip(
+                    label: Text(strings.singleDose),
+                    selected: !multipleSessions,
+                    onSelected: (_) => setState(() => multipleSessions = false),
+                  ),
+                  ChoiceChip(
+                    label: Text(strings.repeatedPlan),
+                    selected: multipleSessions,
+                    onSelected: (_) => setState(() => multipleSessions = true),
+                  ),
+                ],
+              ),
+              if (guidance != null) ...[
+                const SizedBox(height: 10),
+                Text(
+                  '${strings.courseWindow}: ${strings.courseRangeLabel(guidance.minSessions, guidance.maxSessions)}',
+                  style: Theme.of(ctx).textTheme.bodySmall,
+                ),
+              ],
+              const SizedBox(height: 14),
+              Text(
+                '${strings.courseStartDate}: ${strings.shortDate(selectedDate)}',
+                style: Theme.of(ctx).textTheme.titleSmall,
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final picked = await showDatePicker(
+                    context: ctx,
+                    initialDate: selectedDate,
+                    firstDate: today,
+                    lastDate: DateTime(
+                      today.year,
+                      today.month,
+                      today.day + 365,
+                    ),
+                    helpText: strings.courseStartDate,
+                    cancelText: strings.cancel,
+                    confirmText: strings.save,
+                  );
+                  if (picked != null) {
+                    final normalized = DateTime(
+                      picked.year,
+                      picked.month,
+                      picked.day,
+                    );
+                    setState(() {
+                      selectedDate = normalized;
+                      extraDates.removeWhere(
+                        (entry) => !entry.isAfter(normalized),
+                      );
+                    });
+                  }
+                },
+                icon: const Icon(Icons.event_outlined),
+                label: Text(strings.courseStartDate),
+              ),
+              const SizedBox(height: 14),
+              if (multipleSessions) ...[
+                if (cadence != _CatalogPlanningCadence.customDates) ...[
+                  Text(
+                    '${strings.courseTotalSessions}: $sessionCount',
+                    style: Theme.of(ctx).textTheme.titleSmall,
+                  ),
+                  if (guidance != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        '${strings.courseWindow}: ${strings.courseRangeLabel(guidance.minSessions, guidance.maxSessions)}',
+                        style: Theme.of(ctx).textTheme.bodySmall,
+                      ),
+                    ),
+                  Slider(
+                    value: sessionCount.toDouble(),
+                    min: (guidance?.minSessions ?? 2).toDouble(),
+                    max: (guidance?.maxSessions ?? 20).toDouble(),
+                    divisions: (guidance?.maxSessions ?? 20) -
+                        (guidance?.minSessions ?? 2),
+                    label: '$sessionCount',
+                    onChanged: (value) =>
+                        setState(() => sessionCount = value.round()),
+                  ),
+                ],
+                const SizedBox(height: 8),
+                Text(
+                  strings.planningCadence,
+                  style: Theme.of(ctx).textTheme.titleSmall,
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _CatalogPlanningCadence.values.map((option) {
+                    return ChoiceChip(
+                      label: Text(_cadenceLabel(strings, option)),
+                      selected: cadence == option,
+                      onSelected: (_) => setState(() => cadence = option),
+                    );
+                  }).toList(growable: false),
+                ),
+                if (cadence == _CatalogPlanningCadence.customDates) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    strings.selectedDays,
+                    style: Theme.of(ctx).textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      Chip(label: Text(strings.shortDate(selectedDate))),
+                      ...extraDates.map(
+                        (date) => InputChip(
+                          label: Text(strings.shortDate(date)),
+                          onDeleted: () =>
+                              setState(() => extraDates.remove(date)),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final picked = await showDatePicker(
+                        context: ctx,
+                        initialDate: selectedDate.add(const Duration(days: 1)),
+                        firstDate: selectedDate,
+                        lastDate: DateTime(
+                          today.year,
+                          today.month,
+                          today.day + 365,
+                        ),
+                        helpText: strings.addCalendarDay,
+                        cancelText: strings.cancel,
+                        confirmText: strings.save,
+                      );
+                      if (picked == null) return;
+                      final normalized = DateTime(
+                        picked.year,
+                        picked.month,
+                        picked.day,
+                      );
+                      if (normalized == selectedDate ||
+                          extraDates.any((entry) => entry == normalized)) {
+                        return;
+                      }
+                      setState(() => extraDates.add(normalized));
+                    },
+                    icon: const Icon(Icons.add_outlined),
+                    label: Text(strings.addCalendarDay),
+                  ),
+                ] else ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    '${strings.courseSpacing}: ${_cadenceLabel(strings, cadence)}',
+                    style: Theme.of(ctx).textTheme.bodySmall,
+                  ),
+                ],
+              ],
+              const SizedBox(height: 14),
+              Text(
+                strings.planRelationTitle,
+                style: Theme.of(ctx).textTheme.titleSmall,
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: TrainingRelation.values.map((option) {
+                  return ChoiceChip(
+                    label: Text(strings.trainingRelationLabel(option)),
+                    selected: relation == option,
+                    onSelected: (_) => setState(() => relation = option),
+                  );
+                }).toList(growable: false),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      child: Text(strings.cancel),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () {
+                        final dates = _resolvePlannedDates(
+                          startDate: selectedDate,
+                          multipleSessions: multipleSessions,
+                          sessionCount: sessionCount,
+                          cadence: cadence,
+                          extraDates: extraDates,
+                        );
+                        if (dates.isEmpty) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            SnackBar(content: Text(strings.startDateRequired)),
+                          );
+                          return;
+                        }
+                        if (multipleSessions &&
+                            cadence == _CatalogPlanningCadence.customDates &&
+                            dates.length < 2) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            SnackBar(
+                              content: Text(strings.addAtLeastOneExtraDay),
+                            ),
+                          );
+                          return;
+                        }
+                        Navigator.of(ctx).pop(
+                          _CatalogPlanConfiguration(
+                            dates: dates,
+                            trainingRelation: relation,
+                          ),
+                        );
+                      },
+                      child: Text(strings.save),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<DateTime> _resolvePlannedDates({
+    required DateTime startDate,
+    required bool multipleSessions,
+    required int sessionCount,
+    required _CatalogPlanningCadence cadence,
+    required List<DateTime> extraDates,
+  }) {
+    final normalizedStart =
+        DateTime(startDate.year, startDate.month, startDate.day);
+    if (!multipleSessions) return [normalizedStart];
+    if (cadence == _CatalogPlanningCadence.customDates) {
+      final dates = <DateTime>{normalizedStart, ...extraDates}.toList()..sort();
+      return dates;
+    }
+    final spacingDays = switch (cadence) {
+      _CatalogPlanningCadence.daily => 1,
+      _CatalogPlanningCadence.alternateDays => 2,
+      _CatalogPlanningCadence.weekly => 7,
+      _CatalogPlanningCadence.fortnightly => 14,
+      _CatalogPlanningCadence.customDates => 0,
+    };
+    return List<DateTime>.generate(
+      sessionCount,
+      (index) => DateTime(
+        normalizedStart.year,
+        normalizedStart.month,
+        normalizedStart.day + (spacingDays * index),
+      ),
+    );
+  }
+
+  String _cadenceLabel(
+    BlueprintStrings strings,
+    _CatalogPlanningCadence cadence,
+  ) {
+    switch (cadence) {
+      case _CatalogPlanningCadence.daily:
+        return strings.dailyCadence;
+      case _CatalogPlanningCadence.alternateDays:
+        return strings.alternateCadence;
+      case _CatalogPlanningCadence.weekly:
+        return strings.weeklyCadence;
+      case _CatalogPlanningCadence.fortnightly:
+        return strings.fortnightlyCadence;
+      case _CatalogPlanningCadence.customDates:
+        return strings.customCadence;
+    }
+  }
+}
+
+enum _CatalogPlanningCadence {
+  daily,
+  alternateDays,
+  weekly,
+  fortnightly,
+  customDates,
+}
+
+class _CatalogPlanConfiguration {
+  const _CatalogPlanConfiguration({
+    required this.dates,
+    required this.trainingRelation,
+  });
+
+  final List<DateTime> dates;
+  final TrainingRelation trainingRelation;
 }
