@@ -359,6 +359,9 @@ class BlueprintStrings {
         : 'AI did not find clear recommendations for the current context.';
   String get viewTreatmentDetail =>
       isSpanish ? 'Ver detalle' : 'View detail';
+  String get tapForDetailAndSources => isSpanish
+      ? 'Toca la tarjeta para ver el detalle completo, las notas y las referencias cientificas.'
+      : 'Tap the card to open the full detail view, notes and scientific references.';
   String get aiSearchRun =>
         isSpanish ? 'Lanzar busqueda' : 'Run search';
   String get aiSearching =>
