@@ -532,6 +532,12 @@ class BlueprintStrings {
       isSpanish ? 'Proxima sesion del curso' : 'Next course session';
   String get planForToday =>
       isSpanish ? 'Planificar para hoy' : 'Plan for today';
+  String get startSingleDoseNow => isSpanish
+      ? 'Planificar hoy y preparar inicio'
+      : 'Plan for today and start';
+  String get panelLaunchUnavailable => isSpanish
+      ? 'El inicio directo desde la tarjeta esta disponible en las versiones con control de panel.'
+      : 'Direct start from the card is available in panel-control builds.';
   String get chooseDate => isSpanish ? 'Elegir fecha' : 'Choose a date';
   String get todayMomentLabel => isSpanish ? 'Hoy' : 'Today';
   String get scheduledMomentLabel => isSpanish ? 'Planificado' : 'Scheduled';

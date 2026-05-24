@@ -4,11 +4,8 @@ import 'package:mega_panel_ai/core/treatments/treatment.dart';
 import 'package:mega_panel_ai/core/training/training_models.dart';
 import 'package:mega_panel_ai/design_system/blueprint_localization.dart';
 import 'package:mega_panel_ai/design_system/blueprint_theme.dart';
-import 'package:mega_panel_ai/features/panel_control/blueprint_three_panel_screen.dart';
-import 'package:mega_panel_ai/features/panel_control/panel_launch_controller.dart';
 import 'package:mega_panel_ai/features/treatment_catalog/ai_treatment_search_screen.dart';
 import 'package:mega_panel_ai/features/treatment_catalog/treatment_detail_screen.dart';
-import 'package:mega_panel_ai/main.dart';
 import 'package:provider/provider.dart';
 
 class TreatmentCatalogScreen extends StatefulWidget {
@@ -267,7 +264,6 @@ class _TreatmentCard extends StatelessWidget {
     final strings =
         BlueprintStrings(context.watch<BlueprintController>().language);
     final controller = context.watch<BlueprintController>();
-    final panelLauncher = _maybePanelLauncher(context);
     final today = DateTime.now();
     final compatibility = controller.compatibilityForTreatment(
       treatment: treatment,
@@ -468,7 +464,6 @@ class _TreatmentCard extends StatelessWidget {
                         context,
                         strings,
                         DateTime(today.year, today.month, today.day),
-                        controller,
                         treatment,
                       );
                       if (result == null || !context.mounted) return;
@@ -503,38 +498,24 @@ class _TreatmentCard extends StatelessWidget {
                     label: Text(strings.planTreatment),
                   ),
                   FilledButton.icon(
-                    onPressed: panelLauncher == null
-                        ? null
-                        : () async {
-                            final normalizedToday =
-                                DateTime(today.year, today.month, today.day);
-                            final planned =
-                                await controller.scheduleTreatmentSeries(
-                              treatment: treatment,
-                              dates: [normalizedToday],
-                              momentLabel: strings.todayMomentLabel,
-                              trainingRelation: TrainingRelation.independent,
-                            );
-                            final panelState =
-                                await panelLauncher.ensurePanelState();
-                            if (!context.mounted) return;
-                            _openPanelControl(
-                              context,
-                              panelState,
-                              autoLaunchTreatment: treatment,
-                            );
-                            final startMessage =
-                                strings.openPanelControlToLaunch;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  planned > 0
-                                      ? '${strings.plannedFor(normalizedToday)} · $startMessage'
-                                      : startMessage,
-                                ),
-                              ),
-                            );
-                          },
+                    onPressed: () async {
+                      final normalizedToday =
+                          DateTime(today.year, today.month, today.day);
+                      await controller.scheduleTreatmentSeries(
+                        treatment: treatment,
+                        dates: [normalizedToday],
+                        momentLabel: strings.todayMomentLabel,
+                        trainingRelation: TrainingRelation.independent,
+                      );
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            '${strings.plannedFor(normalizedToday)} · ${strings.panelLaunchUnavailable}',
+                          ),
+                        ),
+                      );
+                    },
                     icon: const Icon(Icons.play_circle_outline),
                     label: Text(strings.startSingleDoseNow),
                   ),
@@ -647,40 +628,14 @@ class _TreatmentCard extends StatelessWidget {
     return result ?? false;
   }
 
-  PanelLaunchController? _maybePanelLauncher(BuildContext context) {
-    try {
-      return Provider.of<PanelLaunchController>(context, listen: false);
-    } catch (_) {
-      return null;
-    }
-  }
-
   bool _isSameDay(DateTime a, DateTime b) {
     return a.year == b.year && a.month == b.month && a.day == b.day;
-  }
-
-  void _openPanelControl(
-    BuildContext context,
-    AppState panelState, {
-    WellnessTreatment? autoLaunchTreatment,
-  }) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => ChangeNotifierProvider<AppState>.value(
-          value: panelState,
-          child: BlueprintThreePanelScreen(
-            autoLaunchTreatment: autoLaunchTreatment,
-          ),
-        ),
-      ),
-    );
   }
 
   Future<_CatalogPlanConfiguration?> _pickPlanConfiguration(
     BuildContext context,
     BlueprintStrings strings,
     DateTime today,
-    BlueprintController controller,
     WellnessTreatment treatment,
   ) async {
     final guidance = treatment.courseGuidance;
@@ -740,13 +695,6 @@ class _TreatmentCard extends StatelessWidget {
                   ),
                 ],
               ),
-              if (guidance != null) ...[
-                const SizedBox(height: 10),
-                Text(
-                  '${strings.courseWindow}: ${strings.courseRangeLabel(guidance.minSessions, guidance.maxSessions)}',
-                  style: Theme.of(ctx).textTheme.bodySmall,
-                ),
-              ],
               const SizedBox(height: 14),
               Text(
                 '${strings.courseStartDate}: ${strings.shortDate(selectedDate)}',
@@ -759,11 +707,7 @@ class _TreatmentCard extends StatelessWidget {
                     context: ctx,
                     initialDate: selectedDate,
                     firstDate: today,
-                    lastDate: DateTime(
-                      today.year,
-                      today.month,
-                      today.day + 365,
-                    ),
+                    lastDate: DateTime(today.year, today.month, today.day + 365),
                     helpText: strings.courseStartDate,
                     cancelText: strings.cancel,
                     confirmText: strings.save,
@@ -792,14 +736,6 @@ class _TreatmentCard extends StatelessWidget {
                     '${strings.courseTotalSessions}: $sessionCount',
                     style: Theme.of(ctx).textTheme.titleSmall,
                   ),
-                  if (guidance != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text(
-                        '${strings.courseWindow}: ${strings.courseRangeLabel(guidance.minSessions, guidance.maxSessions)}',
-                        style: Theme.of(ctx).textTheme.bodySmall,
-                      ),
-                    ),
                   Slider(
                     value: sessionCount.toDouble(),
                     min: (guidance?.minSessions ?? 2).toDouble(),
@@ -856,11 +792,7 @@ class _TreatmentCard extends StatelessWidget {
                         context: ctx,
                         initialDate: selectedDate.add(const Duration(days: 1)),
                         firstDate: selectedDate,
-                        lastDate: DateTime(
-                          today.year,
-                          today.month,
-                          today.day + 365,
-                        ),
+                        lastDate: DateTime(today.year, today.month, today.day + 365),
                         helpText: strings.addCalendarDay,
                         cancelText: strings.cancel,
                         confirmText: strings.save,
@@ -879,12 +811,6 @@ class _TreatmentCard extends StatelessWidget {
                     },
                     icon: const Icon(Icons.add_outlined),
                     label: Text(strings.addCalendarDay),
-                  ),
-                ] else ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    '${strings.courseSpacing}: ${_cadenceLabel(strings, cadence)}',
-                    style: Theme.of(ctx).textTheme.bodySmall,
                   ),
                 ],
               ],
