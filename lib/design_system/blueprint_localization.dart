@@ -36,7 +36,7 @@ class BlueprintStrings {
 
   bool get isSpanish => language == AppLanguage.spanish;
 
-  String get appTitle => isSpanish ? 'BlockBlueLight' : 'BlockBlueLight';
+  String get appTitle => isSpanish ? 'Blueprint One' : 'Blueprint One';
   String get disclaimer => isSpanish
       ? 'Esta app ofrece orientacion de bienestar basada en literatura publicada y no es un dispositivo medico.'
       : 'This app provides wellness guidance based on published literature and is not a medical device.';
@@ -48,7 +48,7 @@ class BlueprintStrings {
   String get englishLabel => isSpanish ? 'Ingles' : 'English';
   String get spanishLabel => isSpanish ? 'Castellano' : 'Spanish';
   String get howToUseTitle =>
-      isSpanish ? 'Como usar BlockBlueLight' : 'How to use BlockBlueLight';
+      isSpanish ? 'Como usar Blueprint One' : 'How to use Blueprint One';
   String get howToUseSettingsBody => isSpanish
       ? 'Consulta una guia practica sobre el objetivo de la app, como interpretar los tratamientos, como planificarlos y como leer las referencias y notas de seguridad.'
       : 'Open a practical guide covering the purpose of the app, how to interpret treatments, how to plan them and how to read references and safety notes.';
@@ -67,8 +67,8 @@ class BlueprintStrings {
   String get appPurposeTitle =>
       isSpanish ? 'Objeto de la app' : 'What the app is for';
   String get appPurposeBody => isSpanish
-      ? 'BlockBlueLight es una app de acompanamiento para bienestar y fototerapia. Reune protocolos publicados, ayuda a compararlos, planificarlos y registrar su seguimiento, y en esta version tambien integra el control del panel Mega.'
-      : 'BlockBlueLight is a wellness and light-therapy companion app. It brings together published protocols, helps you compare them, plan them and track follow-through, and in this version also integrates Mega panel control.';
+      ? 'Blueprint One es una app de acompanamiento para bienestar y fototerapia. Reune protocolos publicados, ayuda a compararlos, planificarlos y registrar su seguimiento.'
+      : 'Blueprint One is a wellness and light-therapy companion app. It brings together published protocols, helps you compare them, plan them and track follow-through.';
   String get nonMedicalBoundary => isSpanish
       ? 'No diagnostica, no prescribe y no sustituye la valoracion de un profesional sanitario.'
       : 'It does not diagnose, prescribe or replace assessment from a qualified healthcare professional.';
@@ -320,108 +320,6 @@ class BlueprintStrings {
   String get treatmentCatalogueBody => isSpanish
       ? 'Elige un objetivo, revisa la configuracion recomendada y planificalo en tu semana.'
       : 'Choose a goal, review recommended settings and plan it into your week.';
-  String get curatedTreatmentsTitle =>
-      isSpanish ? 'Catalogo curado' : 'Curated catalogue';
-  String get myTreatmentsTitle =>
-      isSpanish ? 'Mis tratamientos' : 'My treatments';
-  String get aiDraftsTitle =>
-      isSpanish ? 'Borradores IA' : 'AI drafts';
-  String get myTreatmentsBody => isSpanish
-      ? 'Aqui puedes guardar tratamientos propios o convertir borradores IA en parte de tu biblioteca personal.'
-      : 'Save your own treatments here or turn AI drafts into part of your personal library.';
-  String get aiDraftsBody => isSpanish
-      ? 'Los borradores IA se mantienen aparte hasta que decidas convertirlos en un tratamiento propio.'
-      : 'AI drafts stay separate until you decide to turn them into one of your own treatments.';
-  String get aiSearchTitle =>
-      isSpanish ? 'Busqueda asistida por IA' : 'AI-assisted search';
-  String get aiSearchBody => isSpanish
-      ? 'Describe una dolencia, objetivo o situacion concreta. La IA puede recomendar tratamientos del catalogo actual y proponer nuevos borradores con referencias y configuracion orientativa.'
-      : 'Describe a condition, goal or specific context. AI can recommend treatments from the current catalogue and propose new draft treatments with references and practical setup guidance.';
-  String get aiSearchAction =>
-      isSpanish ? 'Buscar con IA' : 'Search with AI';
-  String get aiSearchHint => isSpanish
-      ? 'Ejemplo: dolor en tendon de Aquiles tras series de carrera'
-      : 'Example: Achilles tendon pain after sprint intervals';
-  String get aiSearchHelper => isSpanish
-      ? 'Cuanto mas concreto seas con sintomas, zona y contexto deportivo, mejor podra orientar la busqueda.'
-      : 'The more specific you are about symptoms, area and training context, the better the search guidance will be.';
-  String get aiSearchUnavailable => isSpanish
-      ? 'La busqueda IA no esta disponible en esta build.'
-      : 'AI search is not available in this build.';
-  String get aiSearchSummaryTitle =>
-      isSpanish ? 'Resumen de la busqueda' : 'Search summary';
-  String get aiRecommendedExisting =>
-      isSpanish ? 'Sugeridos del catalogo actual' : 'Suggested from the current catalogue';
-  String get aiProposedDrafts =>
-      isSpanish ? 'Borradores propuestos por IA' : 'AI-proposed drafts';
-  String get aiNoRecommendations => isSpanish
-        ? 'La IA no encontro recomendaciones claras con el contexto actual.'
-        : 'AI did not find clear recommendations for the current context.';
-  String get viewTreatmentDetail =>
-      isSpanish ? 'Ver detalle' : 'View detail';
-  String get tapForDetailAndSources => isSpanish
-      ? 'Toca la tarjeta para ver el detalle completo, las notas y las referencias cientificas.'
-      : 'Tap the card to open the full detail view, notes and scientific references.';
-  String get aiSearchRun =>
-        isSpanish ? 'Lanzar busqueda' : 'Run search';
-  String get aiSearching =>
-      isSpanish ? 'Buscando tratamientos...' : 'Searching treatments...';
-  String get catalogEmptyState => isSpanish
-      ? 'No hay tratamientos que coincidan con este filtro.'
-      : 'No treatments match this filter.';
-  String get myTreatmentsEmptyState => isSpanish
-      ? 'Todavia no has guardado tratamientos propios.'
-      : 'You have not saved any personal treatments yet.';
-  String get aiDraftsEmptyState => isSpanish
-      ? 'Todavia no hay borradores IA. Usa la busqueda asistida para generar uno.'
-      : 'There are no AI drafts yet. Use assisted search to generate one.';
-  String get aiDraftReviewTitle =>
-      isSpanish ? 'Revisar antes de guardar' : 'Review before saving';
-  String get aiDraftReviewBody => isSpanish
-      ? 'Los borradores IA no sustituyen el catalogo curado. Revisa referencias, seguridad y configuracion antes de guardarlos en tu biblioteca.'
-      : 'AI drafts do not replace the curated catalogue. Review references, safety notes and setup guidance before saving them to your library.';
-  String get aiDraftSourcePreviewTitle =>
-      isSpanish ? 'Fuentes visibles' : 'Visible sources';
-  String aiDraftSourceCount(int count) => isSpanish
-      ? '$count referencias incluidas'
-      : '$count references included';
-  String get aiDraftSearchQueryLabel =>
-      isSpanish ? 'Busqueda original' : 'Original search';
-  String get aiDraftGeneratedAtLabel =>
-      isSpanish ? 'Generado' : 'Generated';
-  String get addToMyTreatments =>
-      isSpanish ? 'Anadir a mis tratamientos' : 'Add to my treatments';
-  String get addedToMyTreatments => isSpanish
-      ? 'Anadido a Mis tratamientos'
-      : 'Added to My treatments';
-  String get confirmAddAiDraftTitle => isSpanish
-      ? 'Guardar borrador IA'
-      : 'Save AI draft';
-  String get confirmAddAiDraftBody => isSpanish
-      ? 'Este borrador se copiara a Mis tratamientos y seguira indicando que procede de una busqueda con IA.'
-      : 'This draft will be copied to My treatments and will still indicate that it originated from an AI-assisted search.';
-  String get confirmAddAiDraftAction =>
-      isSpanish ? 'Guardar tratamiento' : 'Save treatment';
-  String get discardAiDraft =>
-      isSpanish ? 'Descartar borrador' : 'Discard draft';
-  String get discardAiDraftTitle =>
-      isSpanish ? 'Eliminar borrador IA' : 'Remove AI draft';
-  String get discardAiDraftBody => isSpanish
-      ? 'El borrador se eliminara del catalogo IA, pero no afectara a tus tratamientos guardados.'
-      : 'The draft will be removed from the AI catalogue, but your saved treatments will not be affected.';
-  String get discardAiDraftAction =>
-      isSpanish ? 'Eliminar borrador' : 'Remove draft';
-  String get discardedAiDraft =>
-      isSpanish ? 'Borrador IA eliminado' : 'AI draft removed';
-  String get generatedFromAiSearch => isSpanish
-      ? 'Generado desde una busqueda con IA'
-      : 'Generated from an AI-assisted search';
-  String get originCuratedLabel =>
-      isSpanish ? 'Curado' : 'Curated';
-  String get originAiDraftLabel =>
-      isSpanish ? 'Borrador IA' : 'AI draft';
-  String get originUserTreatmentLabel =>
-      isSpanish ? 'Tratamiento propio' : 'My treatment';
   String get searchHint => isSpanish
       ? 'Buscar por objetivo, zona o sintoma'
       : 'Search by goal, area or symptom';
@@ -532,6 +430,15 @@ class BlueprintStrings {
       isSpanish ? 'Proxima sesion del curso' : 'Next course session';
   String get planForToday =>
       isSpanish ? 'Planificar para hoy' : 'Plan for today';
+  String get startSingleDoseNow => isSpanish
+      ? 'Planificar hoy y preparar inicio'
+      : 'Plan for today and start';
+  String get tapForDetailAndSources => isSpanish
+      ? 'Toca la tarjeta para ver el detalle completo, las notas y las referencias cientificas.'
+      : 'Tap the card to open the full detail view, notes and scientific references.';
+  String get panelLaunchUnavailable => isSpanish
+      ? 'El inicio directo desde la tarjeta esta disponible en las versiones con control de panel.'
+      : 'Direct start from the card is available in panel-control builds.';
   String get chooseDate => isSpanish ? 'Elegir fecha' : 'Choose a date';
   String get todayMomentLabel => isSpanish ? 'Hoy' : 'Today';
   String get scheduledMomentLabel => isSpanish ? 'Planificado' : 'Scheduled';
@@ -562,11 +469,6 @@ class BlueprintStrings {
       '${shortDate(date)} - ${translateMomentLabel(label)}';
   String get scheduledSessions =>
       isSpanish ? 'Sesiones planificadas' : 'Scheduled sessions';
-  String get openLabel => isSpanish ? 'Abrir' : 'Open';
-  String get runOnPanelLabel =>
-      isSpanish ? 'Lanzar en panel' : 'Run on panel';
-  String get deletePlanLabel =>
-      isSpanish ? 'Eliminar' : 'Delete';
   String get noTreatmentsScheduledForDay => isSpanish
       ? 'No hay tratamientos programados para este dia.'
       : 'No treatments scheduled for this day.';
@@ -574,20 +476,6 @@ class BlueprintStrings {
       isSpanish ? 'Relacion' : 'Relation';
   String get completed => isSpanish ? 'Completada' : 'Completed';
   String get skipped => isSpanish ? 'Omitida' : 'Skipped';
-  String get markedCompleted =>
-      isSpanish ? 'Sesion marcada como completada.' : 'Session marked as completed.';
-  String get markedSkipped =>
-      isSpanish ? 'Sesion marcada como omitida.' : 'Session marked as skipped.';
-  String get planDeleted =>
-      isSpanish ? 'Sesion eliminada del calendario.' : 'Session removed from the calendar.';
-  String get treatmentStartedOnPanel =>
-      isSpanish ? 'Tratamiento enviado al panel.' : 'Treatment sent to the panel.';
-  String get treatmentStartFailed => isSpanish
-      ? 'No se pudo iniciar el tratamiento en el panel.'
-      : 'The treatment could not be started on the panel.';
-  String get openPanelControlToLaunch => isSpanish
-      ? 'Abriendo el control del panel para lanzar el tratamiento.'
-      : 'Opening panel control to launch the treatment.';
   String get dayResults => isSpanish ? 'Resultados del dia' : 'Day results';
   String get nothingMarkedYet => isSpanish
       ? 'Todavia no hay nada marcado para este dia.'
@@ -673,18 +561,6 @@ class BlueprintStrings {
       isSpanish ? 'Hora - $timeText' : 'Time - $timeText';
   String get cancel => isSpanish ? 'Cancelar' : 'Cancel';
   String get save => isSpanish ? 'Guardar' : 'Save';
-  String get startSingleDoseNow => isSpanish
-      ? 'Planificar hoy y lanzar en panel'
-      : 'Plan for today and run on panel';
-  String get launchOnPanelQuestionTitle => isSpanish
-      ? 'Iniciar en el panel'
-      : 'Start on the panel';
-  String get launchOnPanelQuestionBody => isSpanish
-      ? 'La dosis puntual ha quedado planificada para hoy. Quieres enviarla ahora mismo al panel conectado?'
-      : 'The single dose has been scheduled for today. Do you want to send it to the connected panel now?';
-  String get notNowLabel => isSpanish ? 'Ahora no' : 'Not now';
-  String get launchOnPanelNow =>
-      isSpanish ? 'Lanzar ahora' : 'Launch now';
 
   String sessionStatusLabel(SessionStatus status) {
     switch (status) {
@@ -908,17 +784,6 @@ class BlueprintStrings {
         return isSpanish ? 'Moderada' : 'Moderate';
       case EvidenceLevel.strong:
         return isSpanish ? 'Solida' : 'Strong';
-    }
-  }
-
-  String originLabel(TreatmentOrigin origin) {
-    switch (origin) {
-      case TreatmentOrigin.curated:
-        return originCuratedLabel;
-      case TreatmentOrigin.aiDraft:
-        return originAiDraftLabel;
-      case TreatmentOrigin.userTreatment:
-        return originUserTreatmentLabel;
     }
   }
 
