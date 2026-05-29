@@ -10,7 +10,10 @@ class PanelLaunchController extends ChangeNotifier {
   bool _launching = false;
   String? _lastErrorMessage;
   WellnessTreatment? _pendingWakeTreatment;
+  WellnessTreatment? _lastRequestedTreatment;
   bool _wakeRetryInFlight = false;
+  bool _diagnosticRunning = false;
+  String? _lastDiagnosticMessage;
   StreamSubscription<List<int>>? _protocolRxSubscription;
 
   AppState? get panelState => _panelState;
@@ -20,6 +23,15 @@ class PanelLaunchController extends ChangeNotifier {
   String? get lastErrorMessage => _lastErrorMessage;
   bool get hasPendingWakeTreatment => _pendingWakeTreatment != null;
   WellnessTreatment? get pendingWakeTreatment => _pendingWakeTreatment;
+  WellnessTreatment? get lastRequestedTreatment => _lastRequestedTreatment;
+  WellnessTreatment? get diagnosticTargetTreatment =>
+      _pendingWakeTreatment ?? _lastRequestedTreatment;
+  bool get diagnosticRunning => _diagnosticRunning;
+  String? get lastDiagnosticMessage => _lastDiagnosticMessage;
+  String? get lastDiagnosticSequenceId =>
+      _panelState?.lastManualDiagnosticSequenceId;
+  String get lastDiagnosticStatusPreview =>
+      _panelState?.lastManualDiagnosticStatusPreview ?? '<none>';
   String? get pendingWakeMessage => _pendingWakeTreatment == null
       ? null
       : 'The panel is connected but asleep. Touch the panel screen and the app will retry automatically.';
@@ -43,6 +55,7 @@ class PanelLaunchController extends ChangeNotifier {
 
   Future<bool> launchTreatment(WellnessTreatment treatment) async {
     final state = await ensurePanelState();
+    _lastRequestedTreatment = treatment;
     if (!state.isConnected) {
       _lastErrorMessage = 'Connect the panel before launching a treatment.';
       notifyListeners();
@@ -94,6 +107,57 @@ class PanelLaunchController extends ChangeNotifier {
     final treatment = _pendingWakeTreatment;
     if (treatment == null) return false;
     return launchTreatment(treatment);
+  }
+
+  Future<bool> runWakeDiagnostic(
+    ManualStartDiagnosticStrategy strategy,
+  ) async {
+    final treatment = diagnosticTargetTreatment;
+    if (treatment == null) {
+      _lastDiagnosticMessage =
+          'Launch or queue a treatment first so the wake test has a target configuration.';
+      notifyListeners();
+      return false;
+    }
+
+    final state = await ensurePanelState();
+    if (!state.isConnected) {
+      _lastDiagnosticMessage =
+          'Connect the panel before running a wake diagnostic.';
+      notifyListeners();
+      return false;
+    }
+
+    _diagnosticRunning = true;
+    _lastDiagnosticMessage =
+        'Running wake diagnostic ${_diagnosticStrategyId(strategy)}...';
+    notifyListeners();
+
+    try {
+      if (state.hayCicloActivo || state.hayCicloPausado) {
+        await state.detenerPanelActivo();
+      }
+      final started = await state.iniciarCicloManual(
+        _mapToLegacyTreatment(treatment),
+        sequenceMode: 2,
+        workMode: 0,
+        diagnosticPresetIndex: 0,
+        diagnosticStrategy: strategy,
+      );
+      final seq = state.lastManualDiagnosticSequenceId ?? 'n/a';
+      final status = state.lastManualDiagnosticStatusPreview;
+      _lastDiagnosticMessage = started
+          ? 'Wake diagnostic ${_diagnosticStrategyId(strategy)} sent. Seq=$seq status=$status'
+          : 'Wake diagnostic ${_diagnosticStrategyId(strategy)} did not start the panel. Seq=$seq status=$status';
+      return started;
+    } catch (e) {
+      _lastDiagnosticMessage =
+          'Wake diagnostic ${_diagnosticStrategyId(strategy)} failed: $e';
+      return false;
+    } finally {
+      _diagnosticRunning = false;
+      notifyListeners();
+    }
   }
 
   Tratamiento _mapToLegacyTreatment(WellnessTreatment treatment) {
@@ -186,6 +250,31 @@ class PanelLaunchController extends ChangeNotifier {
       return raw;
     }
     return 'The treatment could not be started yet. The panel did not respond.';
+  }
+
+  String _diagnosticStrategyId(ManualStartDiagnosticStrategy strategy) {
+    switch (strategy) {
+      case ManualStartDiagnosticStrategy.disabled:
+        return 'disabled';
+      case ManualStartDiagnosticStrategy.powerOnOnly:
+        return '20:1';
+      case ManualStartDiagnosticStrategy.control2to1:
+        return '20:2->1';
+      case ManualStartDiagnosticStrategy.control1to2:
+        return '20:1->2';
+      case ManualStartDiagnosticStrategy.quickStart:
+        return '21';
+      case ManualStartDiagnosticStrategy.officialPresetRun:
+        return '70->20:0->73';
+      case ManualStartDiagnosticStrategy.powerOnWithModeAndShortCountdown:
+        return '20:1+wm+ct45';
+      case ManualStartDiagnosticStrategy.control2to1WithModeAndShortCountdown:
+        return '20:2->1+wm+ct45';
+      case ManualStartDiagnosticStrategy.control1to2WithModeAndShortCountdown:
+        return '20:1->2+wm+ct45';
+      case ManualStartDiagnosticStrategy.quickStartWithModeAndShortCountdown:
+        return '21+wm+ct45';
+    }
   }
 
   @override
