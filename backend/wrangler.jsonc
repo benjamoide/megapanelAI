@@ -1,0 +1,16 @@
+{
+  "name": "megapanel-private-ai",
+  "main": "src/worker.mjs",
+  "compatibility_date": "2026-10-04",
+  "workers_dev": true,
+  "vars": {
+    "FIREBASE_PROJECT_ID": "mega-panel-ai",
+    "ALLOWED_ORIGINS": "https://benjamoide.github.io",
+    "ALLOWED_UIDS": "",
+    "GEMINI_MODEL": "",
+    "USER_DAILY_LIMIT": "10",
+    "GLOBAL_DAILY_LIMIT": "100"
+  },
+  "durable_objects": {"bindings": [{"name": "QUOTA", "class_name": "DailyQuota"}]},
+  "migrations": [{"tag": "v1", "new_sqlite_classes": ["DailyQuota"]}]
+}
