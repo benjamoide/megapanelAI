@@ -5,7 +5,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -19,8 +18,6 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 // 1. CONFIGURACIÓN Y CONSTANTES
 // ==============================================================================
 
-const String apiKeyFromBuild =
-    String.fromEnvironment('GEMINI_API_KEY', defaultValue: '');
 
 const List<String> RUTINAS_POSIBLES = [
   "FULLBODY I",
@@ -2123,7 +2120,6 @@ enum ManualStartDiagnosticStrategy {
 class AppState extends ChangeNotifier with WidgetsBindingObserver {
   String currentUser = "";
   bool isGuest = false;
-  String _apiKey = apiKeyFromBuild;
 
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   StreamSubscription<DocumentSnapshot>? _userSubscription;
@@ -2175,7 +2171,6 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   static const String _prefsBleLastDeviceId = 'ble_last_device_id';
   static const String _prefsBleLastDeviceName = 'ble_last_device_name';
 
-  bool get hasApiKey => _apiKey.isNotEmpty;
   Tratamiento? get tratamientoActivoActual => _tratamientoActivoActual;
   String? get idCicloActivoActual => _idCicloActivoActual;
   String? get lastManualDiagnosticSequenceId => _lastManualDiagnosticSequenceId;
@@ -2361,13 +2356,10 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> _restoreLocalPreferences() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final storedApiKey = prefs.getString(_prefsGeminiApiKey);
+      await prefs.remove(_prefsGeminiApiKey);
       final storedBleDeviceId = prefs.getString(_prefsBleLastDeviceId);
       final storedBleDeviceName = prefs.getString(_prefsBleLastDeviceName);
 
-      if (storedApiKey != null && storedApiKey.isNotEmpty) {
-        _apiKey = storedApiKey;
-      }
       if (storedBleDeviceId != null && storedBleDeviceId.isNotEmpty) {
         _preferredBleDeviceId = storedBleDeviceId;
       }
@@ -3803,12 +3795,6 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     return finalConnected;
   }
 
-  void setApiKey(String key) {
-    _apiKey = key;
-    SharedPreferences.getInstance()
-        .then((prefs) => prefs.setString(_prefsGeminiApiKey, key));
-    notifyListeners();
-  }
 
   // --- LOGIN SEGURO Y DINÁMICO ---
   Future<bool> login(String user, String passInput) async {
@@ -4877,85 +4863,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<List<Tratamiento>> consultarIA(String dolencia) async {
-    if (_apiKey.isNotEmpty) {
-      final models = ['gemini-1.5-flash', 'gemini-pro', 'gemini-1.0-pro'];
-      for (var m in models) {
-        try {
-          final model = GenerativeModel(model: m, apiKey: _apiKey);
-          final prompt = '''
-            Actua como experto en fotobiomodulacion (red light therapy). Usuario: "$dolencia".
-            Prioriza evidencia clinica humana y revisiones sistematicas en este orden:
-            1) PubMed/MEDLINE
-            2) ClinicalTrials.gov
-            3) Cochrane Library / CENTRAL
-            4) Europe PMC
-            5) EMBASE
-            6) CINAHL
-            7) Scopus
-            8) ScienceDirect
-            9) Revistas especializadas (Photomedicine and Laser Surgery, Lasers in Medical Science, Journal of Biophotonics, Journal of Photochemistry and Photobiology, Lasers in Surgery and Medicine)
-            10) Google Scholar solo como apoyo secundario
-
-            Reglas:
-            - No inventes evidencia ni afirmaciones.
-            - Si la evidencia es debil o contradictoria, se conservador y anadelo en "prohibidos".
-            - Devuelve 1 a 3 protocolos seguros.
-            - Usa solo estas longitudes: 630, 660, 810, 830, 850.
-            - Porcentajes entre 0 y 100.
-            - hz permitido: CW, 10Hz, 40Hz, 50Hz.
-            - duracion entre 5 y 20 minutos.
-            - Incluye en tipsDespues una linea de evidencia breve tipo: "Fuente: PubMed PMID:xxxxx" o "ClinicalTrials.gov: NCTxxxx".
-
-            Responde SOLO con un ARRAY JSON valido.
-            Esquema: [{"nombre":"...","zona":"...","descripcion":"...","sintomas":"...","posicion":"...","hz":"CW/10Hz/40Hz/50Hz","duracion":"10","frecuencias":[{"nm":660,"p":100},{"nm":850,"p":50}],"tipsAntes":["..."],"tipsDespues":["..."],"prohibidos":["..."]}]
-          ''';
-          final response = await model.generateContent([Content.text(prompt)]);
-          String text = response.text ?? "[]";
-          text = text.replaceAll(RegExp(r'```json|```'), '').trim();
-          List<dynamic> data = json.decode(text);
-          return data
-              .map((item) => Tratamiento(
-                  id: Uuid().v4(),
-                  nombre: item['nombre'],
-                  zona: item['zona'] ?? "General",
-                  descripcion: item['descripcion'],
-                  sintomas: item['sintomas'],
-                  posicion: item['posicion'],
-                  hz: item['hz'],
-                  duracion: item['duracion'].toString(),
-                  frecuencias:
-                      List<Map<String, dynamic>>.from(item['frecuencias']),
-                  tipsAntes: List<String>.from(item['tipsAntes'] ?? []),
-                  tipsDespues: List<String>.from(item['tipsDespues'] ?? []),
-                  prohibidos: List<String>.from(item['prohibidos'] ?? []),
-                  esCustom: true))
-              .toList();
-        } catch (e) {
-          print("Fallo modelo $m: $e");
-          continue;
-        }
-      }
-    }
-
-    await Future.delayed(const Duration(seconds: 1));
-    return [
-      Tratamiento(
-          id: Uuid().v4(),
-          nombre: "Protocolo: $dolencia",
-          zona: "Zona Afectada",
-          descripcion: "Protocolo generado localmente (Sin conexión IA).",
-          sintomas: dolencia,
-          posicion: "Sobre la zona de dolor",
-          hz: "50Hz (Dolor)",
-          duracion: "15",
-          frecuencias: [
-            {'nm': 660, 'p': 50},
-            {'nm': 850, 'p': 100}
-          ],
-          tipsAntes: ["Limpiar zona", "Sin ropa"],
-          tipsDespues: ["Movilidad suave"],
-          esCustom: true)
-    ];
+    throw StateError('IA temporalmente deshabilitada: migracion al servidor seguro.');
   }
 }
 
@@ -5166,26 +5074,6 @@ class _MainLayoutState extends State<MainLayout> {
 
   @override
   Widget build(BuildContext context) {
-    var state = context.watch<AppState>();
-
-    // Check API Key
-    if (!state.hasApiKey) {
-      return Scaffold(
-        body: Center(
-            child: Container(
-                width: 400,
-                padding: const EdgeInsets.all(20),
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  const Text("Configuración: Introduce tu Gemini API Key"),
-                  const SizedBox(height: 10),
-                  TextField(
-                      decoration: const InputDecoration(
-                          border: OutlineInputBorder(), labelText: "API Key"),
-                      onSubmitted: (v) => state.setApiKey(v))
-                ]))),
-      );
-    }
-
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxWidth < 800) {
