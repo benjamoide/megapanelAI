@@ -45,22 +45,23 @@ jobs:
         run: flutter pub get
 
       # ---------------------------------------------------------
-      # PASO 1: CONSTRUIR WEB (CON LA CLAVE SECRETA INYECTADA)
+      # Provider credentials must never be compiled into client artifacts.
       # ---------------------------------------------------------
       - name: Build Web
-        run: flutter build web --release --base-href "/megapanelAI/" --dart-define=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+        run: flutter build web --release --base-href "/megapanelAI/"
         # NOTA: Asegúrate de que el 'base-href' coincida con el nombre de tu repositorio (/megapanelAI/)
 
       # ---------------------------------------------------------
-      # PASO 2: CONSTRUIR APK (CON LA CLAVE SECRETA INYECTADA)
+      # Build Android without provider credentials.
       # ---------------------------------------------------------
       - name: Build APK
-        run: flutter build apk --release --dart-define=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+        run: flutter build apk --release
 
       # ---------------------------------------------------------
       # PASO 3: PUBLICAR WEB EN GITHUB PAGES
       # ---------------------------------------------------------
       - name: Deploy to GitHub Pages
+        if: github.ref == 'refs/heads/main'
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
