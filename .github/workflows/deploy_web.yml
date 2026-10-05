@@ -44,6 +44,12 @@ jobs:
       - name: Get Dependencies
         run: flutter pub get
 
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test
+
       # ---------------------------------------------------------
       # Provider credentials must never be compiled into client artifacts.
       # ---------------------------------------------------------

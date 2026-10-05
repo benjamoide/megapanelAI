@@ -1,7 +1,7 @@
 name: mega_panel_ai
 description: "A new Flutter project."
 publish_to: 'none'
-version: 1.0.1+51
+version: 1.0.1+52
 
 environment:
   sdk: '>=3.2.3 <4.0.0'
@@ -13,7 +13,8 @@ dependencies:
   # Librerías necesarias para Mega Panel AI
   provider: ^6.1.1
   shared_preferences: ^2.2.2
-  google_generative_ai: ^0.4.6
+  firebase_auth: ^6.1.0
+  http: ^1.2.0
   intl: ^0.19.0
   firebase_core: ^4.4.0
   cloud_firestore: ^6.1.2

@@ -12,6 +12,7 @@ import 'firebase_options.dart';
 import 'bluetooth/ble_manager.dart';
 import 'bluetooth/ble_protocol.dart';
 import 'views/bluetooth_custom_view.dart';
+import 'views/secure_ai_view.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 // ==============================================================================
@@ -4862,9 +4863,6 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
-  Future<List<Tratamiento>> consultarIA(String dolencia) async {
-    throw StateError('IA temporalmente deshabilitada: migracion al servidor seguro.');
-  }
 }
 
 class Uuid {
@@ -6597,72 +6595,10 @@ class ClinicaView extends StatelessWidget {
 }
 
 // --- VISTA 5: BUSCADOR IA ---
-class BuscadorIAView extends StatefulWidget {
+class BuscadorIAView extends StatelessWidget {
   const BuscadorIAView({super.key});
   @override
-  State<BuscadorIAView> createState() => _BuscadorIAViewState();
-}
-
-class _BuscadorIAViewState extends State<BuscadorIAView> {
-  final _ctrl = TextEditingController();
-  List<Tratamiento> _results = [];
-  bool _loading = false;
-
-  @override
-  Widget build(BuildContext context) {
-    var state = context.watch<AppState>();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text("Buscador IA",
-            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 20),
-        TextField(
-          controller: _ctrl,
-          decoration: InputDecoration(
-              labelText: "Describe dolencia...",
-              suffixIcon: IconButton(
-                icon: const Icon(Icons.send),
-                onPressed: () async {
-                  setState(() => _loading = true);
-                  try {
-                    var r = await state.consultarIA(_ctrl.text);
-                    if (!context.mounted) return;
-                    setState(() {
-                      _results = r;
-                      _loading = false;
-                    });
-                  } catch (e) {
-                    if (!context.mounted) return;
-                    setState(() => _loading = false);
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                        content: Text("Info: $e"),
-                        backgroundColor: Colors.orange));
-                  }
-                },
-              )),
-        ),
-        if (_loading) const LinearProgressIndicator(),
-        const SizedBox(height: 20),
-        Expanded(
-          child: ListView.builder(
-            itemCount: _results.length,
-            itemBuilder: (_, i) {
-              var t = _results[i];
-              return TreatmentCard(
-                  t: t,
-                  onRegister: () {
-                    state.agregarTratamientoCatalogo(t);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("Guardado en Catálogo")));
-                  });
-            },
-          ),
-        )
-      ],
-    );
-  }
+  Widget build(BuildContext context) => const SecureAiView();
 }
 
 // --- VISTA 6: GESTION ---

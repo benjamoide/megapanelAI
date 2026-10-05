@@ -6,8 +6,8 @@
   "vars": {
     "FIREBASE_PROJECT_ID": "mega-panel-ai",
     "ALLOWED_ORIGINS": "https://benjamoide.github.io",
-    "ALLOWED_UIDS": "",
-    "GEMINI_MODEL": "",
+    "ALLOWED_UIDS": "AFGFeQUsSMS6wql2tdFkaqYyo762",
+    "GEMINI_MODEL": "gemini-2.5-flash",
     "USER_DAILY_LIMIT": "10",
     "GLOBAL_DAILY_LIMIT": "100"
   },
