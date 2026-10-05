@@ -18,7 +18,9 @@ without automatic retries or raw server error details.
 
 ## Manual acceptance checks
 
-1. Open the updated app, enter an existing profile or guest mode, then Buscador IA.
+1. Open the updated app and select `Acceso seguro IA (Firebase)`. Alternatively,
+   enter guest mode and open Buscador IA. Never enter Firebase credentials in the
+   legacy profile login form.
 2. Use the email/password created in Firebase Authentication, not the legacy
    profile password. A wrong password must not expose the query form.
 3. With an unverified account, send the verification email, open its link, then

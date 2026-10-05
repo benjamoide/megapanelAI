@@ -5015,6 +5015,18 @@ class _LoginScreenState extends State<LoginScreen> {
                     style:
                         TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 30),
+                OutlinedButton(
+                    onPressed: _loading ? null : () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(builder: (_) => Scaffold(
+                            appBar: AppBar(title: const Text('Acceso seguro IA')),
+                            body: const Padding(
+                                padding: EdgeInsets.all(20),
+                                child: SecureAiView())))),
+                    child: const Text('Acceso seguro IA (Firebase)')),
+                const SizedBox(height: 12),
+                const Text(
+                    'El formulario inferior es para perfiles antiguos. No uses aqui tu contrasena de Firebase.'),
+                const SizedBox(height: 12),
                 TextField(
                   controller: _userCtrl,
                   decoration: const InputDecoration(
