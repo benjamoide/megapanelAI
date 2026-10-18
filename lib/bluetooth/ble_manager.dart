@@ -392,7 +392,8 @@ class BleManager {
     if (device.isConnected) return;
 
     try {
-      await device.connect(timeout: const Duration(seconds: 15));
+      // Match the official app: do not request an enlarged ATT MTU.
+      await device.connect(timeout: const Duration(seconds: 15), mtu: null);
       return;
     } catch (e) {
       if (device.isConnected || _isAlreadyConnectedError(e)) {
@@ -408,7 +409,7 @@ class BleManager {
       // Ignore cleanup errors before retry.
     }
     await Future.delayed(const Duration(milliseconds: 350));
-    await device.connect(timeout: const Duration(seconds: 15));
+    await device.connect(timeout: const Duration(seconds: 15), mtu: null);
   }
 
   bool _isAlreadyConnectedError(Object error) {
