@@ -12,6 +12,7 @@ import 'firebase_options.dart';
 import 'bluetooth/ble_manager.dart';
 import 'bluetooth/ble_protocol.dart';
 import 'bluetooth/official_start.dart';
+import 'bluetooth/official_initialization.dart';
 import 'views/bluetooth_custom_view.dart';
 import 'views/secure_ai_view.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
@@ -2339,6 +2340,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     _bleConnectionSubscription = _bleManager.connectionState.listen((state) {
       final connected = state == BluetoothConnectionState.connected;
       if (!connected) {
+        _bleConnectionEpoch++;
         _bleInitInProgress = false;
         _bleInitDoneForLink = false;
         _blePanelReadyForLink = false;
@@ -2706,8 +2708,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
           phase: phase,
           allowRecover: allowRecover,
         );
-        if (!responsive && isConnected && _bleManager.isConnected) {
-          await _wakePanelFromSleep(workMode: 0);
+        if (!responsive) {
+          _bleManager.log("BACKGROUND silent: no automatic control commands");
         }
       } catch (e) {
         _bleManager.log("BLE WAKE PROBE [$phase] error: $e");
@@ -3015,123 +3017,14 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   Future<bool> _ensureBleResponsive({
     String phase = "",
     bool allowRecover = true,
-  }) async {
-    _throwIfBleAbortRequested(
-      phase: phase.isEmpty ? "responsive-check" : "$phase-responsive-check",
-    );
-    final phaseLabel = phase.isEmpty ? "" : "[$phase] ";
-    if (!_bleManager.isConnected) return false;
-    if (!_bleManager.canObserveRx) {
-      print("BLE: ${phaseLabel}RX preflight skipped (notify unavailable).");
-      return true;
-    }
-    final hadAnyRxOnLink = _bleManager.hasSeenProtocolRx;
-    final coldLink = !hadAnyRxOnLink;
-
-    final preflightOk = await _waitForBleRx(
-      phase: phase.isEmpty ? "preflight" : "$phase-preflight",
-      timeout: const Duration(seconds: 4),
+  }) {
+    // Background recovery is read-only; only a user action may start light.
+    return _waitForBleRx(
+      phase: phase,
+      timeout: const Duration(seconds: 3),
       allowWakeEdge: false,
       allowRecover: false,
     );
-    if (preflightOk) {
-      print("BLE: ${phaseLabel}RX preflight OK.");
-      _bleManager.log("RX PREFLIGHT ${phaseLabel}ok");
-      return true;
-    }
-
-    print("BLE: ${phaseLabel}No RX in preflight.");
-    _bleManager.log("RX PREFLIGHT ${phaseLabel}no-rx");
-
-    // Some firmware revisions expose both write types but only react reliably
-    // with Write Without Response on cold boot.
-    if (!_bleManager.prefersWriteWithoutResponse) {
-      const defaultTransportEnabled = false;
-      _bleManager.setPreferWriteWithoutResponse(
-        true,
-        reason: phase.isEmpty ? "preflight-no-rx" : "$phase-preflight-no-rx",
-      );
-      final wnrProbeOk = await _waitForBleRx(
-        phase: phase.isEmpty ? "preflight-wnr" : "$phase-preflight-wnr",
-        timeout: const Duration(seconds: 5),
-        allowWakeEdge: true,
-        allowRecover: false,
-      );
-      if (wnrProbeOk) {
-        _bleManager.log("RX PREFLIGHT ${phaseLabel}ok-after-wnr");
-        return true;
-      }
-      _bleManager.setPreferWriteWithoutResponse(
-        defaultTransportEnabled,
-        reason: phase.isEmpty
-            ? "preflight-wnr-failed-reset"
-            : "$phase-preflight-wnr-failed-reset",
-      );
-      if (coldLink) {
-        _bleManager.log(
-          "RX PREFLIGHT ${phaseLabel}wnr-probe-failed-revert-default",
-        );
-      }
-      final defaultProbeOk = await _waitForBleRx(
-        phase: phase.isEmpty
-            ? "preflight-default-after-wnr"
-            : "$phase-preflight-default-after-wnr",
-        timeout: const Duration(seconds: 4),
-        allowWakeEdge: true,
-        allowRecover: false,
-      );
-      if (defaultProbeOk) {
-        _bleManager.log("RX PREFLIGHT ${phaseLabel}ok-after-default-reset");
-        return true;
-      }
-    }
-
-    // If we have already received at least one valid protocol frame on this
-    // connection, don't spend extra aggressive recovery cycles here.
-    if (hadAnyRxOnLink) {
-      _bleManager.log("RX PREFLIGHT ${phaseLabel}seen-rx-on-link -> continue");
-      return true;
-    }
-
-    // Cold-link bootstrap: if we never observed protocol RX after connect,
-    // spend extra probes before forcing the reconnect path.
-    if (coldLink) {
-      print(
-          "BLE: ${phaseLabel}Cold link detected (no protocol RX yet), running bootstrap.");
-      final bootstrapOk = await _waitForBleRx(
-        phase: phase.isEmpty ? "bootstrap" : "$phase-bootstrap",
-        timeout: const Duration(seconds: 12),
-        allowWakeEdge: true,
-        allowRecover: false,
-      );
-      if (bootstrapOk) {
-        _bleManager.log("RX PREFLIGHT ${phaseLabel}bootstrap-ok");
-        return true;
-      }
-    }
-
-    if (!allowRecover) {
-      _bleManager.log("RX PREFLIGHT ${phaseLabel}no-recover");
-      return false;
-    }
-
-    _throwIfBleAbortRequested(
-      phase: phase.isEmpty ? "responsive-check" : "$phase-responsive-check",
-    );
-    print("BLE: ${phaseLabel}Attempting link recover.");
-    await _recoverBleLink(phase: "${phase}recover");
-    if (!isConnected || !_bleManager.isConnected) return false;
-
-    final recoverOk = await _waitForBleRx(
-      phase: phase.isEmpty ? "post-recover" : "$phase-post-recover",
-      timeout: const Duration(seconds: 8),
-      allowWakeEdge: true,
-      allowRecover: false,
-    );
-    if (recoverOk) {
-      _bleManager.log("RX PREFLIGHT ${phaseLabel}recover-ok");
-    }
-    return recoverOk;
   }
 
   Future<bool> _ensureBlePanelReady({
@@ -3228,45 +3121,6 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     await Future.delayed(const Duration(milliseconds: 220));
     await _bleManager.write(BleProtocol.getStatus());
     await Future.delayed(const Duration(milliseconds: 140));
-  }
-
-  Future<void> _wakePanelFromSleep({required int workMode}) async {
-    _throwIfBleAbortRequested(phase: "wake-panel");
-    final canCheckRx = _bleManager.canObserveRx;
-    print("BLE: Wake preflight (mode=$workMode, rxCheck=$canCheckRx)");
-
-    for (var attempt = 1; attempt <= 2; attempt++) {
-      _throwIfBleAbortRequested(phase: "wake-panel");
-      await _bleManager.write(BleProtocol.getStatus());
-      await Future.delayed(const Duration(milliseconds: 160));
-      await _bleManager.write(BleProtocol.getCountdown());
-      await Future.delayed(const Duration(milliseconds: 160));
-
-      if (canCheckRx && _hasFreshBleRx()) {
-        print("BLE: Wake preflight OK on attempt $attempt");
-        return;
-      }
-
-      // Mirrors the official app: nudge with control edge 2->1 on cold-idle.
-      await _sendOfficialControlWakeEdge(phase: "wake");
-
-      if (canCheckRx && _hasFreshBleRx()) {
-        print(
-            "BLE: Wake preflight OK after control wake edge (attempt $attempt)");
-        return;
-      }
-    }
-
-    // Avoid quickstart fallback here: some firmware drifts to a local preset.
-    // Keep using deterministic control edges only.
-    if (canCheckRx) {
-      print("BLE: Wake fallback (control edge + OFF settle).");
-      await _sendOfficialControlWakeEdge(phase: "wake-fallback");
-      await _bleManager.write(BleProtocol.setPower(false));
-      await Future.delayed(const Duration(milliseconds: 240));
-      await _bleManager.write(BleProtocol.getStatus());
-      await Future.delayed(const Duration(milliseconds: 160));
-    }
   }
 
   Future<void> _sendRunCommit({String phase = ""}) async {
@@ -3494,40 +3348,32 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     return true;
   }
 
+  int _bleConnectionEpoch = 0;
+
   void _runConnectWarmupNonBlocking() {
+    final epoch = _bleConnectionEpoch;
     unawaited(() async {
+      await _acquireBleStartLock();
       try {
-        if (_bleBackgroundWorkSuspended ||
-            _bleStartBusy ||
-            _bleInitInProgress ||
-            _bleWakeProbeInFlight ||
-            _bleAbortRequested) {
-          _bleManager.log("CONNECT warmup -> skipped:critical-op");
+        await Future<void>.delayed(const Duration(milliseconds: 600));
+        if (epoch != _bleConnectionEpoch ||
+            !_bleManager.isConnected ||
+            _bleAbortRequested ||
+            _snapshotCicloActivo() != null ||
+            _snapshotCicloPausado() != null) {
+          _bleManager.log("CONNECT init skipped: cancelled or local cycle");
           return;
         }
-        final ok = await _waitForBleRx(
-          phase: "connect-passive",
-          timeout: const Duration(seconds: 3),
-          allowWakeEdge: false,
-          allowRecover: false,
-        );
-        if (ok) {
-          _bleManager.log("CONNECT warmup -> ok");
-        } else {
-          _bleManager.log("CONNECT warmup -> no-rx (non-blocking)");
-        }
+        print("BLE: CONNECT initialization only; no automatic start");
+        final ok = await _ensureBleInitialized(phase: "connect");
+        print("BLE: CONNECT initialization complete=$ok; no automatic start");
       } catch (e) {
-        _bleManager.log("CONNECT warmup -> skipped:$e");
+        _bleManager.log("CONNECT init cancelled/failed: $e");
+      } finally {
+        _releaseBleStartLock();
       }
     }());
   }
-
-  static const List<String> _defaultPresetInitNames = <String>[
-    "Custom 1",
-    "Custom 2",
-    "Custom 3",
-    "Custom 4",
-  ];
 
   Future<bool> _waitForBleInitToFinish({
     Duration timeout = const Duration(seconds: 10),
@@ -3537,13 +3383,6 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       await Future.delayed(const Duration(milliseconds: 120));
     }
     return _bleInitDoneForLink;
-  }
-
-  int _channelCountFromModeFrame(List<int>? frame) {
-    if (frame == null || frame.length < 7) return 5;
-    final payloadLength = ((frame[3] & 0xFF) << 8) | (frame[4] & 0xFF);
-    if (payloadLength <= 0) return 5;
-    return payloadLength.clamp(5, 7).toInt();
   }
 
   Future<List<int>?> _sendInitStepAndAwaitAck({
@@ -3562,97 +3401,31 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<bool> _runOfficialInitSequence({String phase = ""}) async {
-    _throwIfBleAbortRequested(phase: "$phase-init-sequence");
-    final phaseLabel = phase.isEmpty ? "" : "[$phase] ";
-
-    var expectedAcks = 0;
-    var receivedAcks = 0;
-
-    Future<List<int>?> sendStep({
-      required List<int> packet,
-      required int ackCommand,
-      required String label,
-      Duration timeout = const Duration(milliseconds: 1600),
-    }) async {
-      final canAwaitAck = _bleManager.canObserveRx;
-      if (canAwaitAck) expectedAcks++;
-      print("BLE: ${phaseLabel}Init step -> $label");
-      final frame = await _sendInitStepAndAwaitAck(
-        packet: packet,
-        ackCommand: ackCommand,
-        phase: phase.isEmpty ? label : "$phase-$label",
-        timeout: timeout,
-      );
-      if (frame != null) {
-        receivedAcks++;
-      } else if (canAwaitAck) {
-        final cmdHex = ackCommand.toRadixString(16).padLeft(2, '0');
-        _bleManager.log("BLE INIT ${phaseLabel}ack-timeout cmd=0x$cmdHex");
-      }
-      return frame;
-    }
-
-    final modeFrame = await sendStep(
-      packet: BleProtocol.getModeChannels(0),
-      ackCommand: BleProtocol.cmdGetModeChannels,
-      label: "get-mode-channels",
-      timeout: const Duration(milliseconds: 200),
+    final epoch = _bleConnectionEpoch;
+    if (!_bleManager.canObserveRx) return false;
+    return initializeOfficialPanel(
+      checkCancelled: () {
+        _throwIfBleAbortRequested(phase: "$phase-init");
+        if (epoch != _bleConnectionEpoch || !_bleManager.isConnected) {
+          throw StateError("Connection changed during initialization");
+        }
+      },
+      exchange: (packet, command, timeout) async {
+        final hex = command.toRadixString(16);
+        print("BLE: [$phase] Init step cmd=0x$hex");
+        final frame = await _sendInitStepAndAwaitAck(
+          packet: packet,
+          ackCommand: command,
+          phase: phase,
+          timeout: timeout,
+        );
+        if (frame == null) {
+          print("BLE: [$phase] Init no ACK cmd=0x$hex "
+              "${command == BleProtocol.cmdGetModeChannels ? 'continue' : 'stop-init'}");
+        }
+        return frame;
+      },
     );
-    if (_bleManager.canObserveRx &&
-        modeFrame == null &&
-        !_bleManager.hasSeenProtocolRx) {
-      // Keep sending the full init chain even on a cold first probe (0x52).
-      // The stock app continues init blindly after this point.
-      _bleManager.log(
-        "BLE INIT ${phaseLabel}no-ack-on-first-step -> continue-init",
-      );
-    }
-    final channelCount = _channelCountFromModeFrame(modeFrame);
-
-    for (var i = 0; i < _defaultPresetInitNames.length; i++) {
-      await sendStep(
-        packet: BleProtocol.renamePreset(i, _defaultPresetInitNames[i]),
-        ackCommand: BleProtocol.cmdRenamePreset,
-        label: "rename-preset-$i",
-      );
-    }
-
-    await sendStep(
-      packet: BleProtocol.setCountdownSeconds(1200),
-      ackCommand: BleProtocol.cmdSetCountdown,
-      label: "set-countdown-1200",
-      timeout: const Duration(seconds: 2),
-    );
-
-    for (var channel = 0; channel < channelCount; channel++) {
-      await sendStep(
-        packet: BleProtocol.setBrightnessChannel(channel, 100),
-        ackCommand: BleProtocol.cmdSetBrightness,
-        label: "set-brightness-$channel",
-      );
-    }
-
-    await sendStep(
-      packet: BleProtocol.getCurrentPreset(),
-      ackCommand: BleProtocol.cmdGetCurrentPreset,
-      label: "get-current-preset",
-    );
-
-    await sendStep(
-      packet: BleProtocol.setPulse(0),
-      ackCommand: BleProtocol.cmdSetPulse,
-      label: "set-pulse-0",
-      timeout: const Duration(seconds: 2),
-    );
-
-    final initOk = !_bleManager.canObserveRx ||
-        expectedAcks == 0 ||
-        receivedAcks >= (expectedAcks ~/ 2);
-    _bleManager.log(
-      "BLE INIT ${phaseLabel}summary "
-      "acks=$receivedAcks/$expectedAcks channels=$channelCount ok=$initOk",
-    );
-    return initOk;
   }
 
   Future<bool> _ensureBleInitialized({String phase = ""}) async {
@@ -3662,6 +3435,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       return _waitForBleInitToFinish();
     }
 
+    final epoch = _bleConnectionEpoch;
     _bleInitInProgress = true;
     final phaseLabel = phase.isEmpty ? "connect" : phase;
     _bleManager.setPreferWriteWithoutResponse(
@@ -3673,23 +3447,28 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     try {
       _bleManager.log("BLE INIT [$phaseLabel] start");
       ok = await _runOfficialInitSequence(phase: phaseLabel);
+      if (epoch != _bleConnectionEpoch) return false;
       _bleInitDoneForLink = ok;
       _blePanelReadyForLink = ok;
       if (!ok) {
         _bleManager.log("BLE INIT [$phaseLabel] incomplete -> fallback path");
       }
     } catch (e) {
+      if (epoch != _bleConnectionEpoch) return false;
       _bleInitDoneForLink = false;
       _blePanelReadyForLink = false;
       _bleManager.log("BLE INIT [$phaseLabel] failed: $e");
     } finally {
-      _bleInitInProgress = false;
-      _bleManager.setReadCommandGate(false, reason: "$phaseLabel-init-done");
+      if (epoch == _bleConnectionEpoch) {
+        _bleInitInProgress = false;
+        _bleManager.setReadCommandGate(false, reason: "$phaseLabel-init-done");
+      }
     }
     return _bleInitDoneForLink;
   }
 
   Future<bool> connectToDevice(BluetoothDevice device) async {
+    _bleConnectionEpoch++;
     _bleAutoReconnectAllowed = true;
     _bleManager.setPreferWriteWithoutResponse(false, reason: "new-connection");
     _bleInitDoneForLink = false;
@@ -3711,6 +3490,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> disconnectDevice() async {
+    _bleConnectionEpoch++;
     _bleAutoReconnectAllowed = false;
     _bleInitDoneForLink = false;
     _bleInitInProgress = false;
@@ -3727,6 +3507,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _bleConnectionEpoch++;
     WidgetsBinding.instance.removeObserver(this);
     _stopBleKeepAlive(reason: "dispose");
     _stopBleAutoReconnect(reason: "dispose");
