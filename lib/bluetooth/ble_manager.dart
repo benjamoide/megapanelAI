@@ -352,6 +352,10 @@ class BleManager {
         subscribeToServicesChanged: false,
       );
 
+      // Match the official app's pause before enabling panel notifications.
+      log("BleManager: Waiting 900 ms after discovery before FFF1 notifications.");
+      await Future.delayed(const Duration(milliseconds: 900));
+
       _selectCharacteristics(services);
       if (_writeCharacteristic == null) {
         log("No write characteristic found!");
