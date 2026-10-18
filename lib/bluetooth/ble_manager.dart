@@ -347,7 +347,10 @@ class BleManager {
 
       // Discover services
       log("BleManager: Discovering Services...");
-      final services = await device.discoverServices();
+      // Match the official app: subscribe only to the panel notifications below.
+      final services = await device.discoverServices(
+        subscribeToServicesChanged: false,
+      );
 
       _selectCharacteristics(services);
       if (_writeCharacteristic == null) {
