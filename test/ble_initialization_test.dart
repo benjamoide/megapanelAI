@@ -20,8 +20,28 @@ void main() {
     expect(ok, isTrue);
     expect(writes.map((p) => p[2]).toList(),
         [0x52, 0x74, 0x74, 0x74, 0x74, 0x31,
-         0x41, 0x41, 0x41, 0x41, 0x41, 0x75, 0x42]);
+         0x41, 0x41, 0x41, 0x41, 0x41, 0x75, 0x42, 0x75]);
     expect(writes.any((p) => [0x20, 0x21, 0x73].contains(p[2])), isFalse);
+  });
+
+  test('missing final preset response prevents initialization completion',
+      () async {
+    final commands = <int>[];
+    final ok = await initializeOfficialPanel(
+      checkCancelled: () {},
+      exchange: (packet, command, timeout) async {
+        final afterPulse = commands.contains(0x42);
+        commands.add(command);
+        if (command == 0x75 && afterPulse) {
+          expect(packet, BleProtocol.getCurrentPreset());
+          expect(timeout, const Duration(milliseconds: 1600));
+          return null;
+        }
+        return BleProtocol.buildPacket(command, []);
+      },
+    );
+    expect(ok, isFalse);
+    expect(commands.sublist(commands.length - 3), [0x75, 0x42, 0x75]);
   });
 
   test('silent panel stops after first preset, without writing brightness',

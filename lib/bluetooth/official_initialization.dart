@@ -28,6 +28,7 @@ Future<bool> initializeOfficialPanel({
       BleProtocol.setBrightnessChannel(i, 100),
     BleProtocol.getCurrentPreset(),
     BleProtocol.setPulse(0),
+    BleProtocol.getCurrentPreset(),
   ];
   // Only 0x52 may lack an ACK. Do not flood a silent panel with later settings.
   for (final packet in packets) {
