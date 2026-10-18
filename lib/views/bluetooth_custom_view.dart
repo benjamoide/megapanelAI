@@ -1216,9 +1216,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
               isExpanded: true,
               items: const [
                 DropdownMenuItem(
-                    value: 0x20, child: Text('Cmd: Power ON (0x20)')),
-                DropdownMenuItem(
-                    value: 0x21, child: Text('Cmd: Quick Start (0x21)')),
+                    value: 0x20, child: Text('Cmd: Official Start (0x20: 1 + 2)')),
                 DropdownMenuItem(value: -1, child: Text('Cmd: None')),
               ],
               onChanged: diagnosticActive
@@ -1235,7 +1233,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
               items: const [
                 DropdownMenuItem(
                     value: 2,
-                    child: Text('Seq: Start -> Params (Recommended)')),
+                    child: Text('Seq: Params -> Official Start (Recommended)')),
                 DropdownMenuItem(
                     value: 0, child: Text('Seq: Standard (Params -> Start)')),
                 DropdownMenuItem(

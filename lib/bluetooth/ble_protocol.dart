@@ -1,4 +1,19 @@
 class BleProtocol {
+  /// Captured official start: two complete frames in one 16-byte ATT write.
+  static List<int> officialStart() => [
+        ...setControlMode(1),
+        ...setControlMode(2),
+      ];
+
+  static bool isRunningStatus(List<int> frame) =>
+      frame.length == 12 &&
+      (frame[0] == 0x2A || frame[0] == 0x3A) &&
+      frame[1] == 1 &&
+      frame[2] == cmdGetStatus &&
+      frame[3] == 0 &&
+      frame[4] == 5 &&
+      frame[5] == 1;
+
   // --- COMMAND CONSTANTS ---
   static const int cmdVerify = 0x00;
   static const int cmdGetVersion = 0x01;

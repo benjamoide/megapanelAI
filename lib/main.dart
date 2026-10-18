@@ -11,6 +11,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_options.dart';
 import 'bluetooth/ble_manager.dart';
 import 'bluetooth/ble_protocol.dart';
+import 'bluetooth/official_start.dart';
 import 'views/bluetooth_custom_view.dart';
 import 'views/secure_ai_view.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
@@ -3137,20 +3138,19 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     required String phase,
     bool allowRecover = true,
   }) async {
-    if (!_bleManager.isConnected) return false;
+    if (!_bleManager.isConnected || !_bleManager.canObserveRx) return false;
 
     final phaseLabel = phase.isEmpty ? "start" : phase;
-    final alreadyReady = _blePanelReadyForLink || _bleInitDoneForLink;
+    final alreadyReady = _blePanelReadyForLink &&
+        _bleManager.hasRecentRx(const Duration(seconds: 2));
     if (alreadyReady) {
       _bleManager.log("PANEL READY [$phaseLabel] already-ready");
       return true;
     }
 
     _bleManager.log("PANEL READY [$phaseLabel] bootstrap-start");
-    final ready = await _ensureBleResponsive(
-      phase: "$phaseLabel-ready",
-      allowRecover: allowRecover,
-    );
+    // A cold panel may remain silent until the official initialization chain.
+    final ready = await _ensureBleInitialized(phase: phaseLabel);
     if (!ready) {
       _blePanelReadyForLink = false;
       _bleManager.log("PANEL READY [$phaseLabel] silent");
@@ -3159,6 +3159,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
     final confirmed = await _confirmBlePanelReadyReadback(phase: phaseLabel);
     _blePanelReadyForLink = confirmed;
+    if (!confirmed) _bleInitDoneForLink = false;
     _bleManager.log(
       "PANEL READY [$phaseLabel] ${confirmed ? 'ok' : 'secondary-missing'}",
     );
@@ -3272,57 +3273,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     _throwIfBleAbortRequested(
       phase: phase.isEmpty ? "run-commit" : "$phase-run-commit",
     );
-    final phaseLabel = phase.isEmpty ? "" : "[$phase] ";
-    print("BLE: ${phaseLabel}Run commit edge (0x20:2->1)");
-    await _bleManager.write(BleProtocol.setControlMode(0x02));
-    await Future.delayed(const Duration(milliseconds: 180));
-    await _bleManager.write(BleProtocol.setControlMode(0x01));
-    await Future.delayed(const Duration(milliseconds: 260));
+    // Start already sent both control frames atomically. Never latch again.
     await _bleManager.write(BleProtocol.getStatus());
-    await Future.delayed(const Duration(milliseconds: 160));
-
-    final useAlternateLatch = phase.contains("forced") ||
-        phase.contains("hardwake") ||
-        phase.contains("lastresort");
-    if (useAlternateLatch) {
-      print("BLE: ${phaseLabel}Run commit alt latch (0x20:1->2)");
-      await _bleManager.write(BleProtocol.setControlMode(0x01));
-      await Future.delayed(const Duration(milliseconds: 160));
-      await _bleManager.write(BleProtocol.setControlMode(0x02));
-      await Future.delayed(const Duration(milliseconds: 260));
-      await _bleManager.write(BleProtocol.getStatus());
-      await Future.delayed(const Duration(milliseconds: 160));
-    }
-  }
-
-  Future<bool> _attemptLastResortNoRxRecovery({
-    required String phase,
-  }) async {
-    if (!_bleManager.isConnected) return false;
-    if (!_bleManager.canObserveRx) return true;
-
-    final phaseLabel = phase.isEmpty ? "no-rx-lastresort" : "$phase-lastresort";
-    _bleManager.log("RX LASTRESORT [$phaseLabel] start");
-    _bleManager.setPreferWriteWithoutResponse(
-      true,
-      reason: "$phaseLabel-wnr",
-    );
-    try {
-      await _sendOfficialControlWakeEdge(phase: phaseLabel);
-      final ok = await _waitForBleRx(
-        phase: "$phaseLabel-rx",
-        timeout: const Duration(seconds: 14),
-        allowWakeEdge: true,
-        allowRecover: true,
-      );
-      _bleManager.log("RX LASTRESORT [$phaseLabel] result=$ok");
-      return ok;
-    } finally {
-      _bleManager.setPreferWriteWithoutResponse(
-        false,
-        reason: "$phaseLabel-reset-transport",
-      );
-    }
   }
 
   void _actualizarTratamientoActivoDesdeCiclos() {
@@ -3627,7 +3579,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       packet: BleProtocol.getModeChannels(0),
       ackCommand: BleProtocol.cmdGetModeChannels,
       label: "get-mode-channels",
-      timeout: const Duration(seconds: 2),
+      timeout: const Duration(milliseconds: 200),
     );
     if (_bleManager.canObserveRx &&
         modeFrame == null &&
@@ -3696,8 +3648,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     _bleInitInProgress = true;
     final phaseLabel = phase.isEmpty ? "connect" : phase;
     _bleManager.setPreferWriteWithoutResponse(
-      false,
-      reason: "$phaseLabel-init-default-transport",
+      true,
+      reason: "$phaseLabel-init-official-transport",
     );
     _bleManager.setReadCommandGate(true, reason: "$phaseLabel-init");
     var ok = false;
@@ -4039,139 +3991,26 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         final initOk = await _ensureBleInitialized(phase: "catalogo");
         if (!initOk) {
           _bleManager.log(
-            "CATALOGO init-incomplete -> continue-start-with-rx-guard",
+            "CATALOGO init-incomplete -> abort",
           );
         }
+        if (!initOk) throw StateError("Panel initialization incomplete");
         print("BLE: Starting Treatment '${t.nombre}'");
         print(
             "BLE: Params -> duracion=${t.duracion} min, hz='${t.hz}', frecuencias=${t.frecuencias}");
 
         Future<void> runCatalogSequence(String phase) async {
           _throwIfBleAbortRequested(phase: "$phase-run-seq");
-          await _wakePanelFromSleep(workMode: 0);
-          _throwIfBleAbortRequested(phase: "$phase-run-seq");
-          final allowQuickStartFallback = phase.contains("forced") ||
-              phase.contains("hardwake") ||
-              phase.contains("lastresort");
-          // Mirror hardware UX: start first, then adjust parameters while running.
-          await _sendStartHandshake(
-            workMode: 0,
-            useQuickStart: false,
-            phase: phase,
-            includeControlWakeEdge: true,
-            allowQuickStartFallback: allowQuickStartFallback,
-          );
-          _throwIfBleAbortRequested(phase: "$phase-run-seq");
           await _sendParameters(t, workMode: 0);
+          _throwIfBleAbortRequested(phase: "$phase-run-seq");
+          // Apply the selected treatment before the captured official start.
+          await _sendStartHandshake(phase: phase);
           _throwIfBleAbortRequested(phase: "$phase-run-seq");
           await _sendRunCommit(phase: phase);
           await _readBackRunState(reason: "after iniciarCiclo ($phase)");
         }
 
-        // Keep catalog start aligned with manual start path (no forced OFF pre-reset).
-        // Some cold-boot units stay stuck if we send OFF before the first wake edge.
-        var preflightOk = panelReady;
-        if (!initOk || !_bleManager.hasRecentRx(const Duration(seconds: 2))) {
-          preflightOk = await _ensureBleResponsive(
-            phase: "catalogo-preflight",
-            allowRecover: true,
-          );
-        } else {
-          _bleManager.log("RX PREFLIGHT [catalogo-preflight] skip-ready");
-        }
-        if (!preflightOk) {
-          _bleManager.log("CATALOGO preflight-no-rx -> forced-start-reliable");
-        }
-        _preferWriteWithResponse(reason: "catalogo-before-primary-sequence");
-        await runCatalogSequence(
-          preflightOk ? "catalogo" : "catalogo-forced",
-        );
-
-        if (_bleManager.canObserveRx) {
-          final coldCatalogLink = !_bleManager.hasSeenProtocolRx;
-          // If writes complete but we still have no RX, recover and retry once.
-          final catalogRxAfterPrimary = await _waitForBleRx(
-            phase: "catalogo-post-primary",
-            timeout: coldCatalogLink
-                ? const Duration(seconds: 8)
-                : const Duration(seconds: 6),
-            allowWakeEdge: false,
-            allowRecover: false,
-          );
-          if (!catalogRxAfterPrimary && _bleManager.isConnected) {
-            print(
-                "BLE: [catalogo] No RX after sequence, keep link and continue deterministic fallback.");
-            _bleManager.log("CATALOGO no-rx -> continue-no-reconnect");
-          }
-
-          // Deterministic cold-start fallback (avoid 0x21 quickstart because
-          // some firmware revives stale local presets after deep sleep).
-          final catalogRxAfterRetry = await _waitForBleRx(
-            phase: "catalogo-post-retry",
-            timeout: coldCatalogLink
-                ? const Duration(seconds: 10)
-                : const Duration(seconds: 8),
-            allowWakeEdge: true,
-            allowRecover: false,
-          );
-          if (!catalogRxAfterRetry && isConnected && _bleManager.isConnected) {
-            print(
-                "BLE: [catalogo] No RX after retry, forcing OFF+wake deterministic fallback.");
-            _bleManager.log("CATALOGO no-rx -> hardwake");
-            _preferWriteWithResponse(reason: "catalogo-before-hardwake");
-            await _sendPowerOffAndSettle(phase: "catalogo-hardwake");
-            await Future.delayed(const Duration(milliseconds: 700));
-            await _sendOfficialControlWakeEdge(phase: "catalogo-hardwake");
-            await runCatalogSequence("catalogo-hardwake");
-          }
-
-          // Safety: if the panel never acknowledges RX, do not leave it armed.
-          final catalogRxAfterHardWake = await _waitForBleRx(
-            phase: "catalogo-post-hardwake",
-            timeout: coldCatalogLink
-                ? const Duration(seconds: 15)
-                : const Duration(seconds: 12),
-            allowWakeEdge: true,
-            allowRecover: false,
-          );
-          var catalogRxAfterLastResort = false;
-          if (!catalogRxAfterHardWake && _bleManager.isConnected) {
-            catalogRxAfterLastResort =
-                await _attemptLastResortNoRxRecovery(phase: "catalogo");
-            if (catalogRxAfterLastResort && _bleManager.isConnected) {
-              _bleManager.log("CATALOGO lastresort-rx -> rerun-sequence");
-              _bleManager.setPreferWriteWithoutResponse(
-                true,
-                reason: "catalogo-lastresort-rerun",
-              );
-              try {
-                await runCatalogSequence("catalogo-lastresort");
-              } finally {
-                _bleManager.setPreferWriteWithoutResponse(
-                  false,
-                  reason: "catalogo-lastresort-rerun-done",
-                );
-              }
-              catalogRxAfterLastResort = await _waitForBleRx(
-                phase: "catalogo-post-lastresort",
-                timeout: const Duration(seconds: 12),
-                allowWakeEdge: true,
-                allowRecover: false,
-              );
-            }
-          }
-          if (!catalogRxAfterHardWake && !catalogRxAfterLastResort) {
-            print(
-                "BLE: [catalogo] No RX after hard fallback, sending OFF and aborting start.");
-            _bleManager.log("CATALOGO no-rx -> abort-off");
-            if (_bleManager.isConnected) {
-              await _sendPowerOffAndSettle(phase: "catalogo-abort-no-rx");
-            }
-            throw Exception("Catalog start aborted (no BLE RX after retries)");
-          }
-        } else {
-          _bleManager.log("CATALOGO no-notify -> skip-rx-validation");
-        }
+        await runCatalogSequence("catalogo");
 
         _marcarInicioRealCiclo(id);
         _idCicloActivoActual = id;
@@ -4301,6 +4140,10 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     int? countdownSeconds,
   }) async {
     _throwIfBleAbortRequested(phase: "send-parameters");
+    _bleManager.setPreferWriteWithoutResponse(
+      true,
+      reason: "official-treatment-parameters",
+    );
     const modeDelay = Duration(milliseconds: 200);
 
     print("BLE: Sending Work Mode: $workMode");
@@ -4333,55 +4176,29 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> _sendStartHandshake({
-    required int workMode,
-    required bool useQuickStart,
     String phase = "",
-    bool includeControlWakeEdge = false,
-    bool allowQuickStartFallback = false,
   }) async {
     _throwIfBleAbortRequested(
       phase: phase.isEmpty ? "start-handshake" : "$phase-start-handshake",
     );
-    final phaseLabel = phase.isEmpty ? "" : "[$phase] ";
-    final strategy =
-        includeControlWakeEdge ? "power+control(2->1)" : "power-only";
-    print("BLE: ${phaseLabel}Start handshake ($strategy)");
-    _bleManager.log("APP START ${phaseLabel}strategy=$strategy");
-
-    // Single start edge to avoid transient fallback presets before re-apply.
-    await _bleManager.write(BleProtocol.setPower(true));
-    await Future.delayed(const Duration(milliseconds: 420));
-
-    await _bleManager.write(BleProtocol.getStatus());
-    await Future.delayed(const Duration(milliseconds: 180));
-
-    if (includeControlWakeEdge) {
-      await _sendOfficialControlWakeEdge(phase: "${phase}start");
+    if (!_bleManager.canObserveRx) {
+      throw StateError("Cannot confirm panel start without notifications");
     }
-
-    // Cold-start retry when no fresh feedback is observed.
-    if (_bleManager.canObserveRx &&
-        !_bleManager.hasRecentRx(const Duration(seconds: 2))) {
-      print("BLE: ${phaseLabel}No RX after start, retrying ON edge once.");
-      await _bleManager.write(BleProtocol.setPower(true));
-      await Future.delayed(const Duration(milliseconds: 280));
-      await _bleManager.write(BleProtocol.getStatus());
-      await Future.delayed(const Duration(milliseconds: 160));
-    }
-
-    // Optional escape hatch for no-RX cold links, enabled only on forced
-    // paths to avoid perturbing the normal deterministic path.
-    if (useQuickStart || allowQuickStartFallback) {
-      final shouldTryQuickStart = !_bleManager.canObserveRx ||
-          !_bleManager.hasRecentRx(const Duration(seconds: 2));
-      if (shouldTryQuickStart) {
-        print("BLE: ${phaseLabel}QuickStart fallback (0x21)");
-        await _bleManager.write(BleProtocol.quickStart(mode: 0x00));
-        await Future.delayed(const Duration(milliseconds: 320));
-        await _bleManager.write(BleProtocol.getStatus());
-        await Future.delayed(const Duration(milliseconds: 180));
-      }
-    }
+    _bleManager.setPreferWriteWithoutResponse(
+      true,
+      reason: "$phase-official-start",
+    );
+    _bleManager.log("APP START [$phase] official combined control(1->2)");
+    // Subscribe before writing: the running notification can precede a read.
+    await sendOfficialStart(
+      write: _bleManager.write,
+      waitForRunning: () => _bleManager.waitForFrame(
+        BleProtocol.isRunningStatus,
+        timeout: const Duration(seconds: 4),
+      ),
+      checkAbort: () =>
+          _throwIfBleAbortRequested(phase: "$phase-confirm-start"),
+    );
   }
 
   Future<void> _sendResumeHandshake({
@@ -4531,7 +4348,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   /// Starts a manual treatment not in the catalog
-  /// [sequenceMode]: 0=Params->Start, 1=Params only, 2=Start->Params, 3=Stop->Params->Start
+  /// [sequenceMode]: 0/2=Params->OfficialStart, 1=Params only, 3=Stop->Params->Start
   Future<bool> iniciarCicloManual(Tratamiento t,
       {int startCommand = 0x20,
       int sequenceMode = 2,
@@ -4594,9 +4411,10 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
           final initOk = await _ensureBleInitialized(phase: "manual");
           if (!initOk) {
             _bleManager.log(
-              "MANUAL init-incomplete -> continue-start-with-rx-guard",
+              "MANUAL init-incomplete -> abort",
             );
           }
+          if (!initOk) throw StateError("Panel initialization incomplete");
           print(
               "BLE: Starting Manual Treatment (Seq: $sequenceMode, Cmd: $startCommand, Mode: $workMode)");
           Future<bool> runManualSequence(String phase) async {
@@ -4612,28 +4430,9 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
             Future<void> start() async {
               _throwIfBleAbortRequested(phase: "$phase-run-seq");
-              final allowQuickStartFallback = phase.contains("forced") ||
-                  phase.contains("hardwake") ||
-                  phase.contains("lastresort");
-              if (startCommand == 0x21) {
-                print("BLE: [$phase] Quick Start (0x21) requested.");
-                await _sendStartHandshake(
-                  workMode: workMode,
-                  useQuickStart: true,
-                  phase: phase,
-                  includeControlWakeEdge: true,
-                  allowQuickStartFallback: allowQuickStartFallback,
-                );
-                started = true;
-              } else if (startCommand == 0x20) {
-                print("BLE: [$phase] Sending Power ON handshake (0x20)");
-                await _sendStartHandshake(
-                  workMode: workMode,
-                  useQuickStart: false,
-                  phase: phase,
-                  includeControlWakeEdge: true,
-                  allowQuickStartFallback: allowQuickStartFallback,
-                );
+              if (startCommand == 0x20 || startCommand == 0x21) {
+                print("BLE: [$phase] Using captured official start (0x20:1+2)");
+                await _sendStartHandshake(phase: phase);
                 started = true;
               } else {
                 print("BLE: [$phase] Skipping Start Command");
@@ -4645,7 +4444,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
               await _sendParameters(t, workMode: workMode);
             }
 
-            await _wakePanelFromSleep(workMode: workMode);
+            // No control/wake edges before the selected parameters.
 
             if (sequenceMode == 0) {
               await sendParams();
@@ -4653,8 +4452,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
             } else if (sequenceMode == 1) {
               await sendParams();
             } else if (sequenceMode == 2) {
-              await start();
               await sendParams();
+              await start();
             } else if (sequenceMode == 3) {
               await stop();
               await Future.delayed(const Duration(milliseconds: 1000));
@@ -4672,105 +4471,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
             return started;
           }
 
-          var preflightOk = panelReady;
-          if (!initOk || !_bleManager.hasRecentRx(const Duration(seconds: 2))) {
-            preflightOk = await _ensureBleResponsive(
-              phase: "manual-preflight",
-              allowRecover: true,
-            );
-          } else {
-            _bleManager.log("RX PREFLIGHT [manual-preflight] skip-ready");
-          }
-          if (!preflightOk) {
-            _bleManager.log("MANUAL preflight-no-rx -> forced-start-reliable");
-          }
-          _preferWriteWithResponse(reason: "manual-before-primary-sequence");
-          var started = await runManualSequence(
-            preflightOk ? "manual" : "manual-forced",
-          );
-
-          if (_bleManager.canObserveRx) {
-            final coldManualLink = !_bleManager.hasSeenProtocolRx;
-            final manualRxAfterPrimary = await _waitForBleRx(
-              phase: "manual-post-primary",
-              timeout: coldManualLink
-                  ? const Duration(seconds: 8)
-                  : const Duration(seconds: 6),
-              allowWakeEdge: false,
-              allowRecover: false,
-            );
-            if (!manualRxAfterPrimary && _bleManager.isConnected) {
-              print(
-                  "BLE: [manual] No RX after sequence, keep link and continue deterministic fallback.");
-              _bleManager.log("MANUAL no-rx -> continue-no-reconnect");
-            }
-
-            final manualRxAfterRetry = await _waitForBleRx(
-              phase: "manual-post-retry",
-              timeout: coldManualLink
-                  ? const Duration(seconds: 10)
-                  : const Duration(seconds: 8),
-              allowWakeEdge: true,
-              allowRecover: false,
-            );
-            if (!manualRxAfterRetry && isConnected && _bleManager.isConnected) {
-              print(
-                  "BLE: [manual] No RX after retry, forcing OFF+wake deterministic fallback.");
-              _bleManager.log("MANUAL no-rx -> hardwake");
-              _preferWriteWithResponse(reason: "manual-before-hardwake");
-              await _sendPowerOffAndSettle(phase: "manual-hardwake");
-              await Future.delayed(const Duration(milliseconds: 700));
-              await _sendOfficialControlWakeEdge(phase: "manual-hardwake");
-              started = (await runManualSequence("manual-hardwake")) || started;
-            }
-
-            final manualRxAfterHardWake = await _waitForBleRx(
-              phase: "manual-post-hardwake",
-              timeout: coldManualLink
-                  ? const Duration(seconds: 15)
-                  : const Duration(seconds: 12),
-              allowWakeEdge: true,
-              allowRecover: false,
-            );
-            var manualRxAfterLastResort = false;
-            if (!manualRxAfterHardWake && _bleManager.isConnected) {
-              manualRxAfterLastResort =
-                  await _attemptLastResortNoRxRecovery(phase: "manual");
-              if (manualRxAfterLastResort && _bleManager.isConnected) {
-                _bleManager.log("MANUAL lastresort-rx -> rerun-sequence");
-                _bleManager.setPreferWriteWithoutResponse(
-                  true,
-                  reason: "manual-lastresort-rerun",
-                );
-                try {
-                  started =
-                      (await runManualSequence("manual-lastresort")) || started;
-                } finally {
-                  _bleManager.setPreferWriteWithoutResponse(
-                    false,
-                    reason: "manual-lastresort-rerun-done",
-                  );
-                }
-                manualRxAfterLastResort = await _waitForBleRx(
-                  phase: "manual-post-lastresort",
-                  timeout: const Duration(seconds: 12),
-                  allowWakeEdge: true,
-                  allowRecover: false,
-                );
-              }
-            }
-            if (!manualRxAfterHardWake && !manualRxAfterLastResort) {
-              print(
-                  "BLE: [manual] No RX after hard fallback, sending OFF and aborting start.");
-              _bleManager.log("MANUAL no-rx -> abort-off");
-              if (_bleManager.isConnected) {
-                await _sendPowerOffAndSettle(phase: "manual-abort-no-rx");
-              }
-              throw Exception("Manual start aborted (no BLE RX after retries)");
-            }
-          } else {
-            _bleManager.log("MANUAL no-notify -> skip-rx-validation");
-          }
+          final started = await runManualSequence("manual");
 
           if (!started) {
             print("BLE: [manual] Sequence completed without start command.");
