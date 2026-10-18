@@ -3358,7 +3358,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         {'id': id, 'hora': ciclosActivos[id]!['inicio'], 'momento': 'Clinica'});
   }
 
-  Future<void> detenerPanelActivo() async {
+  Future<void> detenerPanelActivo({bool beforeManualStart = false}) async {
     _requestBleAbort(reason: "stop-panel");
     await _acquireBleStartLock();
     try {
@@ -3372,7 +3372,24 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         if (pausedId != null && pausedId.isNotEmpty) {
           await _detenerCicloInterno(pausedId);
         } else if (isConnected) {
-          await _sendPowerOffAndSettle(phase: "stop-active-panel");
+          var confirmedStopped = false;
+          if (beforeManualStart && _bleManager.canObserveRx) {
+            final frame = await _bleManager.writeAndWaitForAck(
+              BleProtocol.getStatus(),
+              ackCommand: BleProtocol.cmdGetStatus,
+              timeout: const Duration(milliseconds: 1400),
+            );
+            confirmedStopped =
+                frame != null && BleProtocol.isStoppedStatus(frame);
+            _bleManager.log(
+              "PRESTART OFF: ${confirmedStopped ? 'skip-confirmed-stopped' : 'required-running-or-unknown'}",
+            );
+            print("BLE: Pre-start stopped confirmation: $confirmedStopped");
+          }
+          // Explicit Stop and local active/paused cycles retain their OFF path.
+          if (!confirmedStopped) {
+            await _sendPowerOffAndSettle(phase: "stop-active-panel");
+          }
         }
       }
     } finally {

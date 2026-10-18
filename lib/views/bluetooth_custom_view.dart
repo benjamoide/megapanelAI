@@ -1646,7 +1646,7 @@ class _BluetoothCustomViewState extends State<BluetoothCustomView> {
     if (activeBeforeStop != null) {
       _applySnapshotToEditor(activeBeforeStop);
     }
-    await state.detenerPanelActivo();
+    await state.detenerPanelActivo(beforeManualStart: true);
     if (!mounted) return;
 
     final manualT = Tratamiento(

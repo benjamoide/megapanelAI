@@ -1,4 +1,17 @@
 class BleProtocol {
+  /// Only a full stopped-status response permits skipping the pre-start OFF.
+  static bool isStoppedStatus(List<int> frame) =>
+      frame.length == 12 &&
+      (frame[0] == 0x2A || frame[0] == 0x3A) &&
+      frame[1] == 1 &&
+      frame[2] == cmdGetStatus &&
+      frame[3] == 0 &&
+      frame[4] == 5 &&
+      frame[5] == 0 &&
+      frame[11] == 0x0A &&
+      (frame.sublist(1, 10).fold<int>(0, (sum, byte) => sum + byte) & 0xFF) ==
+          frame[10];
+
   /// Captured official start: two complete frames in one 16-byte ATT write.
   static List<int> officialStart() => [
         ...setControlMode(1),
